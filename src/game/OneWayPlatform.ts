@@ -1,5 +1,6 @@
 import { Physics, Scene } from 'phaser';
 import { Player } from './Player';
+import { EventBus } from './EventBus';
 
 export class OneWayPlatform {
   private scene: Scene;
@@ -11,6 +12,7 @@ export class OneWayPlatform {
     this.player = player;
     this.platforms = scene.physics.add.staticGroup();
     this.setupCollision();
+    this.setupEventListeners();
   }
 
   private setupCollision(): void {
@@ -78,5 +80,30 @@ export class OneWayPlatform {
 
   clear(): void {
     this.platforms.clear(true, true);
+  }
+
+  private setupEventListeners(): void {
+    EventBus.on('platform-generated', this.onPlatformGenerated.bind(this));
+    EventBus.on('platform-cleaned-up', this.onPlatformCleanedUp.bind(this));
+  }
+
+  private onPlatformGenerated(data: { group: Physics.Arcade.StaticGroup }): void {
+    // Add the new platform group to our collision system
+    this.addPlatformGroup(data.group);
+  }
+
+  private onPlatformCleanedUp(data: { group: Physics.Arcade.StaticGroup }): void {
+    // Remove platform group from collision system
+    if (data.group && data.group.children && data.group.children.entries) {
+      data.group.children.entries.forEach(child => {
+        this.platforms.remove(child, false, false);
+      });
+    }
+  }
+
+  destroy(): void {
+    EventBus.off('platform-generated', this.onPlatformGenerated.bind(this));
+    EventBus.off('platform-cleaned-up', this.onPlatformCleanedUp.bind(this));
+    this.clear();
   }
 }

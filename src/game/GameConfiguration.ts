@@ -63,9 +63,9 @@ export const DEFAULT_CONFIG: GameConfig = {
     baseJumpSpeed: 400,
     momentumCouplingFactor: 0.3,
     gravity: 800,
-    horizontalAcceleration: 800,  // Reduced for arena-width max speed requirement
-    maxHorizontalSpeed: 600,
-    horizontalDrag: 600  // Reduced to allow longer acceleration distance
+    horizontalAcceleration: 1200,  // Responsive acceleration
+    maxHorizontalSpeed: 700,       // Max speed achievable
+    horizontalDrag: 300            // Low drag for smooth long-distance acceleration
   },
   
   platforms: {
@@ -104,7 +104,7 @@ export const DEFAULT_CONFIG: GameConfig = {
       late: 0.80      // Late timing preserves 80% of momentum
     },
     perfectVerticalBoost: 100,  // Small upward velocity boost for perfect wall bounces
-    minSpeedForBounce: 50,
+    minSpeedForBounce: 10,  // Very low threshold for debugging
     segmentHeight: 640,
     tileHeight: 64,
     generateDistance: 1536,

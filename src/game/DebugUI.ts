@@ -8,12 +8,15 @@ export class DebugUI {
   private player: Player;
   private gameConfig: GameConfiguration;
   
+  private cameraState: any = null;
+  private platformCount: number = 0;
+  
   private debugText: Phaser.GameObjects.Text;
   private configPanel: Phaser.GameObjects.Container;
   private configTexts: Map<string, Phaser.GameObjects.Text> = new Map();
   private configValues: Map<string, number> = new Map();
   
-  private isVisible: boolean = true;
+  private isVisible: boolean = false;
   private updateInterval: number = 100; // ms
   private lastUpdate: number = 0;
 
@@ -25,6 +28,7 @@ export class DebugUI {
     this.setupDebugDisplay();
     this.setupConfigPanel();
     this.setupControls();
+    this.setupEventListeners();
     this.initializeConfigValues();
   }
 
@@ -34,12 +38,12 @@ export class DebugUI {
       color: '#ffffff',
       backgroundColor: '#000000',
       padding: { x: 8, y: 4 }
-    }).setDepth(1000);
+    }).setDepth(1000).setScrollFactor(0).setVisible(this.isVisible);
   }
 
   private setupConfigPanel(): void {
     this.configPanel = this.scene.add.container(10, 200);
-    this.configPanel.setDepth(1000);
+    this.configPanel.setDepth(1000).setScrollFactor(0).setVisible(this.isVisible);
     
     const background = this.scene.add.rectangle(0, 0, 300, 450, 0x000000, 0.8);
     background.setOrigin(0, 0);
@@ -142,9 +146,24 @@ export class DebugUI {
     increaseBtn.on('pointerdown', () => this.adjustWallConfig(configKey, step, min, max));
   }
 
-  private setupControls(): void {
-    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE');
+  private setupEventListeners(): void {
+    EventBus.on('camera-state-updated', (cameraState: any) => {
+      this.cameraState = cameraState;
+    });
     
+    EventBus.on('platform-generated', (data: any) => {
+      this.platformCount++;
+    });
+    
+    EventBus.on('platform-cleaned-up', (data: any) => {
+      this.platformCount--;
+    });
+  }
+
+  private setupControls(): void {
+    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE,D');
+    
+    (keys as any).D.on('down', () => this.toggleDebugUI());
     (keys as any).C.on('down', () => this.toggleConfigPanel());
     (keys as any).ONE.on('down', () => this.setPreset('default'));
     (keys as any).TWO.on('down', () => this.setPreset('high_momentum'));
@@ -279,8 +298,16 @@ export class DebugUI {
     });
   }
 
+  private toggleDebugUI(): void {
+    this.isVisible = !this.isVisible;
+    this.debugText.setVisible(this.isVisible);
+    this.configPanel.setVisible(this.isVisible);
+  }
+
   private toggleConfigPanel(): void {
-    this.configPanel.setVisible(!this.configPanel.visible);
+    if (this.isVisible) {
+      this.configPanel.setVisible(!this.configPanel.visible);
+    }
   }
 
   update(time: number): void {
@@ -313,6 +340,16 @@ export class DebugUI {
       `FPS: ${fps}/${targetFps} (${fps < targetFps * 0.9 ? 'POOR' : 'GOOD'})`,
       `Frame Time: ${Math.round(game.loop.delta)}ms`,
       ``,
+      `=== CAMERA & HEIGHT ===`,
+      `Player Height: ${this.cameraState ? Math.round(this.cameraState.playerHeight) : 0}px`,
+      `Highest Height: ${this.cameraState ? Math.round(this.cameraState.highestHeight) : 0}px`,
+      `Camera Y: ${Math.round(this.scene.cameras.main.scrollY)}`,
+      `Death Line Y: ${this.cameraState ? Math.round(this.cameraState.deathLineY) : 0}`,
+      ``,
+      `=== PLATFORMS ===`,
+      `Active Platforms: ${this.platformCount}`,
+      `Generation: ${this.platformCount > 1 ? 'ACTIVE' : 'WAITING'}`,
+      ``,
       `=== PLAYER STATE ===`,
       `Position: (${Math.round(body.x)}, ${Math.round(body.y)})`,
       `Velocity: (${Math.round(state.horizontalSpeed)}, ${Math.round(state.verticalSpeed)})`,
@@ -339,6 +376,16 @@ export class DebugUI {
       `Timing Window: ${walls.timingWindowMs}ms`,
       `Perfect Preservation: ${walls.momentumPreservation.perfect.toFixed(2)}`,
       ``,
+      `=== BOUNCE ELIGIBILITY ===`,
+      `Speed: ${Math.round(Math.abs(state.horizontalSpeed))}/${walls.minSpeedForBounce} ${Math.abs(state.horizontalSpeed) >= walls.minSpeedForBounce ? '✓' : '✗'}`,
+      `Direction: ${state.horizontalSpeed < -10 ? 'LEFT ✓' : state.horizontalSpeed > 10 ? 'RIGHT ✓' : 'SLOW ✗'}`,
+      `Ready: ${Math.abs(state.horizontalSpeed) >= walls.minSpeedForBounce && (Math.abs(state.horizontalSpeed) > 10) ? 'YES' : 'NO'}`,
+      ``,
+      `=== DEBUG INFO ===`,
+      `Exact H Speed: ${state.horizontalSpeed.toFixed(1)}`,
+      `Grounded State: ${state.isGrounded ? 'GROUND' : 'AIR'}`,
+      `Window Active: ${state.isInWallBounceWindow ? 'ACTIVE' : 'NONE'}`,
+      ``,
       `=== CONTROLS ===`,
       `C: Toggle Config Panel`,
       `Q/W: Adjust Coupling Factor`,
@@ -359,6 +406,9 @@ export class DebugUI {
   }
 
   destroy(): void {
+    EventBus.off('camera-state-updated');
+    EventBus.off('platform-generated');
+    EventBus.off('platform-cleaned-up');
     this.debugText.destroy();
     this.configPanel.destroy();
   }

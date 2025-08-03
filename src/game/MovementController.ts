@@ -58,6 +58,7 @@ export class MovementController {
     this.body.setCollideWorldBounds(true);
     this.body.setDragX(this.config.horizontalDrag);
     this.body.setMaxVelocity(this.config.maxHorizontalSpeed, 1000);
+    this.body.setBounce(0, 0); // No bounce on collisions for predictable movement
   }
 
   update(deltaTime: number): void {
@@ -150,6 +151,9 @@ export class MovementController {
 
   private onLanding(): void {
     this.lastGroundedTime = Date.now();
+    
+    // Reset wall bounce count on landing to allow new combo chains
+    this.wallBounceCount = 0;
     
     if (this.jumpBuffer > 0) {
       this.attemptJump();

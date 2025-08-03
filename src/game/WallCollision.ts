@@ -54,9 +54,10 @@ export class WallCollision {
 
   private handleLeftWallCollision(): void {
     const movementState = this.player.getMovementState();
-    const isMovingTowardWall = movementState.horizontalSpeed < -30;
+    const speed = Math.abs(movementState.horizontalSpeed);
+    const isMovingTowardWall = movementState.horizontalSpeed < -10; // Very low threshold for debugging
     
-    if (isMovingTowardWall) {
+    if (isMovingTowardWall && speed >= 10) { // Must meet minimum speed
       const movementController = this.player.getMovementController();
       if (movementController && movementController.startWallBounceWindow) {
         const windowStarted = movementController.startWallBounceWindow('left');
@@ -69,9 +70,10 @@ export class WallCollision {
 
   private handleRightWallCollision(): void {
     const movementState = this.player.getMovementState();
-    const isMovingTowardWall = movementState.horizontalSpeed > 30;
+    const speed = Math.abs(movementState.horizontalSpeed);
+    const isMovingTowardWall = movementState.horizontalSpeed > 10; // Very low threshold for debugging
     
-    if (isMovingTowardWall) {
+    if (isMovingTowardWall && speed >= 10) { // Must meet minimum speed
       const movementController = this.player.getMovementController();
       if (movementController && movementController.startWallBounceWindow) {
         const windowStarted = movementController.startWallBounceWindow('right');

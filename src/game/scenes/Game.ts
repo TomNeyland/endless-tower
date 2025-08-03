@@ -7,6 +7,11 @@ import { OneWayPlatform } from '../OneWayPlatform';
 import { WallManager } from '../WallManager';
 import { WallCollision } from '../WallCollision';
 import { WallBounceEffects } from '../WallBounceEffects';
+import { CameraManager } from '../CameraManager';
+import { DeathLine } from '../DeathLine';
+import { ScoreSystem } from '../ScoreSystem';
+import { ComboSystem } from '../ComboSystem';
+import { GameUI } from '../GameUI';
 import { DebugUI } from '../DebugUI';
 
 export class Game extends Scene
@@ -18,6 +23,11 @@ export class Game extends Scene
     private wallManager: WallManager;
     private wallCollision: WallCollision;
     private wallBounceEffects: WallBounceEffects;
+    private cameraManager: CameraManager;
+    private deathLine: DeathLine;
+    private scoreSystem: ScoreSystem;
+    private comboSystem: ComboSystem;
+    private gameUI: GameUI;
     private debugUI: DebugUI;
 
     constructor ()
@@ -52,7 +62,10 @@ export class Game extends Scene
         this.setupPlatforms();
         this.setupWalls();
         this.setupCollisions();
+        this.setupCamera();
+        this.setupGameSystems();
         this.setupEffects();
+        this.setupUI();
         this.setupDebugUI();
         
         EventBus.emit('current-scene-ready', this);
@@ -66,6 +79,22 @@ export class Game extends Scene
         
         if (this.wallManager) {
             this.wallManager.update(this.player.y);
+        }
+        
+        if (this.cameraManager) {
+            this.cameraManager.update(delta);
+        }
+        
+        if (this.deathLine) {
+            this.deathLine.update(delta);
+        }
+        
+        if (this.comboSystem) {
+            this.comboSystem.update(delta);
+        }
+        
+        if (this.gameUI) {
+            this.gameUI.update(delta);
         }
         
         if (this.debugUI) {
@@ -85,7 +114,7 @@ export class Game extends Scene
 
     private setupPlatforms(): void
     {
-        this.platformManager = new PlatformManager(this);
+        this.platformManager = new PlatformManager(this, this.gameConfig);
         this.platformManager.createGroundPlatform();
     }
 
@@ -115,9 +144,26 @@ export class Game extends Scene
         this.wallCollision = new WallCollision(this, this.player, this.wallManager);
     }
 
+    private setupCamera(): void
+    {
+        this.cameraManager = new CameraManager(this, this.player, this.gameConfig);
+    }
+
     private setupEffects(): void
     {
         this.wallBounceEffects = new WallBounceEffects(this);
+    }
+
+    private setupGameSystems(): void
+    {
+        this.deathLine = new DeathLine(this, this.player, this.gameConfig);
+        this.scoreSystem = new ScoreSystem(this, this.player);
+        this.comboSystem = new ComboSystem(this, this.player);
+    }
+
+    private setupUI(): void
+    {
+        this.gameUI = new GameUI(this, this.scoreSystem, this.comboSystem);
     }
 
     private setupDebugUI(): void

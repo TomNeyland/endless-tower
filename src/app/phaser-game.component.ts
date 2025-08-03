@@ -6,6 +6,13 @@ import { EventBus } from "../game/EventBus";
 @Component({
     selector: 'phaser-game',
     template: '<div id="game-container"></div>',
+    styles: [`
+        #game-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    `],
     standalone: true,
 })
 export class PhaserGame implements OnInit
