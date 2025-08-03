@@ -34,6 +34,19 @@ export class WallCollision {
 
   private setupEventListeners(): void {
     EventBus.on('walls-updated', this.onWallsUpdated.bind(this));
+    
+    // Add debug toggle key
+    this.scene.input.keyboard?.on('keydown-V', () => {
+      this.debugEnabled = !this.debugEnabled;
+      console.log(`🔧 Wall bounce visual debugging: ${this.debugEnabled ? 'ENABLED' : 'DISABLED'}`);
+      
+      if (!this.debugEnabled) {
+        // Hide all debug visuals
+        if (this.debugGraphics) this.debugGraphics.setVisible(false);
+        if (this.gracePeriodIndicator) this.gracePeriodIndicator.setVisible(false);
+        if (this.velocityArrow) this.velocityArrow.setVisible(false);
+      }
+    });
   }
 
   private onWallsUpdated(): void {
@@ -377,6 +390,8 @@ export class WallCollision {
   private setupVisualDebugging(): void {
     if (!this.debugEnabled) return;
     
+    console.log('🔧 Setting up wall bounce visual debugging...');
+    
     // Create debug graphics for wall collision areas
     this.debugGraphics = this.scene.add.graphics();
     this.debugGraphics.setDepth(1000);
@@ -392,10 +407,20 @@ export class WallCollision {
     this.velocityArrow = this.scene.add.graphics();
     this.velocityArrow.setDepth(1002);
     this.velocityArrow.setScrollFactor(0, 1);
+    
+    console.log('✅ Wall bounce visual debugging setup complete');
   }
 
+  private updateCallCount = 0;
+  
   update(): void {
     if (!this.debugEnabled) return;
+    
+    // Log once to confirm update is being called
+    if (this.updateCallCount === 0) {
+      console.log('🔧 Wall collision visual debugging update started');
+    }
+    this.updateCallCount++;
     
     this.updateVisualDebugging();
   }
