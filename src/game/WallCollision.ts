@@ -128,13 +128,7 @@ export class WallCollision {
     }
   }
 
-  private handleLeftWallCollision(): void {
-    this.handleWallCollision('left');
-  }
-
-  private handleRightWallCollision(): void {
-    this.handleWallCollision('right');
-  }
+  // These old methods are no longer needed - using direct collision handler approach
 
   // Old MacGyvered method - no longer needed with proper collision handler approach
 
