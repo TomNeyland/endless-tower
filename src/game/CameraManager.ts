@@ -42,8 +42,8 @@ export class CameraManager {
     // Set camera deadzone for comfortable player movement
     this.camera.setDeadzone(this.scene.scale.width * 0.3, this.scene.scale.height * 0.2);
     
-    // Camera should follow player with player in upper third of screen
-    this.camera.setFollowOffset(0, this.scene.scale.height * 0.3);
+    // Camera should follow player with player near top of screen
+    this.camera.setFollowOffset(0, this.scene.scale.height * 0.1);
     
     // Camera setup complete - using pure Phaser following
   }
@@ -152,7 +152,7 @@ export class CameraManager {
     // Re-enable pure Phaser built-in following
     this.camera.startFollow(this.player, false, this.config.cameraFollowSmoothing, this.config.cameraFollowSmoothing);
     this.camera.setDeadzone(this.scene.scale.width * 0.3, this.scene.scale.height * 0.2);
-    this.camera.setFollowOffset(0, this.scene.scale.height * 0.3);
+    this.camera.setFollowOffset(0, this.scene.scale.height * 0.1);
     
     console.log('✅ CameraManager: Reset complete - pure Phaser following');
   }
