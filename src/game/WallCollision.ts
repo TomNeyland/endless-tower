@@ -270,8 +270,10 @@ export class WallCollision {
   }
 
   private calculateRedirectedHorizontalSpeed(currentSpeed: number, side: 'left' | 'right', efficiency: number): number {
-    // Redirect momentum to opposite direction with efficiency-based conservation
-    let redirectedSpeed = currentSpeed * efficiency;
+    // Wall kick physics: mirror the horizontal velocity across the wall
+    // This creates the proper "goat wall kick" effect where angles are preserved
+    
+    let redirectedSpeed = Math.abs(currentSpeed) * efficiency;
     
     // Ensure minimum bounce-away speed to avoid getting stuck
     const minBounceSpeed = 60; // Reduced minimum speed to prevent over-bouncing
@@ -280,28 +282,40 @@ export class WallCollision {
       console.log(`⚡ Boosted bounce speed to minimum: ${minBounceSpeed}`);
     }
     
-    // Apply direction based on which wall was hit
+    // Mirror direction: left wall bounces right, right wall bounces left
     const finalSpeed = redirectedSpeed * (side === 'left' ? 1 : -1);
-    console.log(`🔄 Speed redirect: ${currentSpeed} → ${finalSpeed} (side: ${side}, efficiency: ${efficiency})`);
+    
+    console.log(`🪞 Wall kick redirect: ${currentSpeed.toFixed(1)} → ${finalSpeed.toFixed(1)} (${side} wall, efficiency: ${efficiency.toFixed(2)})`);
     
     return finalSpeed;
   }
 
   private calculateVerticalMomentumTransfer(horizontalSpeed: number, verticalSpeed: number, efficiency: number): number {
-    // Simple physics: redirect can only ADD vertical velocity, never remove it
-    const baseVerticalBoost = horizontalSpeed * 0.4; // 40% of horizontal speed becomes vertical
+    // Wall kick physics: preserve and enhance vertical momentum
+    // If moving upward, preserve most of it; if falling, convert to upward momentum
     
-    // Only add upward momentum if we're not already going up too fast
-    const maxAdditionalUpwardVelocity = -200; // Limit how much extra upward we can add
-    const proposedVerticalBoost = -baseVerticalBoost; // Negative is up in Phaser
+    let finalVerticalSpeed = verticalSpeed;
     
-    // If already moving up fast, reduce the boost
-    if (verticalSpeed < -200) {
-      return Math.max(maxAdditionalUpwardVelocity, proposedVerticalBoost * 0.5);
+    if (verticalSpeed > 0) {
+      // Falling: convert downward momentum to upward momentum (wall kick effect)
+      finalVerticalSpeed = -verticalSpeed * 0.8; // Redirect 80% of fall speed upward
+      console.log(`🦶 Wall kick: converted falling ${verticalSpeed.toFixed(1)} to rising ${finalVerticalSpeed.toFixed(1)}`);
+    } else {
+      // Already rising: preserve and slightly boost upward momentum
+      finalVerticalSpeed = verticalSpeed * 1.2; // 20% boost to existing upward momentum
+      console.log(`🚀 Wall kick: boosted existing upward momentum ${verticalSpeed.toFixed(1)} to ${finalVerticalSpeed.toFixed(1)}`);
     }
     
-    // Otherwise add the full boost
-    return proposedVerticalBoost;
+    // Add extra upward boost based on horizontal speed (wall kick power)
+    const wallKickBoost = -Math.abs(horizontalSpeed) * 0.3; // 30% of horizontal speed becomes extra upward
+    finalVerticalSpeed += wallKickBoost;
+    
+    // Apply efficiency multiplier
+    const velocityChange = (finalVerticalSpeed - verticalSpeed) * efficiency;
+    
+    console.log(`🎯 Wall kick total: ${verticalSpeed.toFixed(1)} → ${(verticalSpeed + velocityChange).toFixed(1)} (change: ${velocityChange.toFixed(1)})`);
+    
+    return velocityChange;
   }
 
   private applyMomentumLimits(horizontalSpeed: number): number {
