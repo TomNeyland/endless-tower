@@ -10,6 +10,8 @@ export class Player extends Physics.Arcade.Sprite {
     private movementController: MovementController;
     private gameConfig: GameConfiguration;
     
+    private lastJumpVerticalSpeed: number = 0; // Track initial jump velocity for rotation
+    
     private readonly WALK_ANIMATION_FRAME_RATE = 8;
 
     constructor(scene: Scene, x: number, y: number, gameConfig: GameConfiguration) {
@@ -54,6 +56,7 @@ export class Player extends Physics.Arcade.Sprite {
     private setupEventListeners(): void {
         EventBus.on('player-jumped', this.onJump.bind(this));
         EventBus.on('player-movement-input', this.onMovementInput.bind(this));
+        EventBus.on('player-wall-bounce', this.onWallBounce.bind(this));
     }
 
     private setupAnimations(): void {
@@ -98,6 +101,7 @@ export class Player extends Physics.Arcade.Sprite {
         this.movementController.update(deltaTime);
         this.handleInput();
         this.updateAnimation();
+        this.updateRotationEffect(deltaTime);
     }
 
     private handleInput(): void {
@@ -130,8 +134,50 @@ export class Player extends Physics.Arcade.Sprite {
         }
     }
 
+    private updateRotationEffect(deltaTime: number): void {
+        const state = this.movementController.getMovementState();
+        const initialJumpSpeed = this.lastJumpVerticalSpeed; // Use captured initial jump speed
+        const speedThreshold = 400; // Lower threshold - easier to trigger spinning
+        const maxRotationSpeed = 1200; // Lower max threshold for smoother scaling
+        
+        if (!state.isGrounded && initialJumpSpeed > speedThreshold) {
+            // Calculate rotation speed with much gentler initial scaling
+            const speedRatio = Math.min((initialJumpSpeed - speedThreshold) / (maxRotationSpeed - speedThreshold), 1.0);
+            const exponentialRatio = Math.pow(speedRatio, 1.5); // Higher exponent = slower at low end, faster at high end
+            const rotationSpeed = exponentialRatio * 35.0; // Max 35 radians per second
+            
+            // Rotate in direction player is facing (not movement direction)
+            const rotationDirection = state.facingDirection; // 1 for right, -1 for left
+            this.rotation += rotationSpeed * rotationDirection * (deltaTime / 1000);
+            
+            console.log(`🌪️ Jump-based rotation: initial=${initialJumpSpeed.toFixed(0)}, facing=${rotationDirection > 0 ? 'right' : 'left'}, rotation=${(this.rotation * 180 / Math.PI).toFixed(0)}°`);
+        } else {
+            // Smoothly return to upright when grounded or below threshold
+            if (Math.abs(this.rotation) > 0.01) {
+                this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, 0, 0.15);
+            } else {
+                this.rotation = 0;
+                // Reset jump speed when grounded
+                if (state.isGrounded) {
+                    this.lastJumpVerticalSpeed = 0;
+                }
+            }
+        }
+    }
+
     private onJump(jumpMetrics: any): void {
         this.jumpSound.play();
+        
+        // Capture initial jump vertical speed for rotation effect
+        this.lastJumpVerticalSpeed = jumpMetrics.verticalSpeed;
+        console.log(`🚀 Jump captured: initial v-speed=${this.lastJumpVerticalSpeed.toFixed(0)} for rotation`);
+    }
+
+    private onWallBounce(bounceData: any): void {
+        // Treat wall bounce redirected horizontal speed as "jump speed" for rotation
+        const redirectedSpeed = Math.abs(bounceData.newSpeed || 0);
+        this.lastJumpVerticalSpeed = redirectedSpeed; // Reuse the same property
+        console.log(`🏀 Wall bounce captured: redirected speed=${redirectedSpeed.toFixed(0)} for rotation`);
     }
 
     private onMovementInput(input: { direction: string, facingDirection: number }): void {
@@ -162,6 +208,7 @@ export class Player extends Physics.Arcade.Sprite {
     override destroy(): void {
         EventBus.off('player-jumped', this.onJump.bind(this));
         EventBus.off('player-movement-input', this.onMovementInput.bind(this));
+        EventBus.off('player-wall-bounce', this.onWallBounce.bind(this));
         super.destroy();
     }
 }
