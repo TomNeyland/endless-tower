@@ -193,8 +193,8 @@ export class PlatformManager {
             // Checkpoint platforms are single wall-to-wall platforms
             this.generateSinglePlatform(this.scene.scale.width, this.scene.scale.width / 2, true);
         } else {
-            // Regular platforms - generate a level with 2-3 platforms
-            this.generatePlatformLevel();
+            // Regular platforms - generate a single platform with varying width
+            this.generateSingleRegularPlatform();
         }
         
         // Update next platform position for the next level
@@ -202,37 +202,38 @@ export class PlatformManager {
         this.nextPlatformY -= this.generateVerticalSpacing();
     }
 
-    private generatePlatformLevel(): void {
-        // Generate 2-3 platforms at the same Y level
-        const platformCount = Phaser.Math.Between(2, 3);
-        const levelY = this.nextPlatformY;
+    private generateSingleRegularPlatform(): void {
+        // Generate one platform per level with varying width (min 3 tiles, max 7 tiles)
+        const tileWidth = 64;
+        const minTiles = 3;
+        const maxTiles = 7;
+        const numTiles = Phaser.Math.Between(minTiles, maxTiles);
+        const platformWidth = numTiles * tileWidth;
         
-        // Calculate platform distribution across the screen width
+        // Generate random X position ensuring platform stays within screen bounds
         const screenWidth = this.scene.scale.width;
-        const wallBuffer = 150; // Stay away from walls
-        const usableWidth = screenWidth - (2 * wallBuffer);
+        const wallBuffer = 100; // Stay away from walls
+        const platformHalfWidth = platformWidth / 2;
         
-        // Generate platform positions ensuring they don't overlap and are reachable
-        const platforms = this.generatePlatformPositions(platformCount, usableWidth, wallBuffer);
+        const minX = wallBuffer + platformHalfWidth;
+        const maxX = screenWidth - wallBuffer - platformHalfWidth;
+        const platformX = Phaser.Math.Between(minX, maxX);
         
-        // Create each platform in the level
-        platforms.forEach((platform, index) => {
-            const result = this.createPlatform(platform.x, levelY, platform.width);
-            this.trackPlatform(result.group, result.platformId, levelY, platform.width, false);
-            
-            // Emit event for each platform
-            if (result.group) {
-                EventBus.emit('platform-generated', {
-                    id: result.platformId,
-                    x: platform.x,
-                    y: levelY,
-                    width: platform.width,
-                    group: result.group,
-                    levelIndex: index,
-                    levelTotal: platformCount
-                });
-            }
-        });
+        // Create the platform
+        const result = this.createPlatform(platformX, this.nextPlatformY, platformWidth);
+        this.trackPlatform(result.group, result.platformId, this.nextPlatformY, platformWidth, false);
+        
+        // Emit event for the platform
+        if (result.group) {
+            EventBus.emit('platform-generated', {
+                id: result.platformId,
+                x: platformX,
+                y: this.nextPlatformY,
+                width: platformWidth,
+                group: result.group,
+                tiles: numTiles
+            });
+        }
     }
 
     private generateSinglePlatform(width: number, x: number, isCheckpoint: boolean): void {
@@ -252,60 +253,7 @@ export class PlatformManager {
         }
     }
 
-    private generatePlatformPositions(count: number, usableWidth: number, wallBuffer: number): Array<{x: number, width: number}> {
-        const platforms: Array<{x: number, width: number}> = [];
-        const minPlatformWidth = this.config.platformWidth * 0.7;
-        const maxPlatformWidth = this.config.platformWidth * 1.1;
-        const minGap = 80; // Minimum gap between platforms for jumping
-        const maxGap = 180; // Maximum gap to ensure reachability
-        
-        if (count === 2) {
-            // Two platforms: left and right sides
-            const leftWidth = Phaser.Math.Between(minPlatformWidth, maxPlatformWidth);
-            const rightWidth = Phaser.Math.Between(minPlatformWidth, maxPlatformWidth);
-            
-            const leftX = wallBuffer + (leftWidth / 2);
-            const rightX = this.scene.scale.width - wallBuffer - (rightWidth / 2);
-            
-            platforms.push({ x: leftX, width: leftWidth });
-            platforms.push({ x: rightX, width: rightWidth });
-            
-        } else if (count === 3) {
-            // Three platforms: left, center, right
-            const platformWidth = Phaser.Math.Between(minPlatformWidth, Math.min(maxPlatformWidth, usableWidth / 4));
-            
-            // Calculate positions with even spacing
-            const spacing = (usableWidth - (3 * platformWidth)) / 2;
-            const leftX = wallBuffer + (platformWidth / 2);
-            const centerX = leftX + platformWidth + spacing + (platformWidth / 2);
-            const rightX = centerX + platformWidth + spacing + (platformWidth / 2);
-            
-            platforms.push({ x: leftX, width: platformWidth });
-            platforms.push({ x: centerX, width: platformWidth });
-            platforms.push({ x: rightX, width: platformWidth });
-        }
-        
-        return platforms;
-    }
 
-    private generatePlatformWidth(): number {
-        // Vary platform width based on configuration
-        const minWidth = this.config.platformWidth * 0.7;
-        const maxWidth = this.config.platformWidth * 1.3;
-        return Phaser.Math.Between(minWidth, maxWidth);
-    }
-
-    private generatePlatformX(platformWidth: number): number {
-        // Generate platform X position with some randomness but keep them reachable
-        const screenWidth = this.scene.scale.width;
-        const wallBuffer = 150; // Stay away from walls
-        const platformHalfWidth = platformWidth / 2;
-        
-        const minX = wallBuffer + platformHalfWidth;
-        const maxX = screenWidth - wallBuffer - platformHalfWidth;
-        
-        return Phaser.Math.Between(minX, maxX);
-    }
 
     private generateVerticalSpacing(): number {
         return Phaser.Math.Between(this.config.verticalSpacing.min, this.config.verticalSpacing.max);

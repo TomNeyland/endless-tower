@@ -1,6 +1,8 @@
 export interface PhysicsConfig {
   baseJumpSpeed: number;
   momentumCouplingFactor: number;
+  jumpScalingExponent: number;  // Non-linear scaling exponent for momentum exchange
+  horizontalRetentionFactor: number;  // How much horizontal velocity to retain (0.0-1.0)
   gravity: number;
   horizontalAcceleration: number;
   maxHorizontalSpeed: number;
@@ -61,8 +63,10 @@ export interface GameConfig {
 
 export const DEFAULT_CONFIG: GameConfig = {
   physics: {
-    baseJumpSpeed: 400,
-    momentumCouplingFactor: 0.3,
+    baseJumpSpeed: 150,            // Lower base jump for standing still
+    momentumCouplingFactor: 6.0,   // 6x horizontal speed becomes extra vertical speed
+    jumpScalingExponent: 1.2,      // Slight non-linear scaling for high speeds
+    horizontalRetentionFactor: 0.6, // Retain 60% of horizontal velocity on jump
     gravity: 800,
     horizontalAcceleration: 1200,  // Responsive acceleration
     maxHorizontalSpeed: 700,       // Max speed achievable
@@ -134,6 +138,8 @@ export class GameConfiguration {
         physics: {
           ...DEFAULT_CONFIG.physics,
           momentumCouplingFactor: 0.4, // Higher momentum boost
+          jumpScalingExponent: 1.3,    // Less exponential scaling for beginners
+          horizontalRetentionFactor: 0.2, // Retain more horizontal velocity
           maxHorizontalSpeed: 600      // Lower top speed
         }
       },
@@ -148,6 +154,8 @@ export class GameConfiguration {
         physics: {
           ...DEFAULT_CONFIG.physics,
           momentumCouplingFactor: 0.25, // Less momentum assistance
+          jumpScalingExponent: 1.7,    // More exponential scaling for experts
+          horizontalRetentionFactor: 0.05, // Consume most horizontal velocity
           maxHorizontalSpeed: 800       // Higher skill ceiling
         }
       },
@@ -161,6 +169,8 @@ export class GameConfiguration {
         physics: {
           ...DEFAULT_CONFIG.physics,
           momentumCouplingFactor: 0.35,
+          jumpScalingExponent: 1.8,  // Maximum exponential scaling for speedrun
+          horizontalRetentionFactor: 0.0, // Complete horizontal velocity consumption
           maxHorizontalSpeed: 1000,   // Extreme high speed for speedrunners
           gravity: 900                // Faster falling for quicker gameplay
         }
@@ -222,21 +232,29 @@ export class GameConfiguration {
     maxHeight: number;
     horizontalRange: number;
     momentumBoost: number;
+    horizontalSpeedAfterJump: number;
   } {
-    const { baseJumpSpeed, momentumCouplingFactor, gravity } = this.config.physics;
+    const { baseJumpSpeed, momentumCouplingFactor, jumpScalingExponent, horizontalRetentionFactor, gravity } = this.config.physics;
     
-    const momentumBoost = momentumCouplingFactor * Math.abs(horizontalSpeed);
+    // Non-linear momentum exchange: horizontal speed converts to vertical height
+    const speedMagnitude = Math.abs(horizontalSpeed);
+    const momentumBoost = momentumCouplingFactor * Math.pow(speedMagnitude, jumpScalingExponent);
     const verticalSpeed = baseJumpSpeed + momentumBoost;
+    
+    // Calculate remaining horizontal velocity after jump (momentum exchange)
+    const horizontalSpeedAfterJump = horizontalSpeed * horizontalRetentionFactor;
+    
     const flightTime = (2 * verticalSpeed) / gravity;
     const maxHeight = (verticalSpeed * verticalSpeed) / (2 * gravity);
-    const horizontalRange = Math.abs(horizontalSpeed) * flightTime;
+    const horizontalRange = Math.abs(horizontalSpeedAfterJump) * flightTime;
     
     return {
       verticalSpeed,
       flightTime,
       maxHeight,
       horizontalRange,
-      momentumBoost
+      momentumBoost,
+      horizontalSpeedAfterJump
     };
   }
   

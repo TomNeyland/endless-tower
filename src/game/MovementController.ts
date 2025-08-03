@@ -9,6 +9,7 @@ export interface JumpMetrics {
   horizontalRange: number;
   momentumBoost: number;
   horizontalSpeed: number;
+  horizontalSpeedAfterJump: number;
 }
 
 export interface MovementState {
@@ -51,7 +52,7 @@ export class MovementController {
   private setupPhysicsBody(): void {
     this.body.setCollideWorldBounds(true);
     this.body.setDragX(this.config.horizontalDrag);
-    this.body.setMaxVelocity(this.config.maxHorizontalSpeed, 1000);
+    this.body.setMaxVelocity(this.config.maxHorizontalSpeed, 10000); // Allow very high vertical speeds for momentum jumps
     this.body.setBounce(0, 0); // No bounce on collisions for predictable movement
   }
 
@@ -82,8 +83,11 @@ export class MovementController {
   }
 
   requestJump(): void {
-    this.jumpBuffer = this.JUMP_BUFFER_TIME;
-    this.attemptJump();
+    // Only set jump buffer if we're not already trying to jump
+    if (this.jumpBuffer <= 0) {
+      this.jumpBuffer = this.JUMP_BUFFER_TIME;
+      this.attemptJump();
+    }
   }
 
   private attemptJump(): boolean {
@@ -102,8 +106,12 @@ export class MovementController {
     const horizontalSpeed = this.body.velocity.x;
     const jumpMetrics = this.gameConfig.calculateJumpMetrics(horizontalSpeed);
     
+    // Apply momentum exchange: horizontal speed converts to vertical height
     this.body.setVelocityY(-jumpMetrics.verticalSpeed);
+    this.body.setVelocityX(jumpMetrics.horizontalSpeedAfterJump);
     this.isGrounded = false;
+    
+    console.log(`🚀 Momentum exchange jump: H-speed ${horizontalSpeed.toFixed(1)} → ${jumpMetrics.horizontalSpeedAfterJump.toFixed(1)}, V-speed: ${jumpMetrics.verticalSpeed.toFixed(1)}`);
     
     EventBus.emit('player-jumped', {
       ...jumpMetrics,
@@ -136,8 +144,10 @@ export class MovementController {
     // Reset wall bounce count on landing to allow new combo chains
     this.wallBounceCount = 0;
     
+    // If player was trying to jump while airborne, allow it now that we've landed
     if (this.jumpBuffer > 0) {
       this.attemptJump();
+      this.jumpBuffer = 0; // Clear buffer after attempting jump to prevent spam
     }
     
     const landingMetrics = {
@@ -165,9 +175,9 @@ export class MovementController {
       
       if (this.jumpBuffer <= 0) {
         this.jumpBuffer = 0;
-      } else if (this.canJump()) {
-        this.attemptJump();
       }
+      // Try jump only when we just became able to jump (e.g., just landed)
+      // but don't spam attemptJump() every frame
     }
   }
 
