@@ -57,6 +57,10 @@ export class WallCollision {
   }
 
   private setupWallCollision(): void {
+    // CRITICAL: processCallback (4th param) captures velocity BEFORE separation,
+    // collideCallback (3rd param) uses captured velocity AFTER separation.
+    // Phaser zeroes velocity during separation, so collision handler gets 0.0 without this pattern.
+    
     // Set up collision with left walls
     this.leftWallCollider = this.scene.physics.add.collider(
       this.player,
