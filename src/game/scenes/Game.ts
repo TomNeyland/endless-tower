@@ -14,6 +14,7 @@ import { ComboSystem } from '../ComboSystem';
 import { GameUI } from '../GameUI';
 import { DebugUI } from '../DebugUI';
 import { GameOverScreen } from '../GameOverScreen';
+import { GameStateManager, GameState } from '../GameStateManager';
 
 export class Game extends Scene
 {
@@ -31,6 +32,7 @@ export class Game extends Scene
     private gameUI: GameUI;
     private debugUI: DebugUI;
     private gameOverScreen: GameOverScreen;
+    private gameStateManager: GameStateManager;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -65,6 +67,7 @@ export class Game extends Scene
         this.setupPlatforms();
         this.setupWalls();
         this.setupCollisions();
+        this.setupGameStateManager();
         this.setupCamera();
         this.setupGameSystems();
         this.setupEffects();
@@ -78,6 +81,16 @@ export class Game extends Scene
 
     override update(time: number, delta: number)
     {
+        // Always update debug UI
+        if (this.debugUI) {
+            this.debugUI.update(time);
+        }
+
+        // Only update gameplay systems when playing
+        if (!this.gameStateManager || !this.gameStateManager.allowsGameplayUpdates()) {
+            return;
+        }
+
         if (this.player) {
             this.player.update(delta);
         }
@@ -100,10 +113,6 @@ export class Game extends Scene
         
         if (this.gameUI) {
             this.gameUI.update(delta);
-        }
-        
-        if (this.debugUI) {
-            this.debugUI.update(time);
         }
     }
 
@@ -151,7 +160,7 @@ export class Game extends Scene
 
     private setupCamera(): void
     {
-        this.cameraManager = new CameraManager(this, this.player, this.gameConfig);
+        this.cameraManager = new CameraManager(this, this.player, this.gameConfig, this.gameStateManager);
     }
 
     private setupEffects(): void
@@ -179,6 +188,11 @@ export class Game extends Scene
     private setupGameOverScreen(): void
     {
         this.gameOverScreen = new GameOverScreen(this);
+    }
+
+    private setupGameStateManager(): void
+    {
+        this.gameStateManager = new GameStateManager();
     }
 
     private setupEventListeners(): void
@@ -211,8 +225,8 @@ export class Game extends Scene
 
     private onKeyDown(event: KeyboardEvent): void
     {
-        // Only handle restart if game is over and game over screen is showing
-        if (!this.isGameOver || !this.gameOverScreen.isShowing()) {
+        // Only handle restart if game is not playing and game over screen is showing
+        if (this.gameStateManager.isPlaying() || !this.gameOverScreen.isShowing()) {
             return;
         }
 
@@ -252,6 +266,10 @@ export class Game extends Scene
         }
 
         // Destroy all systems
+        if (this.gameStateManager) {
+            this.gameStateManager.destroy();
+        }
+
         if (this.gameOverScreen) {
             this.gameOverScreen.destroy();
         }

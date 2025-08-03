@@ -2,12 +2,14 @@ import { Scene, Cameras } from 'phaser';
 import { Player } from './Player';
 import { GameConfiguration, CameraConfig } from './GameConfiguration';
 import { EventBus } from './EventBus';
+import { GameStateManager } from './GameStateManager';
 
 export class CameraManager {
   private scene: Scene;
   private player: Player;
   private camera: Cameras.Scene2D.Camera;
   private config: CameraConfig;
+  private gameStateManager: GameStateManager;
   
   private highestPlayerY: number = 0;
   private cameraTargetY: number = 0;
@@ -17,11 +19,12 @@ export class CameraManager {
   private playerDeadzoneTop: number = 0;
   private usingBuiltInFollowing: boolean = true;
 
-  constructor(scene: Scene, player: Player, gameConfig: GameConfiguration) {
+  constructor(scene: Scene, player: Player, gameConfig: GameConfiguration, gameStateManager: GameStateManager) {
     this.scene = scene;
     this.player = player;
     this.camera = scene.cameras.main;
     this.config = gameConfig.camera;
+    this.gameStateManager = gameStateManager;
     
     this.setupCamera();
     this.setupEventListeners();
@@ -56,6 +59,11 @@ export class CameraManager {
   }
 
   update(deltaTime: number): void {
+    // Don't update camera movement if game state doesn't allow it
+    if (!this.gameStateManager.allowsCameraMovement()) {
+      return;
+    }
+
     if (this.autoScrollEnabled) {
       this.updateUnifiedCameraControl(deltaTime);
     } else {
