@@ -151,6 +151,10 @@ export class Player extends Physics.Arcade.Sprite {
         this.movementController.updateConfiguration(newConfig);
     }
 
+    getMovementController(): MovementController {
+        return this.movementController;
+    }
+
     override destroy(): void {
         EventBus.off('player-jumped', this.onJump.bind(this));
         EventBus.off('player-movement-input', this.onMovementInput.bind(this));

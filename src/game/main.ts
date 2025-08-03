@@ -9,12 +9,21 @@ const config: Types.Core.GameConfig = {
     height: 768,
     parent: 'game-container',
     backgroundColor: '#87CEEB',
+    fps: {
+        target: 60,
+        forceSetTimeOut: true
+    },
     physics: {
         default: 'arcade',
         arcade: {
             gravity: { y: 800, x: 0 },
-            debug: false
+            debug: false,
+            fps: 60  // Fixed 60Hz physics timestep
         }
+    },
+    render: {
+        pixelArt: false,
+        antialias: true
     },
     scene: [
         MainGame

@@ -41,7 +41,7 @@ export class DebugUI {
     this.configPanel = this.scene.add.container(10, 200);
     this.configPanel.setDepth(1000);
     
-    const background = this.scene.add.rectangle(0, 0, 300, 400, 0x000000, 0.8);
+    const background = this.scene.add.rectangle(0, 0, 300, 450, 0x000000, 0.8);
     background.setOrigin(0, 0);
     this.configPanel.add(background);
     
@@ -57,6 +57,17 @@ export class DebugUI {
     this.createConfigControl('H Acceleration', 'horizontalAcceleration', 120, 400, 2000, 100);
     this.createConfigControl('H Drag', 'horizontalDrag', 150, 200, 1500, 50);
     this.createConfigControl('Gravity', 'gravity', 180, 400, 1200, 50);
+    
+    // Wall Bounce Controls
+    const wallTitle = this.scene.add.text(10, 220, 'Wall Bounce Config', {
+      fontSize: '14px',
+      color: '#00ffff'
+    });
+    this.configPanel.add(wallTitle);
+    
+    this.createWallConfigControl('Timing Window (ms)', 'timingWindowMs', 250, 100, 500, 25);
+    this.createWallConfigControl('Perfect Timing (ms)', 'perfectTimingMs', 280, 25, 100, 25);
+    this.createWallConfigControl('Perfect Preservation', 'perfectPreservation', 310, 0.8, 1.3, 0.05);
   }
 
   private createConfigControl(label: string, configKey: string, y: number, min: number, max: number, step: number = 10): void {
@@ -100,8 +111,39 @@ export class DebugUI {
     (increaseBtn as any).max = max;
   }
 
+  private createWallConfigControl(label: string, configKey: string, y: number, min: number, max: number, step: number = 0.1): void {
+    const labelText = this.scene.add.text(10, y, label, {
+      fontSize: '12px',
+      color: '#ffffff'
+    });
+    this.configPanel.add(labelText);
+    
+    const valueText = this.scene.add.text(200, y, '0', {
+      fontSize: '12px',
+      color: '#00ffff'
+    });
+    this.configPanel.add(valueText);
+    this.configTexts.set(configKey, valueText);
+    
+    const decreaseBtn = this.scene.add.text(10, y + 15, '- (T/Y)', {
+      fontSize: '10px',
+      color: '#ff6666'
+    }).setInteractive();
+    
+    const increaseBtn = this.scene.add.text(100, y + 15, '+ (U/I)', {
+      fontSize: '10px',
+      color: '#66ff66'
+    }).setInteractive();
+    
+    this.configPanel.add(decreaseBtn);
+    this.configPanel.add(increaseBtn);
+    
+    decreaseBtn.on('pointerdown', () => this.adjustWallConfig(configKey, -step, min, max));
+    increaseBtn.on('pointerdown', () => this.adjustWallConfig(configKey, step, min, max));
+  }
+
   private setupControls(): void {
-    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,ONE,TWO,THREE');
+    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE');
     
     (keys as any).C.on('down', () => this.toggleConfigPanel());
     (keys as any).ONE.on('down', () => this.setPreset('default'));
@@ -115,16 +157,29 @@ export class DebugUI {
     (keys as any).S.on('down', () => this.adjustConfig('baseJumpSpeed', 25, 200, 600));
     (keys as any).E.on('down', () => this.adjustConfig('maxHorizontalSpeed', -50, 300, 1000));
     (keys as any).R.on('down', () => this.adjustConfig('maxHorizontalSpeed', 50, 300, 1000));
+    
+    // Wall bounce controls
+    (keys as any).T.on('down', () => this.adjustWallConfig('timingWindowMs', -25, 100, 500));
+    (keys as any).Y.on('down', () => this.adjustWallConfig('timingWindowMs', 25, 100, 500));
+    (keys as any).U.on('down', () => this.adjustWallConfig('perfectPreservation', -0.05, 0.8, 1.3));
+    (keys as any).I.on('down', () => this.adjustWallConfig('perfectPreservation', 0.05, 0.8, 1.3));
   }
 
   private initializeConfigValues(): void {
     const physics = this.gameConfig.physics;
+    const walls = this.gameConfig.walls;
+    
     this.configValues.set('baseJumpSpeed', physics.baseJumpSpeed);
     this.configValues.set('momentumCouplingFactor', physics.momentumCouplingFactor);
     this.configValues.set('maxHorizontalSpeed', physics.maxHorizontalSpeed);
     this.configValues.set('horizontalAcceleration', physics.horizontalAcceleration);
     this.configValues.set('horizontalDrag', physics.horizontalDrag);
     this.configValues.set('gravity', physics.gravity);
+    
+    // Wall bounce configuration
+    this.configValues.set('timingWindowMs', walls.timingWindowMs);
+    this.configValues.set('perfectTimingMs', walls.perfectTimingMs);
+    this.configValues.set('perfectPreservation', walls.momentumPreservation.perfect);
     
     this.updateConfigDisplay();
   }
@@ -140,6 +195,30 @@ export class DebugUI {
     this.updateConfigDisplay();
     
     EventBus.emit('config-updated', { key, value: newValue });
+  }
+
+  private adjustWallConfig(key: string, delta: number, min: number, max: number): void {
+    const currentValue = this.configValues.get(key) || 0;
+    const newValue = Math.max(min, Math.min(max, currentValue + delta));
+    this.configValues.set(key, newValue);
+    
+    // Handle special case for nested momentum preservation values
+    if (key === 'perfectPreservation') {
+      const currentWalls = this.gameConfig.walls;
+      this.gameConfig.updateWalls({
+        momentumPreservation: {
+          ...currentWalls.momentumPreservation,
+          perfect: newValue
+        }
+      });
+    } else {
+      this.gameConfig.updateWalls({ [key]: newValue } as any);
+    }
+    
+    this.player.updateConfiguration(this.gameConfig);
+    this.updateConfigDisplay();
+    
+    EventBus.emit('wall-config-updated', { key, value: newValue });
   }
 
   private setPreset(preset: string): void {
@@ -191,7 +270,7 @@ export class DebugUI {
     this.configValues.forEach((value, key) => {
       const text = this.configTexts.get(key);
       if (text) {
-        if (key === 'momentumCouplingFactor') {
+        if (key === 'momentumCouplingFactor' || key === 'perfectPreservation') {
           text.setText(value.toFixed(3));
         } else {
           text.setText(Math.round(value).toString());
@@ -216,13 +295,24 @@ export class DebugUI {
   private updateDebugInfo(): void {
     const state = this.player.getMovementState();
     const jumpPreview = this.player.getJumpPreview();
+    const wallMetrics = this.player.getMovementController().getWallBounceMetrics();
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     
     const physics = this.gameConfig.physics;
+    const walls = this.gameConfig.walls;
     const momentumBoost = physics.momentumCouplingFactor * Math.abs(state.horizontalSpeed);
     const expectedJumpSpeed = physics.baseJumpSpeed + momentumBoost;
     
+    // Get FPS info
+    const game = this.scene.game;
+    const fps = Math.round(game.loop.actualFps);
+    const targetFps = game.loop.targetFps;
+    
     const debugInfo = [
+      `=== PERFORMANCE ===`,
+      `FPS: ${fps}/${targetFps} (${fps < targetFps * 0.9 ? 'POOR' : 'GOOD'})`,
+      `Frame Time: ${Math.round(game.loop.delta)}ms`,
+      ``,
       `=== PLAYER STATE ===`,
       `Position: (${Math.round(body.x)}, ${Math.round(body.y)})`,
       `Velocity: (${Math.round(state.horizontalSpeed)}, ${Math.round(state.verticalSpeed)})`,
@@ -240,11 +330,22 @@ export class DebugUI {
       `Max Height: ${Math.round(jumpPreview.maxHeight)}px`,
       `Horizontal Range: ${Math.round(jumpPreview.horizontalRange)}px`,
       ``,
+      `=== WALL BOUNCE ===`,
+      `Bounce Count: ${wallMetrics.bounceCount}`,
+      `In Timing Window: ${wallMetrics.isInTimingWindow ? 'YES' : 'NO'}`,
+      `Window Time Left: ${Math.round(wallMetrics.timingWindowTimeLeft)}ms`,
+      `Contact Side: ${wallMetrics.contactSide}`,
+      `Pre-Contact Speed: ${Math.round(wallMetrics.preContactSpeed)}`,
+      `Timing Window: ${walls.timingWindowMs}ms`,
+      `Perfect Preservation: ${walls.momentumPreservation.perfect.toFixed(2)}`,
+      ``,
       `=== CONTROLS ===`,
       `C: Toggle Config Panel`,
       `Q/W: Adjust Coupling Factor`,
       `A/S: Adjust Base Jump Speed`,
       `E/R: Adjust Max H Speed`,
+      `T/Y: Adjust Timing Window`,
+      `U/I: Adjust Perfect Preservation`,
       `1/2/3: Load Presets`
     ].join('\n');
     

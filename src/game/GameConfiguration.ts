@@ -33,11 +33,29 @@ export interface CameraConfig {
   cameraFollowSmoothing: number;
 }
 
+export interface WallConfig {
+  enabled: boolean;
+  timingWindowMs: number;
+  perfectTimingMs: number;
+  momentumPreservation: {
+    perfect: number;  // 0-1, percentage of momentum preserved
+    good: number;
+    late: number;
+  };
+  perfectVerticalBoost: number;  // Vertical velocity boost for perfect timing
+  minSpeedForBounce: number;
+  segmentHeight: number;
+  tileHeight: number;
+  generateDistance: number;
+  cleanupDistance: number;
+}
+
 export interface GameConfig {
   physics: PhysicsConfig;
   platforms: PlatformConfig;
   combos: ComboConfig;
   camera: CameraConfig;
+  walls: WallConfig;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -45,9 +63,9 @@ export const DEFAULT_CONFIG: GameConfig = {
     baseJumpSpeed: 400,
     momentumCouplingFactor: 0.3,
     gravity: 800,
-    horizontalAcceleration: 1200,
+    horizontalAcceleration: 800,  // Reduced for arena-width max speed requirement
     maxHorizontalSpeed: 600,
-    horizontalDrag: 800
+    horizontalDrag: 600  // Reduced to allow longer acceleration distance
   },
   
   platforms: {
@@ -74,6 +92,23 @@ export const DEFAULT_CONFIG: GameConfig = {
     maxScrollSpeed: 200,
     deathLineOffset: 200,
     cameraFollowSmoothing: 0.1
+  },
+  
+  walls: {
+    enabled: true,
+    timingWindowMs: 200,
+    perfectTimingMs: 50,
+    momentumPreservation: {
+      perfect: 1.10,  // Perfect timing gives 110% - builds speed with skill!
+      good: 0.90,     // Good timing preserves 90% of momentum  
+      late: 0.80      // Late timing preserves 80% of momentum
+    },
+    perfectVerticalBoost: 100,  // Small upward velocity boost for perfect wall bounces
+    minSpeedForBounce: 50,
+    segmentHeight: 640,
+    tileHeight: 64,
+    generateDistance: 1536,
+    cleanupDistance: 768
   }
 };
 
@@ -100,6 +135,10 @@ export class GameConfiguration {
     return { ...this.config.camera };
   }
   
+  get walls(): WallConfig {
+    return { ...this.config.walls };
+  }
+  
   updatePhysics(updates: Partial<PhysicsConfig>): void {
     this.config.physics = { ...this.config.physics, ...updates };
   }
@@ -114,6 +153,10 @@ export class GameConfiguration {
   
   updateCamera(updates: Partial<CameraConfig>): void {
     this.config.camera = { ...this.config.camera, ...updates };
+  }
+  
+  updateWalls(updates: Partial<WallConfig>): void {
+    this.config.walls = { ...this.config.walls, ...updates };
   }
   
   calculateJumpMetrics(horizontalSpeed: number): {
@@ -170,7 +213,8 @@ export class GameConfiguration {
       physics: { ...base.physics, ...custom.physics },
       platforms: { ...base.platforms, ...custom.platforms },
       combos: { ...base.combos, ...custom.combos },
-      camera: { ...base.camera, ...custom.camera }
+      camera: { ...base.camera, ...custom.camera },
+      walls: { ...base.walls, ...custom.walls }
     };
   }
 }

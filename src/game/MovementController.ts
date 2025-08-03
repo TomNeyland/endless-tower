@@ -1,5 +1,5 @@
 import { Physics } from 'phaser';
-import { GameConfiguration, PhysicsConfig } from './GameConfiguration';
+import { GameConfiguration, PhysicsConfig, WallConfig } from './GameConfiguration';
 import { EventBus } from './EventBus';
 
 export interface JumpMetrics {
@@ -18,11 +18,15 @@ export interface MovementState {
   verticalSpeed: number;
   facingDirection: 1 | -1;
   momentum: number;
+  wallBounceCount: number;
+  isInWallBounceWindow: boolean;
+  wallBounceWindowTimeLeft: number;
 }
 
 export class MovementController {
   private body: Physics.Arcade.Body;
   private config: PhysicsConfig;
+  private wallConfig: WallConfig;
   private gameConfig: GameConfiguration;
   
   private isGrounded: boolean = false;
@@ -30,13 +34,22 @@ export class MovementController {
   private lastGroundedTime: number = 0;
   private jumpBuffer: number = 0;
   
+  // Wall bounce tracking
+  private wallBounceCount: number = 0;
+  private isInWallBounceWindow: boolean = false;
+  private wallBounceWindowStartTime: number = 0;
+  private wallContactSide: 'left' | 'right' | null = null;
+  private preWallContactSpeed: number = 0;
+  
   private readonly JUMP_BUFFER_TIME = 100;
   private readonly COYOTE_TIME = 100;
+  private readonly WALL_BOUNCE_COOLDOWN = 100;
 
   constructor(body: Physics.Arcade.Body, gameConfig: GameConfiguration) {
     this.body = body;
     this.gameConfig = gameConfig;
     this.config = gameConfig.physics;
+    this.wallConfig = gameConfig.walls;
     
     this.setupPhysicsBody();
   }
@@ -50,10 +63,17 @@ export class MovementController {
   update(deltaTime: number): void {
     this.updateGroundedState();
     this.updateJumpBuffer(deltaTime);
+    this.updateWallBounceWindow();
     this.emitMovementState();
   }
 
   moveLeft(): void {
+    // Check for wall bounce opportunity
+    if (this.isInWallBounceWindow && this.wallContactSide === 'right') {
+      this.attemptWallBounce('left');
+      return;
+    }
+    
     this.body.setAccelerationX(-this.config.horizontalAcceleration);
     this.facingDirection = -1;
     
@@ -61,6 +81,12 @@ export class MovementController {
   }
 
   moveRight(): void {
+    // Check for wall bounce opportunity
+    if (this.isInWallBounceWindow && this.wallContactSide === 'left') {
+      this.attemptWallBounce('right');
+      return;
+    }
+    
     this.body.setAccelerationX(this.config.horizontalAcceleration);
     this.facingDirection = 1;
     
@@ -161,26 +187,38 @@ export class MovementController {
   }
 
   private emitMovementState(): void {
+    const timeLeft = this.isInWallBounceWindow ? 
+      this.wallConfig.timingWindowMs - (Date.now() - this.wallBounceWindowStartTime) : 0;
+    
     const state: MovementState = {
       isGrounded: this.isGrounded,
       isMoving: Math.abs(this.body.velocity.x) > 10,
       horizontalSpeed: this.body.velocity.x,
       verticalSpeed: this.body.velocity.y,
       facingDirection: this.facingDirection,
-      momentum: Math.abs(this.body.velocity.x)
+      momentum: Math.abs(this.body.velocity.x),
+      wallBounceCount: this.wallBounceCount,
+      isInWallBounceWindow: this.isInWallBounceWindow,
+      wallBounceWindowTimeLeft: Math.max(0, timeLeft)
     };
     
     EventBus.emit('movement-state-updated', state);
   }
 
   getMovementState(): MovementState {
+    const timeLeft = this.isInWallBounceWindow ? 
+      this.wallConfig.timingWindowMs - (Date.now() - this.wallBounceWindowStartTime) : 0;
+    
     return {
       isGrounded: this.isGrounded,
       isMoving: Math.abs(this.body.velocity.x) > 10,
       horizontalSpeed: this.body.velocity.x,
       verticalSpeed: this.body.velocity.y,
       facingDirection: this.facingDirection,
-      momentum: Math.abs(this.body.velocity.x)
+      momentum: Math.abs(this.body.velocity.x),
+      wallBounceCount: this.wallBounceCount,
+      isInWallBounceWindow: this.isInWallBounceWindow,
+      wallBounceWindowTimeLeft: Math.max(0, timeLeft)
     };
   }
 
@@ -200,9 +238,137 @@ export class MovementController {
     }
   }
 
+  startWallBounceWindow(side: 'left' | 'right'): boolean {
+    if (!this.wallConfig.enabled) return false;
+    
+    const currentHorizontalSpeed = Math.abs(this.body.velocity.x);
+    if (currentHorizontalSpeed < this.wallConfig.minSpeedForBounce) return false;
+    
+    // Already in a timing window, ignore
+    if (this.isInWallBounceWindow) return false;
+    
+    // Start timing window
+    this.isInWallBounceWindow = true;
+    this.wallBounceWindowStartTime = Date.now();
+    this.wallContactSide = side;
+    this.preWallContactSpeed = currentHorizontalSpeed;
+    
+    // Emit timing window started event
+    EventBus.emit('wall-bounce-window-started', {
+      side,
+      speed: currentHorizontalSpeed,
+      windowDuration: this.wallConfig.timingWindowMs,
+      position: { x: this.body.x, y: this.body.y },
+      timestamp: Date.now()
+    });
+    
+    return true;
+  }
+
+  private updateWallBounceWindow(): void {
+    if (!this.isInWallBounceWindow) return;
+    
+    const elapsed = Date.now() - this.wallBounceWindowStartTime;
+    if (elapsed >= this.wallConfig.timingWindowMs) {
+      // Window expired, missed opportunity
+      this.isInWallBounceWindow = false;
+      this.wallContactSide = null;
+      
+      EventBus.emit('wall-bounce-window-missed', {
+        elapsed,
+        position: { x: this.body.x, y: this.body.y },
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  private attemptWallBounce(inputDirection: 'left' | 'right'): void {
+    if (!this.isInWallBounceWindow) return;
+    
+    const elapsed = Date.now() - this.wallBounceWindowStartTime;
+    const { perfectTimingMs, momentumPreservation } = this.wallConfig;
+    
+    // Determine timing quality
+    let preservationRate: number;
+    let timingQuality: string;
+    
+    if (elapsed <= perfectTimingMs) {
+      preservationRate = momentumPreservation.perfect;
+      timingQuality = 'perfect';
+    } else if (elapsed <= perfectTimingMs * 3) {
+      preservationRate = momentumPreservation.good;
+      timingQuality = 'good';
+    } else {
+      preservationRate = momentumPreservation.late;
+      timingQuality = 'late';
+    }
+    
+    // Apply the bounce
+    const newSpeed = this.preWallContactSpeed * preservationRate;
+    const newVelocityX = inputDirection === 'left' ? -newSpeed : newSpeed;
+    
+    this.body.setVelocityX(newVelocityX);
+    
+    // Add vertical boost for perfect timing
+    if (timingQuality === 'perfect' && this.wallConfig.perfectVerticalBoost > 0) {
+      const currentVelocityY = this.body.velocity.y;
+      const boostAmount = this.wallConfig.perfectVerticalBoost;
+      
+      // Only boost if not moving too fast upward already
+      if (currentVelocityY > -400) {
+        this.body.setVelocityY(currentVelocityY - boostAmount);
+      }
+    }
+    
+    this.facingDirection = inputDirection === 'left' ? -1 : 1;
+    this.wallBounceCount++;
+    
+    // Clear timing window
+    this.isInWallBounceWindow = false;
+    this.wallContactSide = null;
+    
+    // Emit successful bounce event
+    EventBus.emit('player-wall-bounce', {
+      side: this.wallContactSide,
+      inputDirection,
+      oldSpeed: this.preWallContactSpeed,
+      newSpeed: newSpeed,
+      preservationRate,
+      timingQuality,
+      elapsed,
+      bounceCount: this.wallBounceCount,
+      position: { x: this.body.x, y: this.body.y },
+      timestamp: Date.now()
+    });
+  }
+
+  resetWallBounceCount(): void {
+    this.wallBounceCount = 0;
+  }
+
+  getWallBounceMetrics(): {
+    bounceCount: number;
+    isInTimingWindow: boolean;
+    timingWindowTimeLeft: number;
+    contactSide: string;
+    preContactSpeed: number;
+  } {
+    const timeLeft = this.isInWallBounceWindow ? 
+      this.wallConfig.timingWindowMs - (Date.now() - this.wallBounceWindowStartTime) : 0;
+    
+    return {
+      bounceCount: this.wallBounceCount,
+      isInTimingWindow: this.isInWallBounceWindow,
+      timingWindowTimeLeft: Math.max(0, timeLeft),
+      contactSide: this.wallContactSide || 'none',
+      preContactSpeed: this.preWallContactSpeed
+    };
+  }
+
   updateConfiguration(newConfig: GameConfiguration): void {
     this.gameConfig = newConfig;
     this.config = newConfig.physics;
+    this.wallConfig = newConfig.walls;
     this.setupPhysicsBody();
   }
 

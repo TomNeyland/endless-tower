@@ -4,6 +4,9 @@ import { Player } from '../Player';
 import { PlatformManager } from '../PlatformManager';
 import { GameConfiguration } from '../GameConfiguration';
 import { OneWayPlatform } from '../OneWayPlatform';
+import { WallManager } from '../WallManager';
+import { WallCollision } from '../WallCollision';
+import { WallBounceEffects } from '../WallBounceEffects';
 import { DebugUI } from '../DebugUI';
 
 export class Game extends Scene
@@ -12,6 +15,9 @@ export class Game extends Scene
     private platformManager: PlatformManager;
     private gameConfig: GameConfiguration;
     private oneWayPlatforms: OneWayPlatform;
+    private wallManager: WallManager;
+    private wallCollision: WallCollision;
+    private wallBounceEffects: WallBounceEffects;
     private debugUI: DebugUI;
 
     constructor ()
@@ -44,7 +50,9 @@ export class Game extends Scene
         this.setupBackground();
         this.setupPlayer();
         this.setupPlatforms();
+        this.setupWalls();
         this.setupCollisions();
+        this.setupEffects();
         this.setupDebugUI();
         
         EventBus.emit('current-scene-ready', this);
@@ -54,6 +62,10 @@ export class Game extends Scene
     {
         if (this.player) {
             this.player.update(delta);
+        }
+        
+        if (this.wallManager) {
+            this.wallManager.update(this.player.y);
         }
         
         if (this.debugUI) {
@@ -86,6 +98,11 @@ export class Game extends Scene
         this.player = new Player(this, playerX, playerY, this.gameConfig);
     }
 
+    private setupWalls(): void
+    {
+        this.wallManager = new WallManager(this, this.gameConfig);
+    }
+
     private setupCollisions(): void
     {
         this.oneWayPlatforms = new OneWayPlatform(this, this.player);
@@ -93,6 +110,14 @@ export class Game extends Scene
         // Add the ground platform to the one-way platform system
         const groundPlatforms = this.platformManager.getPlatforms();
         this.oneWayPlatforms.addPlatformGroup(groundPlatforms);
+        
+        // Set up wall collision
+        this.wallCollision = new WallCollision(this, this.player, this.wallManager);
+    }
+
+    private setupEffects(): void
+    {
+        this.wallBounceEffects = new WallBounceEffects(this);
     }
 
     private setupDebugUI(): void
