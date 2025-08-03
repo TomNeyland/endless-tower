@@ -328,31 +328,9 @@ export class WallCollision {
   }
 
   private calculateVerticalMomentumTransfer(horizontalSpeed: number, verticalSpeed: number, efficiency: number): number {
-    // Wall kick physics: preserve and enhance vertical momentum
-    // If moving upward, preserve most of it; if falling, convert to upward momentum
-    
-    let finalVerticalSpeed = verticalSpeed;
-    
-    if (verticalSpeed > 0) {
-      // Falling: convert downward momentum to upward momentum (wall kick effect)
-      finalVerticalSpeed = -verticalSpeed * 0.8; // Redirect 80% of fall speed upward
-      console.log(`🦶 Wall kick: converted falling ${verticalSpeed.toFixed(1)} to rising ${finalVerticalSpeed.toFixed(1)}`);
-    } else {
-      // Already rising: preserve and slightly boost upward momentum
-      finalVerticalSpeed = verticalSpeed * 1.2; // 20% boost to existing upward momentum
-      console.log(`🚀 Wall kick: boosted existing upward momentum ${verticalSpeed.toFixed(1)} to ${finalVerticalSpeed.toFixed(1)}`);
-    }
-    
-    // Add extra upward boost based on horizontal speed (wall kick power)
-    const wallKickBoost = -Math.abs(horizontalSpeed) * 0.3; // 30% of horizontal speed becomes extra upward
-    finalVerticalSpeed += wallKickBoost;
-    
-    // Apply efficiency multiplier
-    const velocityChange = (finalVerticalSpeed - verticalSpeed) * efficiency;
-    
-    console.log(`🎯 Wall kick total: ${verticalSpeed.toFixed(1)} → ${(verticalSpeed + velocityChange).toFixed(1)} (change: ${velocityChange.toFixed(1)})`);
-    
-    return velocityChange;
+    // Pure horizontal redirect - no vertical momentum changes
+    console.log(`↔️ Pure horizontal redirect: no vertical momentum transfer`);
+    return 0;
   }
 
   private applyMomentumLimits(horizontalSpeed: number): number {
