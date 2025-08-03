@@ -242,18 +242,18 @@ export class DeathLine {
     // Stop all movement and effects
     this.player.setVelocity(0, 0);
     
-    // Request comprehensive game stats from other systems
-    EventBus.emit('request-game-stats');
+    // Emit game over event first
+    EventBus.emit('game-over', {
+      cause: 'death-line',
+      survivalTime: Date.now() - this.gameStartTime,
+      finalHeight: this.getPlayerDistanceFromDeathLine(),
+      playerPosition: { x: this.player.x, y: this.player.y },
+      timestamp: Date.now()
+    });
     
-    // Wait a frame for systems to respond, then emit game over with all data
+    // Then request comprehensive game stats from other systems
     this.scene.time.delayedCall(16, () => {
-      EventBus.emit('game-over', {
-        cause: 'death-line',
-        survivalTime: Date.now() - this.gameStartTime,
-        finalHeight: this.getPlayerDistanceFromDeathLine(),
-        playerPosition: { x: this.player.x, y: this.player.y },
-        timestamp: Date.now()
-      });
+      EventBus.emit('request-game-stats');
     });
     
     // Visual feedback (no more camera fade - let GameOverScreen handle it)

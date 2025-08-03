@@ -135,18 +135,20 @@ export class GameOverScreen {
 
   private onGameStatsCollected(statsData: any): void {
     // Update stats with collected data from game systems
-    this.stats.totalScore = statsData.totalScore || 0;
-    this.stats.comboScore = statsData.comboScore || 0;
-    this.stats.heightScore = statsData.heightScore || 0;
-    this.stats.longestCombo = statsData.longestCombo || 0;
-    this.stats.totalCombos = statsData.totalCombos || 0;
-    this.stats.perfectWallBounces = statsData.perfectWallBounces || 0;
-    this.stats.totalWallBounces = statsData.totalWallBounces || 0;
+    if (this.stats) {
+      this.stats.totalScore = statsData.totalScore || 0;
+      this.stats.comboScore = statsData.comboScore || 0;
+      this.stats.heightScore = statsData.heightScore || 0;
+      this.stats.longestCombo = statsData.longestCombo || 0;
+      this.stats.totalCombos = statsData.totalCombos || 0;
+      this.stats.perfectWallBounces = statsData.perfectWallBounces || 0;
+      this.stats.totalWallBounces = statsData.totalWallBounces || 0;
 
-    this.updateHighScores();
-    this.updateStatsDisplay();
-    this.updateHighScoreDisplay();
-    this.show();
+      this.updateHighScores();
+      this.updateStatsDisplay();
+      this.updateHighScoreDisplay();
+      this.show();
+    }
   }
 
   private show(): void {
