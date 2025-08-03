@@ -10,13 +10,10 @@ export class WallBounceEffects {
   private successEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   
   // Audio
-  private wallContactSound: Phaser.Sound.BaseSound | null = null;
-  private successSound: Phaser.Sound.BaseSound | null = null;
 
   constructor(scene: Scene) {
     this.scene = scene;
     this.setupVisualEffects();
-    this.setupAudioEffects();
     this.setupEventListeners();
   }
 
@@ -75,12 +72,6 @@ export class WallBounceEffects {
     }
   }
 
-  private setupAudioEffects(): void {
-    // Use existing jump sound as placeholder for now
-    // In a real game, these would be distinct sound effects
-    this.wallContactSound = this.scene.sound.add('jump-sound', { volume: 0.2, rate: 0.8 });
-    this.successSound = this.scene.sound.add('jump-sound', { volume: 0.4, rate: 1.2 });
-  }
 
   private setupEventListeners(): void {
     // Physics-based wall bounce events
@@ -178,11 +169,7 @@ export class WallBounceEffects {
       this.initializeParticleEmitters();
     }
 
-    // Success sound with pitch based on efficiency
-    if (this.successSound) {
-      const rate = efficiency > 1.0 ? 1.4 : efficiency > 0.9 ? 1.2 : 1.0;
-      this.successSound.play({ rate });
-    }
+    // Audio is now handled by AudioManager via 'player-wall-bounce' event
 
     // No camera shake for wall bounces - keep it smooth
   }
@@ -217,8 +204,6 @@ export class WallBounceEffects {
       this.flashEffect = null;
     }
 
-    // Clean up audio references
-    this.wallContactSound = null;
-    this.successSound = null;
+    // Audio cleanup no longer needed - handled by AudioManager
   }
 }

@@ -16,6 +16,8 @@ import { GameUI } from '../GameUI';
 import { DebugUI } from '../DebugUI';
 import { GameOverScreen } from '../GameOverScreen';
 import { GameStateManager, GameState } from '../GameStateManager';
+import { AudioManager } from '../AudioManager';
+import { GameMenu } from '../GameMenu';
 
 export class Game extends Scene
 {
@@ -35,6 +37,8 @@ export class Game extends Scene
     private debugUI: DebugUI;
     private gameOverScreen: GameOverScreen;
     private gameStateManager: GameStateManager;
+    private audioManager: AudioManager;
+    private gameMenu: GameMenu;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -62,7 +66,17 @@ export class Game extends Scene
         // Load star texture for spinning particle effects
         this.load.image('star', 'Sprites/Tiles/Default/star.png');
         
-        this.load.audio('jump-sound', 'Sounds/sfx_jump.ogg');
+        // Load all available Kenney sound effects
+        this.load.audio('sfx_jump', 'Sounds/sfx_jump.ogg');
+        this.load.audio('sfx_jump-high', 'Sounds/sfx_jump-high.ogg');
+        this.load.audio('sfx_bump', 'Sounds/sfx_bump.ogg');
+        this.load.audio('sfx_coin', 'Sounds/sfx_coin.ogg');
+        this.load.audio('sfx_disappear', 'Sounds/sfx_disappear.ogg');
+        this.load.audio('sfx_gem', 'Sounds/sfx_gem.ogg');
+        this.load.audio('sfx_hurt', 'Sounds/sfx_hurt.ogg');
+        this.load.audio('sfx_magic', 'Sounds/sfx_magic.ogg');
+        this.load.audio('sfx_select', 'Sounds/sfx_select.ogg');
+        this.load.audio('sfx_throw', 'Sounds/sfx_throw.ogg');
     }
 
     create ()
@@ -85,6 +99,7 @@ export class Game extends Scene
         this.setupUI();
         this.setupDebugUI();
         this.setupGameOverScreen();
+        this.setupGameMenu();
         this.setupEventListeners();
         
         console.log('🎮 Game scene initialization complete');
@@ -98,6 +113,11 @@ export class Game extends Scene
             this.debugUI.update(time);
         }
 
+        // Don't update when menu is open
+        if (this.gameMenu && this.gameMenu.isMenuVisible()) {
+            return;
+        }
+        
         // Only update gameplay systems when playing (with null safety during initialization)
         if (this.gameStateManager && !this.gameStateManager.allowsGameplayUpdates()) {
             return;
@@ -193,6 +213,7 @@ export class Game extends Scene
         this.deathLine = new DeathLine(this, this.player, this.gameConfig);
         this.scoreSystem = new ScoreSystem(this, this.player);
         this.comboSystem = new ComboSystem(this, this.player);
+        this.audioManager = new AudioManager(this);
     }
 
     private setupUI(): void
@@ -210,6 +231,11 @@ export class Game extends Scene
         this.gameOverScreen = new GameOverScreen(this);
     }
 
+    private setupGameMenu(): void
+    {
+        this.gameMenu = new GameMenu(this, this.audioManager);
+    }
+
     private setupGameStateManager(): void
     {
         this.gameStateManager = new GameStateManager();
@@ -219,6 +245,8 @@ export class Game extends Scene
     {
         EventBus.on('game-over', this.onGameOver.bind(this));
         EventBus.on('request-game-stats', this.onRequestGameStats.bind(this));
+        EventBus.on('game-paused', this.onGamePaused.bind(this));
+        EventBus.on('request-game-restart', this.onRequestRestart.bind(this));
         
         // Input handling for restart
         this.input.keyboard?.on('keydown', this.onKeyDown.bind(this));
@@ -241,6 +269,18 @@ export class Game extends Scene
             ...comboStats,
             ...scoreStats
         });
+    }
+    
+    private onGamePaused(isPaused: boolean): void
+    {
+        // Don't use scene.pause() as it can interfere with input
+        // The update method already checks if menu is visible
+        console.log('Game paused state:', isPaused);
+    }
+    
+    private onRequestRestart(): void
+    {
+        this.restartGame();
     }
 
     private onKeyDown(event: KeyboardEvent): void
@@ -331,6 +371,11 @@ export class Game extends Scene
         // Reset death line system
         if (this.deathLine) {
             this.deathLine.reset();
+        }
+        
+        // Reset audio manager (stop any playing sounds)
+        if (this.audioManager) {
+            this.audioManager.stopAllSounds();
         }
     }
 
@@ -431,6 +476,8 @@ export class Game extends Scene
         // Clean up event listeners
         EventBus.off('game-over', this.onGameOver.bind(this));
         EventBus.off('request-game-stats', this.onRequestGameStats.bind(this));
+        EventBus.off('game-paused', this.onGamePaused.bind(this));
+        EventBus.off('request-game-restart', this.onRequestRestart.bind(this));
         
         // Properly clean up input handlers
         if (this.input && this.input.keyboard) {
@@ -508,6 +555,16 @@ export class Game extends Scene
         if (this.gameStateManager) {
             this.gameStateManager.destroy();
             this.gameStateManager = null as any;
+        }
+        
+        if (this.audioManager) {
+            this.audioManager.destroy();
+            this.audioManager = null as any;
+        }
+        
+        if (this.gameMenu) {
+            this.gameMenu.destroy();
+            this.gameMenu = null as any;
         }
         
         // Reset flags

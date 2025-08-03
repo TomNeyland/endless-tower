@@ -6,7 +6,6 @@ import { EventBus } from './EventBus';
 export class Player extends Physics.Arcade.Sprite {
     private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
     private wasd: any;
-    private jumpSound: Phaser.Sound.BaseSound;
     private movementController: MovementController;
     private gameConfig: GameConfiguration;
     
@@ -26,7 +25,6 @@ export class Player extends Physics.Arcade.Sprite {
         this.setupMovementController();
         this.setupInput();
         this.setupAnimations();
-        this.setupAudio();
         this.setupEventListeners();
         
         this.setTexture('character', 'character_beige_idle');
@@ -93,9 +91,6 @@ export class Player extends Physics.Arcade.Sprite {
         this.play('player-idle');
     }
 
-    private setupAudio(): void {
-        this.jumpSound = this.scene.sound.add('jump-sound', { volume: 0.3 });
-    }
 
     override update(deltaTime: number): void {
         this.movementController.update(deltaTime);
@@ -183,7 +178,7 @@ export class Player extends Physics.Arcade.Sprite {
     }
 
     private onJump(jumpMetrics: any): void {
-        this.jumpSound.play();
+        // Audio is now handled by AudioManager via 'player-jumped' event
         
         // Capture initial jump vertical speed for rotation effect
         this.lastJumpVerticalSpeed = jumpMetrics.verticalSpeed;
