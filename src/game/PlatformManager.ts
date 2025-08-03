@@ -160,36 +160,103 @@ export class PlatformManager {
         // Check if this should be a checkpoint platform
         const isCheckpoint = this.platformCount % this.CHECKPOINT_INTERVAL === 0;
         
-        let platformWidth: number;
-        let platformX: number;
-        
         if (isCheckpoint) {
-            // Checkpoint platforms are wall-to-wall
-            platformWidth = this.scene.scale.width;
-            platformX = this.scene.scale.width / 2;
+            // Checkpoint platforms are single wall-to-wall platforms
+            this.generateSinglePlatform(this.scene.scale.width, this.scene.scale.width / 2, true);
         } else {
-            // Regular platforms
-            platformWidth = this.generatePlatformWidth();
-            platformX = this.generatePlatformX(platformWidth);
+            // Regular platforms - generate a level with 2-3 platforms
+            this.generatePlatformLevel();
         }
         
-        const result = this.createPlatform(platformX, this.nextPlatformY, platformWidth);
-        this.trackPlatform(result.group, result.platformId, this.nextPlatformY, platformWidth, isCheckpoint);
-        
-        // Update next platform position
+        // Update next platform position for the next level
         this.highestGeneratedY = this.nextPlatformY;
         this.nextPlatformY -= this.generateVerticalSpacing();
+    }
+
+    private generatePlatformLevel(): void {
+        // Generate 2-3 platforms at the same Y level
+        const platformCount = Phaser.Math.Between(2, 3);
+        const levelY = this.nextPlatformY;
+        
+        // Calculate platform distribution across the screen width
+        const screenWidth = this.scene.scale.width;
+        const wallBuffer = 150; // Stay away from walls
+        const usableWidth = screenWidth - (2 * wallBuffer);
+        
+        // Generate platform positions ensuring they don't overlap and are reachable
+        const platforms = this.generatePlatformPositions(platformCount, usableWidth, wallBuffer);
+        
+        // Create each platform in the level
+        platforms.forEach((platform, index) => {
+            const result = this.createPlatform(platform.x, levelY, platform.width);
+            this.trackPlatform(result.group, result.platformId, levelY, platform.width, false);
+            
+            // Emit event for each platform
+            if (result.group) {
+                EventBus.emit('platform-generated', {
+                    id: result.platformId,
+                    x: platform.x,
+                    y: levelY,
+                    width: platform.width,
+                    group: result.group,
+                    levelIndex: index,
+                    levelTotal: platformCount
+                });
+            }
+        });
+    }
+
+    private generateSinglePlatform(width: number, x: number, isCheckpoint: boolean): void {
+        const result = this.createPlatform(x, this.nextPlatformY, width);
+        this.trackPlatform(result.group, result.platformId, this.nextPlatformY, width, isCheckpoint);
         
         // Only emit if we have a valid group
         if (result.group) {
             EventBus.emit('platform-generated', {
                 id: result.platformId,
-                x: platformX,
-                y: this.highestGeneratedY,
-                width: platformWidth,
-                group: result.group  // Include the group for collision system
+                x: x,
+                y: this.nextPlatformY,
+                width: width,
+                group: result.group,
+                isCheckpoint: isCheckpoint
             });
         }
+    }
+
+    private generatePlatformPositions(count: number, usableWidth: number, wallBuffer: number): Array<{x: number, width: number}> {
+        const platforms: Array<{x: number, width: number}> = [];
+        const minPlatformWidth = this.config.platformWidth * 0.7;
+        const maxPlatformWidth = this.config.platformWidth * 1.1;
+        const minGap = 80; // Minimum gap between platforms for jumping
+        const maxGap = 180; // Maximum gap to ensure reachability
+        
+        if (count === 2) {
+            // Two platforms: left and right sides
+            const leftWidth = Phaser.Math.Between(minPlatformWidth, maxPlatformWidth);
+            const rightWidth = Phaser.Math.Between(minPlatformWidth, maxPlatformWidth);
+            
+            const leftX = wallBuffer + (leftWidth / 2);
+            const rightX = this.scene.scale.width - wallBuffer - (rightWidth / 2);
+            
+            platforms.push({ x: leftX, width: leftWidth });
+            platforms.push({ x: rightX, width: rightWidth });
+            
+        } else if (count === 3) {
+            // Three platforms: left, center, right
+            const platformWidth = Phaser.Math.Between(minPlatformWidth, Math.min(maxPlatformWidth, usableWidth / 4));
+            
+            // Calculate positions with even spacing
+            const spacing = (usableWidth - (3 * platformWidth)) / 2;
+            const leftX = wallBuffer + (platformWidth / 2);
+            const centerX = leftX + platformWidth + spacing + (platformWidth / 2);
+            const rightX = centerX + platformWidth + spacing + (platformWidth / 2);
+            
+            platforms.push({ x: leftX, width: platformWidth });
+            platforms.push({ x: centerX, width: platformWidth });
+            platforms.push({ x: rightX, width: platformWidth });
+        }
+        
+        return platforms;
     }
 
     private generatePlatformWidth(): number {

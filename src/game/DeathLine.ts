@@ -19,6 +19,7 @@ export class DeathLine {
   private isGameOver: boolean = false;
   private deathLineActive: boolean = false;
   private highestPlayerY: number = 0;
+  private initialPlayerY: number = 0;
   
   // Visual effects
   private pulseIntensity: number = 0;
@@ -33,6 +34,7 @@ export class DeathLine {
     this.config = gameConfig.camera;
     
     this.gameStartTime = Date.now();
+    this.initialPlayerY = player.y;
     this.highestPlayerY = player.y;
     this.setupVisuals();
     this.setupEventListeners();
@@ -102,7 +104,9 @@ export class DeathLine {
     }
     
     const timeElapsed = Date.now() - this.gameStartTime;
-    const heightClimbed = Math.abs(this.player.y - this.highestPlayerY); // Start Y minus current Y
+    // Height climbed should be the difference from initial position to highest reached
+    // Since Y decreases as you go up, we need (initialY - highestY)
+    const heightClimbed = Math.max(0, this.initialPlayerY - this.highestPlayerY);
     
     // Activate death line if either condition is met
     const timeConditionMet = timeElapsed >= this.config.deathLineStartDelay;
@@ -284,7 +288,9 @@ export class DeathLine {
     this.deathLineActive = false;
     this.gameStartTime = Date.now();
     
-    // Reset position tracking
+    // CRITICAL: Reset position tracking to current player position
+    // This prevents immediate reactivation due to height calculation
+    this.initialPlayerY = this.player.y;
     this.highestPlayerY = this.player.y;
     this.deathLineY = 0;
     
@@ -297,7 +303,7 @@ export class DeathLine {
     this.deathLineGraphics.clear();
     this.warningZone.clear();
     
-    console.log('✅ DeathLine: Reset complete - death line deactivated');
+    console.log(`✅ DeathLine: Reset complete - death line deactivated, player at Y: ${this.player.y}, highestY: ${this.highestPlayerY}`);
   }
 
   updateConfiguration(newConfig: GameConfiguration): void {

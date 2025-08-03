@@ -275,7 +275,8 @@ export class Game extends Scene
                 this.gameStateManager.reset();
             }
 
-            // Phase 2: Reset all game systems in specific order
+            // Phase 2: Reset all game systems in specific order (CRITICAL: Camera first!)
+            this.resetCameraState();
             this.resetGameplayState();
             this.resetPlayerState();
             this.resetWorldState();
@@ -290,6 +291,15 @@ export class Game extends Scene
             console.error('❌ Error during custom reset, falling back to scene restart:', error);
             // Fallback to scene restart if custom reset fails
             this.scene.restart();
+        }
+    }
+
+    private resetCameraState(): void {
+        console.log('🔄 Resetting camera state first...');
+        
+        // CRITICAL: Reset camera BEFORE death line to prevent auto-scroll activation
+        if (this.cameraManager) {
+            this.cameraManager.reset();
         }
     }
 
@@ -359,10 +369,7 @@ export class Game extends Scene
             // Most walls are generated dynamically, so this mainly resets tracking
         }
         
-        // Reset camera
-        if (this.cameraManager) {
-            this.cameraManager.reset();
-        }
+        // Camera reset moved to separate phase
     }
 
     private resetUIState(): void {
