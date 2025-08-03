@@ -437,22 +437,9 @@ export class WallCollision {
     this.debugGraphics.clear();
     this.velocityArrow.clear();
     
-    // Draw wall collision zones in world coordinates
-    this.debugGraphics.lineStyle(5, 0xff0000, 1.0); // Thicker and more opaque
+    // Wall lines disabled for now (not visible due to sprite layering)
+    // TODO: Re-enable once we figure out sprite depth issues
     
-    const cameraY = this.scene.cameras.main.scrollY;
-    const visibleTop = cameraY - 200;
-    const visibleBottom = cameraY + this.scene.scale.height + 200;
-    
-    // Left wall - world coordinate X=0, extends vertically around camera view
-    this.debugGraphics.moveTo(0, visibleTop);
-    this.debugGraphics.lineTo(0, visibleBottom);
-    
-    // Right wall - world coordinate X=screen width
-    this.debugGraphics.moveTo(this.scene.scale.width, visibleTop);
-    this.debugGraphics.lineTo(this.scene.scale.width, visibleBottom);
-    
-    console.log(`🎨 Drew wall lines in world coords: left at X=0, right at X=${this.scene.scale.width}, Y range ${visibleTop.toFixed(0)} to ${visibleBottom.toFixed(0)}`);
     
     // Grace period indicator
     const oppositeWallGracePeriod = 200;
@@ -474,28 +461,8 @@ export class WallCollision {
       this.gracePeriodIndicator.setVisible(false);
     }
     
-    // Draw velocity arrow in world coordinates
-    const totalSpeed = Math.sqrt(movementState.horizontalSpeed * movementState.horizontalSpeed + movementState.verticalSpeed * movementState.verticalSpeed);
-    
-    if (totalSpeed > 10) { // Only draw if moving with significant speed
-      // Use world coordinates (player's actual position)
-      const playerWorldX = playerBody.x;
-      const playerWorldY = playerBody.y;
-      
-      // Scale the velocity for visibility
-      const velocityScale = 3;
-      const endX = playerWorldX + (movementState.horizontalSpeed * velocityScale);
-      const endY = playerWorldY + (movementState.verticalSpeed * velocityScale);
-      
-      // Draw velocity arrow
-      this.velocityArrow.lineStyle(4, 0xffff00, 1.0); // Thicker and more opaque
-      this.velocityArrow.moveTo(playerWorldX, playerWorldY);
-      this.velocityArrow.lineTo(endX, endY);
-      
-      console.log(`🎯 Drew velocity arrow in world coords from (${playerWorldX.toFixed(0)}, ${playerWorldY.toFixed(0)}) to (${endX.toFixed(0)}, ${endY.toFixed(0)}) - speed: ${totalSpeed.toFixed(1)}`);
-    } else {
-      console.log(`🐌 No velocity arrow - speed too low: ${totalSpeed.toFixed(1)}`);
-    }
+    // Velocity arrow disabled for now (not visible due to sprite layering) 
+    // TODO: Re-enable once we figure out sprite depth issues
     
     // Draw player collision bounds in world coordinates
     this.debugGraphics.lineStyle(2, 0x00ffff, 0.8); // More opaque
@@ -506,7 +473,6 @@ export class WallCollision {
       playerBody.height
     );
     
-    console.log(`📦 Drew player collision box at world coords (${playerBody.x.toFixed(0)}, ${playerBody.y.toFixed(0)}) size ${playerBody.width}x${playerBody.height}`);
   }
 
   destroy(): void {
