@@ -1,6 +1,7 @@
 import { Scene, Physics, GameObjects } from 'phaser';
 import { GameConfiguration, WallConfig } from './GameConfiguration';
 import { EventBus } from './EventBus';
+import { BiomeTheme } from './BiomeManager';
 
 export interface WallSegment {
   id: string;
@@ -14,6 +15,7 @@ export class WallManager {
   private scene: Scene;
   private config: WallConfig;
   private gameConfig: GameConfiguration;
+  private currentBiome: BiomeTheme | null = null;
   
   private leftWalls: Physics.Arcade.StaticGroup;
   private rightWalls: Physics.Arcade.StaticGroup;
@@ -30,12 +32,36 @@ export class WallManager {
     this.config = gameConfig.walls;
     
     this.setupWallGroups();
+    this.setupEventListeners();
     this.generateInitialWalls();
   }
 
   private setupWallGroups(): void {
     this.leftWalls = this.scene.physics.add.staticGroup();
     this.rightWalls = this.scene.physics.add.staticGroup();
+  }
+
+  private setupEventListeners(): void {
+    EventBus.on('biome-changed', this.onBiomeChanged.bind(this));
+  }
+
+  private onBiomeChanged(biomeData: any): void {
+    this.currentBiome = biomeData.currentBiome;
+    console.log(`🧱 WallManager: Biome changed to ${this.currentBiome?.name}`);
+  }
+
+  private getCurrentWallTextures(): { top: string, middle: string, bottom: string } {
+    // Use current biome textures if available, otherwise fallback to grass
+    if (this.currentBiome) {
+      return this.currentBiome.wallTextures;
+    }
+    
+    // Fallback to grass textures (default)
+    return {
+      top: 'terrain_grass_vertical_top',
+      middle: 'terrain_grass_vertical_middle',
+      bottom: 'terrain_grass_vertical_bottom'
+    };
   }
 
   private generateInitialWalls(): void {
@@ -73,18 +99,21 @@ export class WallManager {
     const segmentHeight = bottomY - topY;
     const tilesInSegment = Math.ceil(segmentHeight / this.config.tileHeight);
     
+    // Get current biome wall textures
+    const wallTextures = this.getCurrentWallTextures();
+    
     // Create wall tiles from top to bottom
     for (let i = 0; i < tilesInSegment; i++) {
       const tileY = topY + (i * this.config.tileHeight);
       let frame: string;
       
-      // Choose appropriate tile frame
+      // Choose appropriate tile frame based on current biome
       if (i === 0) {
-        frame = 'terrain_grass_vertical_top';
+        frame = wallTextures.top;
       } else if (i === tilesInSegment - 1) {
-        frame = 'terrain_grass_vertical_bottom';
+        frame = wallTextures.bottom;
       } else {
-        frame = 'terrain_grass_vertical_middle';
+        frame = wallTextures.middle;
       }
       
       const tile = group.create(x, tileY, 'tiles', frame) as Physics.Arcade.Sprite;
@@ -115,7 +144,12 @@ export class WallManager {
   update(cameraY: number): void {
     if (Math.abs(cameraY - this.lastCameraY) < 50) return; // Only update when camera moves significantly
     
-    const hadWallChanges = this.generateWallsAbove(cameraY) || this.removeWallsBelow(cameraY);
+    // Bidirectional wall generation - generate both above and below camera
+    const wallsGeneratedAbove = this.generateWallsAbove(cameraY);
+    const wallsGeneratedBelow = this.generateWallsBelow(cameraY);
+    const wallsRemoved = this.removeWallsOutOfRange(cameraY);
+    
+    const hadWallChanges = wallsGeneratedAbove || wallsGeneratedBelow || wallsRemoved;
     
     // Notify collision system if walls changed
     if (hadWallChanges) {
@@ -150,14 +184,41 @@ export class WallManager {
     return wallsGenerated;
   }
 
-  private removeWallsBelow(cameraY: number): boolean {
+  private generateWallsBelow(cameraY: number): boolean {
+    let wallsGenerated = false;
+    const generateThreshold = cameraY + this.config.generateDistance;
+    
+    // Find the lowest wall segment for each side
+    const leftLowest = this.getLowestWallSegment('left');
+    const rightLowest = this.getLowestWallSegment('right');
+    
+    // Generate new segments below if needed
+    if (!leftLowest || leftLowest.bottomY < generateThreshold) {
+      const startY = leftLowest ? leftLowest.bottomY : cameraY;
+      this.generateWallSegments('left', 0, startY, generateThreshold);
+      wallsGenerated = true;
+    }
+    
+    if (!rightLowest || rightLowest.bottomY < generateThreshold) {
+      const startY = rightLowest ? rightLowest.bottomY : cameraY;
+      this.generateWallSegments('right', this.scene.scale.width - this.TILE_WIDTH, startY, generateThreshold);
+      wallsGenerated = true;
+    }
+    
+    return wallsGenerated;
+  }
+
+  private removeWallsOutOfRange(cameraY: number): boolean {
     let wallsRemoved = false;
-    const cleanupThreshold = cameraY + this.config.cleanupDistance;
+    const cleanupDistance = this.config.cleanupDistance;
+    const upperCleanupThreshold = cameraY - cleanupDistance; // Remove walls too far above
+    const lowerCleanupThreshold = cameraY + cleanupDistance; // Remove walls too far below
     
     const segmentsToRemove: string[] = [];
     
     this.wallSegments.forEach((segment, id) => {
-      if (segment.bottomY > cleanupThreshold) {
+      // Remove segments that are too far above (topY < upperThreshold) or too far below (bottomY > lowerThreshold)
+      if (segment.topY < upperCleanupThreshold || segment.bottomY > lowerCleanupThreshold) {
         segmentsToRemove.push(id);
       }
     });
@@ -182,6 +243,20 @@ export class WallManager {
     });
     
     return highest;
+  }
+
+  private getLowestWallSegment(side: 'left' | 'right'): WallSegment | null {
+    let lowest: WallSegment | null = null;
+    
+    this.wallSegments.forEach(segment => {
+      if (segment.side === side) {
+        if (!lowest || segment.bottomY > lowest.bottomY) {
+          lowest = segment;
+        }
+      }
+    });
+    
+    return lowest;
   }
 
   private removeWallSegment(id: string): void {
@@ -266,6 +341,7 @@ export class WallManager {
   }
 
   destroy(): void {
+    EventBus.off('biome-changed', this.onBiomeChanged.bind(this));
     this.clear();
   }
 }

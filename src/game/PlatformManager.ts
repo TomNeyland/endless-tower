@@ -1,6 +1,7 @@
 import { Scene, Physics } from 'phaser';
 import { GameConfiguration, PlatformConfig } from './GameConfiguration';
 import { EventBus } from './EventBus';
+import { BiomeTheme } from './BiomeManager';
 
 interface PlatformData {
     group: Physics.Arcade.StaticGroup;
@@ -15,6 +16,7 @@ export class PlatformManager {
     private scene: Scene;
     private platforms: Physics.Arcade.StaticGroup;
     private config: PlatformConfig;
+    private currentBiome: BiomeTheme | null = null;
     
     // Debug toggle for platform generation
     private platformGenerationEnabled: boolean = true;
@@ -45,6 +47,7 @@ export class PlatformManager {
     private setupEventListeners(): void {
         EventBus.on('debug-toggle-platforms', this.togglePlatformGeneration.bind(this));
         EventBus.on('camera-state-updated', this.onCameraStateUpdated.bind(this));
+        EventBus.on('biome-changed', this.onBiomeChanged.bind(this));
     }
 
     private togglePlatformGeneration(): void {
@@ -101,17 +104,20 @@ export class PlatformManager {
             };
         }
 
-        platformGroup.create(startX, y, 'tiles', 'terrain_grass_cloud_left')
+        // Get current biome platform textures
+        const platformTextures = this.getCurrentPlatformTextures();
+
+        platformGroup.create(startX, y, 'tiles', platformTextures.left)
             .setOrigin(0, 0.5)
             .refreshBody();
 
         for (let i = 0; i < numMiddleTiles; i++) {
-            platformGroup.create(startX + tileWidth + (i * tileWidth), y, 'tiles', 'terrain_grass_cloud_middle')
+            platformGroup.create(startX + tileWidth + (i * tileWidth), y, 'tiles', platformTextures.middle)
                 .setOrigin(0, 0.5)
                 .refreshBody();
         }
 
-        platformGroup.create(startX + tileWidth + (numMiddleTiles * tileWidth), y, 'tiles', 'terrain_grass_cloud_right')
+        platformGroup.create(startX + tileWidth + (numMiddleTiles * tileWidth), y, 'tiles', platformTextures.right)
             .setOrigin(0, 0.5)
             .refreshBody();
 
@@ -164,6 +170,25 @@ export class PlatformManager {
 
     private onCameraStateUpdated(cameraState: any): void {
         this.updateInfinitePlatforms(cameraState.scrollY);
+    }
+
+    private onBiomeChanged(biomeData: any): void {
+        this.currentBiome = biomeData.currentBiome;
+        console.log(`🏗️ PlatformManager: Biome changed to ${this.currentBiome?.name}`);
+    }
+
+    private getCurrentPlatformTextures(): { left: string, middle: string, right: string } {
+        // Use current biome textures if available, otherwise fallback to grass
+        if (this.currentBiome) {
+            return this.currentBiome.platformTextures;
+        }
+        
+        // Fallback to grass textures (default)
+        return {
+            left: 'terrain_grass_cloud_left',
+            middle: 'terrain_grass_cloud_middle',
+            right: 'terrain_grass_cloud_right'
+        };
     }
 
     private updateInfinitePlatforms(cameraY: number): void {
@@ -347,6 +372,7 @@ export class PlatformManager {
     destroy(): void {
         EventBus.off('camera-state-updated', this.onCameraStateUpdated.bind(this));
         EventBus.off('debug-toggle-platforms', this.togglePlatformGeneration.bind(this));
+        EventBus.off('biome-changed', this.onBiomeChanged.bind(this));
         
         // Safely destroy all generated platforms first
         this.generatedPlatforms.forEach((platformData, id) => {

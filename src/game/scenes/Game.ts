@@ -18,6 +18,7 @@ import { GameOverScreen } from '../GameOverScreen';
 import { GameStateManager, GameState } from '../GameStateManager';
 import { AudioManager } from '../AudioManager';
 import { GameMenu } from '../GameMenu';
+import { BiomeManager } from '../BiomeManager';
 
 export class Game extends Scene
 {
@@ -39,6 +40,7 @@ export class Game extends Scene
     private gameStateManager: GameStateManager;
     private audioManager: AudioManager;
     private gameMenu: GameMenu;
+    private biomeManager: BiomeManager;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -61,6 +63,12 @@ export class Game extends Scene
             'Spritesheets/spritesheet-tiles-default.xml'
         );
         
+        // Load all biome background textures
+        this.load.image('background-grass', 'Sprites/Backgrounds/Default/background_solid_grass.png');
+        this.load.image('background-sand', 'Sprites/Backgrounds/Default/background_solid_sand.png');
+        this.load.image('background-dirt', 'Sprites/Backgrounds/Default/background_solid_dirt.png');
+        this.load.image('background-mushrooms', 'Sprites/Backgrounds/Default/background_color_mushrooms.png');
+        this.load.image('background-cloud', 'Sprites/Backgrounds/Default/background_solid_cloud.png');
         this.load.image('background-sky', 'Sprites/Backgrounds/Default/background_solid_sky.png');
         
         // Load star texture for spinning particle effects
@@ -92,6 +100,8 @@ export class Game extends Scene
         this.setupCollisions();
         this.setupGameStateManager();
         console.log('✅ GameStateManager setup complete');
+        this.setupBiomeManager();
+        console.log('✅ BiomeManager setup complete');
         this.setupCamera();
         console.log('✅ Camera setup complete');
         this.setupGameSystems();
@@ -239,6 +249,11 @@ export class Game extends Scene
     private setupGameStateManager(): void
     {
         this.gameStateManager = new GameStateManager();
+    }
+
+    private setupBiomeManager(): void
+    {
+        this.biomeManager = new BiomeManager(this);
     }
 
     private setupEventListeners(): void
@@ -565,6 +580,11 @@ export class Game extends Scene
         if (this.gameMenu) {
             this.gameMenu.destroy();
             this.gameMenu = null as any;
+        }
+        
+        if (this.biomeManager) {
+            this.biomeManager.destroy();
+            this.biomeManager = null as any;
         }
         
         // Reset flags
