@@ -31,6 +31,7 @@ export class MovementController {
   private isGrounded: boolean = false;
   private facingDirection: 1 | -1 = 1;
   private lastGroundedTime: number = 0;
+  private lastJumpTime: number = 0;
   private jumpBuffer: number = 0;
   
   // Wall bounce tracking (simplified)
@@ -38,6 +39,7 @@ export class MovementController {
   
   private readonly JUMP_BUFFER_TIME = 100;
   private readonly COYOTE_TIME = 100;
+  private readonly JUMP_COOLDOWN = 150; // Prevent cascade jumping
   private readonly WALL_BOUNCE_COOLDOWN = 100;
 
   constructor(body: Physics.Arcade.Body, gameConfig: GameConfiguration) {
@@ -92,9 +94,18 @@ export class MovementController {
 
   private attemptJump(): boolean {
     const canJump = this.canJump();
+    const now = Date.now();
+    const timeSinceLastJump = now - this.lastJumpTime;
+    
+    // Prevent cascade jumping with cooldown
+    if (timeSinceLastJump < this.JUMP_COOLDOWN) {
+      console.log(`🚫 Jump blocked by cooldown: ${timeSinceLastJump}ms < ${this.JUMP_COOLDOWN}ms`);
+      return false;
+    }
     
     if (canJump) {
       this.performCoupledJump();
+      this.lastJumpTime = now;
       this.jumpBuffer = 0;
       return true;
     }
@@ -249,6 +260,7 @@ export class MovementController {
     this.isGrounded = false;
     this.facingDirection = 1;
     this.lastGroundedTime = 0;
+    this.lastJumpTime = 0;
     this.jumpBuffer = 0;
     
     // Reset wall bounce state

@@ -63,9 +63,9 @@ export interface GameConfig {
 
 export const DEFAULT_CONFIG: GameConfig = {
   physics: {
-    baseJumpSpeed: 150,            // Lower base jump for standing still
-    momentumCouplingFactor: 6.0,   // 6x horizontal speed becomes extra vertical speed
-    jumpScalingExponent: 1.2,      // Slight non-linear scaling for high speeds
+    baseJumpSpeed: 200,            // Good base jump for standing still  
+    momentumCouplingFactor: 2.0,   // Simple 2.0x max conversion at full speed
+    jumpScalingExponent: 1.0,      // Linear scaling for now
     horizontalRetentionFactor: 0.6, // Retain 60% of horizontal velocity on jump
     gravity: 800,
     horizontalAcceleration: 1200,  // Responsive acceleration
@@ -236,9 +236,17 @@ export class GameConfiguration {
   } {
     const { baseJumpSpeed, momentumCouplingFactor, jumpScalingExponent, horizontalRetentionFactor, gravity } = this.config.physics;
     
-    // Non-linear momentum exchange: horizontal speed converts to vertical height
+    // Progressive momentum exchange: 0.25x at low speed → 2.0x at max speed
     const speedMagnitude = Math.abs(horizontalSpeed);
-    const momentumBoost = momentumCouplingFactor * Math.pow(speedMagnitude, jumpScalingExponent);
+    const maxSpeed = this.config.physics.maxHorizontalSpeed;
+    const speedPercent = Math.min(speedMagnitude / maxSpeed, 1.0); // 0.0 to 1.0
+    
+    // Progressive conversion rate: subtle scaling
+    const minConversion = 1.0;  // 1.0x at 0% speed (no boost)
+    const maxConversion = 1.25; // 1.25x at 100% speed
+    const conversionRate = minConversion + (maxConversion - minConversion) * speedPercent;
+    
+    const momentumBoost = speedMagnitude * conversionRate;
     const verticalSpeed = baseJumpSpeed + momentumBoost;
     
     // Calculate remaining horizontal velocity after jump (momentum exchange)
