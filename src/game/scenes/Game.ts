@@ -241,7 +241,7 @@ export class Game extends Scene
         this.scene.restart();
     }
 
-    override destroy(): void
+    destroy(): void
     {
         // Clean up event listeners
         EventBus.off('game-over', this.onGameOver.bind(this));
@@ -287,7 +287,5 @@ export class Game extends Scene
         if (this.platformManager) {
             this.platformManager.destroy();
         }
-
-        super.destroy();
     }
 }
