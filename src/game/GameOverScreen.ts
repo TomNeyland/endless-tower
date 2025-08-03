@@ -47,6 +47,7 @@ export class GameOverScreen {
     this.container = this.scene.add.container(0, 0);
     this.container.setDepth(1000); // Above everything else
     this.container.setVisible(false);
+    this.container.setScrollFactor(0); // Fix to camera - don't scroll with world
 
     // Create semi-transparent background
     this.background = this.scene.add.graphics();
