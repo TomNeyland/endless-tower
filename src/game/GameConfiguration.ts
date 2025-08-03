@@ -33,6 +33,9 @@ export interface CameraConfig {
   cameraFollowSmoothing: number;
   deathLineStartDelay: number;  // Time in ms before death line starts
   deathLineMinHeight: number;   // Minimum height player must reach before death line activates
+  verticalDeadzone: number;     // Vertical distance player can move without camera following
+  maxDescentSpeed: number;      // Maximum speed camera can move down when player descends
+  descentSmoothingFactor: number; // Smoothing factor for descent camera movement
 }
 
 export interface WallConfig {
@@ -95,7 +98,10 @@ export const DEFAULT_CONFIG: GameConfig = {
     deathLineOffset: 200,
     cameraFollowSmoothing: 0.1,
     deathLineStartDelay: 30000, // 30 seconds before death line starts
-    deathLineMinHeight: 300     // Must climb at least 300px before death line activates
+    deathLineMinHeight: 300,    // Must climb at least 300px before death line activates
+    verticalDeadzone: 150,      // Player can move 150px up/down without camera following
+    maxDescentSpeed: 100,       // Camera can move down at max 100px/s when player descends
+    descentSmoothingFactor: 0.05 // Slower smoothing for descent to prevent jarring movement
   },
   
   walls: {
@@ -111,8 +117,8 @@ export const DEFAULT_CONFIG: GameConfig = {
     minSpeedForBounce: 10,  // Very low threshold for debugging
     segmentHeight: 640,
     tileHeight: 64,
-    generateDistance: 1536,
-    cleanupDistance: 768
+    generateDistance: 3000,  // Increased from 1536 to ensure adequate wall coverage
+    cleanupDistance: 1500    // Increased from 768 to match generation distance ratio
   }
 };
 

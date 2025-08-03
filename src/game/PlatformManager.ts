@@ -197,8 +197,8 @@ export class PlatformManager {
         const platformsToRemove: string[] = [];
         
         this.generatedPlatforms.forEach((platformData, id) => {
-            // Only clean up platforms below the passed checkpoint
-            if (platformData.y >= cleanupCheckpoint!.y) {
+            // Only clean up platforms below the passed checkpoint (higher Y values in Phaser)
+            if (platformData.y > cleanupCheckpoint!.y) {
                 platformsToRemove.push(id);
             }
         });
