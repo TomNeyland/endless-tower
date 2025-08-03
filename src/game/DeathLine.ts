@@ -242,18 +242,22 @@ export class DeathLine {
     // Stop all movement and effects
     this.player.setVelocity(0, 0);
     
-    // Emit game over event
-    EventBus.emit('game-over', {
-      cause: 'death-line',
-      survivalTime: Date.now() - this.gameStartTime,
-      finalHeight: this.getPlayerDistanceFromDeathLine(),
-      playerPosition: { x: this.player.x, y: this.player.y },
-      timestamp: Date.now()
+    // Request comprehensive game stats from other systems
+    EventBus.emit('request-game-stats');
+    
+    // Wait a frame for systems to respond, then emit game over with all data
+    this.scene.time.delayedCall(16, () => {
+      EventBus.emit('game-over', {
+        cause: 'death-line',
+        survivalTime: Date.now() - this.gameStartTime,
+        finalHeight: this.getPlayerDistanceFromDeathLine(),
+        playerPosition: { x: this.player.x, y: this.player.y },
+        timestamp: Date.now()
+      });
     });
     
-    // Visual feedback
-    this.scene.cameras.main.shake(500, 0.02);
-    this.scene.cameras.main.fade(1000, 150, 0, 0);
+    // Visual feedback (no more camera fade - let GameOverScreen handle it)
+    this.scene.cameras.main.shake(300, 0.01);
   }
 
   getDeathLineY(): number {

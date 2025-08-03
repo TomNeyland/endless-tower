@@ -13,6 +13,7 @@ import { ScoreSystem } from '../ScoreSystem';
 import { ComboSystem } from '../ComboSystem';
 import { GameUI } from '../GameUI';
 import { DebugUI } from '../DebugUI';
+import { GameOverScreen } from '../GameOverScreen';
 
 export class Game extends Scene
 {
@@ -29,6 +30,8 @@ export class Game extends Scene
     private comboSystem: ComboSystem;
     private gameUI: GameUI;
     private debugUI: DebugUI;
+    private gameOverScreen: GameOverScreen;
+    private isGameOver: boolean = false;
 
     constructor ()
     {
@@ -67,6 +70,8 @@ export class Game extends Scene
         this.setupEffects();
         this.setupUI();
         this.setupDebugUI();
+        this.setupGameOverScreen();
+        this.setupEventListeners();
         
         EventBus.emit('current-scene-ready', this);
     }
@@ -169,5 +174,120 @@ export class Game extends Scene
     private setupDebugUI(): void
     {
         this.debugUI = new DebugUI(this, this.player, this.gameConfig);
+    }
+
+    private setupGameOverScreen(): void
+    {
+        this.gameOverScreen = new GameOverScreen(this);
+    }
+
+    private setupEventListeners(): void
+    {
+        EventBus.on('game-over', this.onGameOver.bind(this));
+        EventBus.on('request-game-stats', this.onRequestGameStats.bind(this));
+        
+        // Input handling for restart
+        this.input.keyboard?.on('keydown', this.onKeyDown.bind(this));
+    }
+
+    private onGameOver(gameOverData: any): void
+    {
+        this.isGameOver = true;
+        console.log('🎮 Game Over triggered');
+    }
+
+    private onRequestGameStats(): void
+    {
+        // Collect stats from all systems and add to EventBus data
+        const comboStats = this.comboSystem ? this.comboSystem.getStats() : {};
+        const scoreStats = this.scoreSystem ? this.scoreSystem.getStats() : {};
+        
+        // Store stats for GameOverScreen to pick up
+        EventBus.emit('game-stats-collected', {
+            ...comboStats,
+            ...scoreStats
+        });
+    }
+
+    private onKeyDown(event: KeyboardEvent): void
+    {
+        // Only handle restart if game is over and game over screen is showing
+        if (!this.isGameOver || !this.gameOverScreen.isShowing()) {
+            return;
+        }
+
+        // Movement keys that trigger restart
+        const movementKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'];
+        
+        if (movementKeys.includes(event.code)) {
+            this.restartGame();
+        }
+    }
+
+    private restartGame(): void
+    {
+        console.log('🔄 Restarting game...');
+        
+        // Reset game over state
+        this.isGameOver = false;
+        
+        // Emit restart event for GameOverScreen to hide
+        EventBus.emit('restart-game');
+        
+        // Reset camera fade if it was applied
+        this.cameras.main.resetFX();
+        
+        // Restart the scene
+        this.scene.restart();
+    }
+
+    override destroy(): void
+    {
+        // Clean up event listeners
+        EventBus.off('game-over', this.onGameOver.bind(this));
+        EventBus.off('request-game-stats', this.onRequestGameStats.bind(this));
+        
+        if (this.input.keyboard) {
+            this.input.keyboard.off('keydown', this.onKeyDown.bind(this));
+        }
+
+        // Destroy all systems
+        if (this.gameOverScreen) {
+            this.gameOverScreen.destroy();
+        }
+        
+        if (this.debugUI) {
+            this.debugUI.destroy();
+        }
+        
+        if (this.gameUI) {
+            this.gameUI.destroy();
+        }
+        
+        if (this.comboSystem) {
+            this.comboSystem.destroy();
+        }
+        
+        if (this.scoreSystem) {
+            this.scoreSystem.destroy();
+        }
+        
+        if (this.deathLine) {
+            this.deathLine.destroy();
+        }
+        
+        if (this.cameraManager) {
+            this.cameraManager.destroy();
+        }
+        
+        if (this.wallManager) {
+            this.wallManager.destroy();
+        }
+        
+        if (this.platformManager) {
+            this.platformManager.destroy();
+        }
+
+        super.destroy();
     }
 }

@@ -314,6 +314,38 @@ export class ComboSystem {
     }
   }
 
+  getStats(): any {
+    // Calculate stats from combo history
+    let longestCombo = 0;
+    let totalCombos = 0;
+    let perfectWallBounces = 0;
+    let totalWallBounces = 0;
+
+    // Get current combo length if active
+    if (this.isComboActive()) {
+      longestCombo = Math.max(longestCombo, this.getCurrentComboLength());
+    }
+
+    // Count wall bounces in current combo
+    this.currentCombo.forEach(event => {
+      if (event.type === 'wall-bounce') {
+        totalWallBounces++;
+        if (event.data && event.data.timing === 'perfect') {
+          perfectWallBounces++;
+        }
+      }
+    });
+
+    // Note: In a full implementation, you'd track these stats over the entire game session
+    // For now, we're providing current combo stats as a starting point
+    return {
+      longestCombo: Math.max(longestCombo, this.getCurrentComboLength()),
+      totalCombos: this.isComboActive() ? 1 : 0, // Simplified - would need session tracking
+      perfectWallBounces,
+      totalWallBounces
+    };
+  }
+
   reset(): void {
     this.currentCombo = [];
     this.comboStartTime = 0;

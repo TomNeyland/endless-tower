@@ -207,6 +207,16 @@ export class ScoreSystem {
     EventBus.emit('score-reset');
   }
 
+  getStats(): any {
+    return {
+      totalScore: this.getTotalScore(),
+      heightScore: this.getHeightScore(),
+      comboScore: this.getComboScore(),
+      currentHeight: this.currentHeight,
+      highestHeight: this.highestHeight
+    };
+  }
+
   destroy(): void {
     EventBus.off('camera-state-updated', this.onCameraStateUpdated.bind(this));
     EventBus.off('player-wall-bounce', this.onPlayerWallBounce.bind(this));
