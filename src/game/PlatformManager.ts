@@ -8,6 +8,7 @@ interface PlatformData {
     y: number;
     width: number;
     created: number;
+    isCheckpoint: boolean;
 }
 
 export class PlatformManager {
@@ -20,6 +21,11 @@ export class PlatformManager {
     private highestGeneratedY: number = 0;
     private nextPlatformY: number = 0;
     private platformIdCounter: number = 0;
+    private platformCount: number = 0; // Track platform count for checkpoint generation
+    
+    // Checkpoint tracking
+    private checkpoints: PlatformData[] = [];
+    private readonly CHECKPOINT_INTERVAL = 100; // Every 100 platforms
     
     // Generation parameters
     private readonly GENERATION_DISTANCE = 1500; // Generate platforms this far ahead of camera
@@ -65,7 +71,7 @@ export class PlatformManager {
 
     createGroundPlatform(): { group: Physics.Arcade.StaticGroup, platformId: string } {
         const groundY = this.scene.scale.height - 100;
-        const groundWidth = this.scene.scale.width * 0.8;
+        const groundWidth = this.scene.scale.width; // Wall-to-wall solid platform
         const groundX = this.scene.scale.width / 2;
         
         // Initialize the next platform position
@@ -74,8 +80,8 @@ export class PlatformManager {
         
         const result = this.createPlatform(groundX, groundY, groundWidth);
         
-        // Track the ground platform
-        this.trackPlatform(result.group, result.platformId, groundY, groundWidth);
+        // Track the ground platform as checkpoint
+        this.trackPlatform(result.group, result.platformId, groundY, groundWidth, true);
         
         return result;
     }
@@ -115,11 +121,26 @@ export class PlatformManager {
     }
 
     private generateNextPlatform(): void {
-        const platformWidth = this.generatePlatformWidth();
-        const platformX = this.generatePlatformX(platformWidth);
+        this.platformCount++;
+        
+        // Check if this should be a checkpoint platform
+        const isCheckpoint = this.platformCount % this.CHECKPOINT_INTERVAL === 0;
+        
+        let platformWidth: number;
+        let platformX: number;
+        
+        if (isCheckpoint) {
+            // Checkpoint platforms are wall-to-wall
+            platformWidth = this.scene.scale.width;
+            platformX = this.scene.scale.width / 2;
+        } else {
+            // Regular platforms
+            platformWidth = this.generatePlatformWidth();
+            platformX = this.generatePlatformX(platformWidth);
+        }
         
         const result = this.createPlatform(platformX, this.nextPlatformY, platformWidth);
-        this.trackPlatform(result.group, result.platformId, this.nextPlatformY, platformWidth);
+        this.trackPlatform(result.group, result.platformId, this.nextPlatformY, platformWidth, isCheckpoint);
         
         // Update next platform position
         this.highestGeneratedY = this.nextPlatformY;
@@ -157,22 +178,27 @@ export class PlatformManager {
         return Phaser.Math.Between(this.config.verticalSpacing.min, this.config.verticalSpacing.max);
     }
 
-    private trackPlatform(group: Physics.Arcade.StaticGroup, id: string, y: number, width: number): void {
-        this.generatedPlatforms.set(id, {
-            group,
-            id,
-            y,
-            width,
-            created: Date.now()
-        });
-    }
-
     private cleanupPlatformsBehind(cameraY: number): void {
+        // Find the highest checkpoint that's off-screen and has been passed
         const cleanupY = cameraY + this.CLEANUP_DISTANCE;
+        let cleanupCheckpoint: PlatformData | null = null;
+        
+        for (const checkpoint of this.checkpoints) {
+            if (checkpoint.y > cleanupY) {
+                cleanupCheckpoint = checkpoint;
+                break; // Take the highest (most recent) off-screen checkpoint
+            }
+        }
+        
+        if (!cleanupCheckpoint) {
+            return; // Don't cleanup anything if no checkpoint has been passed
+        }
+        
         const platformsToRemove: string[] = [];
         
         this.generatedPlatforms.forEach((platformData, id) => {
-            if (platformData.y > cleanupY) {
+            // Only clean up platforms below the passed checkpoint
+            if (platformData.y >= cleanupCheckpoint!.y) {
                 platformsToRemove.push(id);
             }
         });
@@ -194,8 +220,35 @@ export class PlatformManager {
                 platformData.group.destroy();
                 
                 this.generatedPlatforms.delete(id);
+                
+                // Remove from checkpoints array if it was a checkpoint
+                if (platformData.isCheckpoint) {
+                    const checkpointIndex = this.checkpoints.findIndex(cp => cp.id === id);
+                    if (checkpointIndex !== -1) {
+                        this.checkpoints.splice(checkpointIndex, 1);
+                        console.log(`🧹 Checkpoint cleaned up at height ${Math.abs(platformData.y).toFixed(0)}m`);
+                    }
+                }
             }
         });
+    }
+
+    private trackPlatform(group: Physics.Arcade.StaticGroup, id: string, y: number, width: number, isCheckpoint: boolean = false): void {
+        const platformData: PlatformData = {
+            group,
+            id,
+            y,
+            width,
+            created: Date.now(),
+            isCheckpoint
+        };
+        
+        this.generatedPlatforms.set(id, platformData);
+        
+        if (isCheckpoint) {
+            this.checkpoints.push(platformData);
+            console.log(`🏁 Checkpoint created at height ${Math.abs(y).toFixed(0)}m`);
+        }
     }
 
     updateConfiguration(newConfig: GameConfiguration): void {
