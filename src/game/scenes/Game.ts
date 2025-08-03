@@ -19,6 +19,7 @@ import { GameStateManager, GameState } from '../GameStateManager';
 import { AudioManager } from '../AudioManager';
 import { GameMenu } from '../GameMenu';
 import { BiomeManager } from '../BiomeManager';
+import { BackgroundColorManager } from '../BackgroundColorManager';
 
 export class Game extends Scene
 {
@@ -41,6 +42,7 @@ export class Game extends Scene
     private audioManager: AudioManager;
     private gameMenu: GameMenu;
     private biomeManager: BiomeManager;
+    private backgroundColorManager: BackgroundColorManager;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -102,6 +104,8 @@ export class Game extends Scene
         console.log('✅ GameStateManager setup complete');
         this.setupBiomeManager();
         console.log('✅ BiomeManager setup complete');
+        this.setupBackgroundColorManager();
+        console.log('✅ BackgroundColorManager setup complete');
         this.setupCamera();
         console.log('✅ Camera setup complete');
         this.setupGameSystems();
@@ -164,12 +168,9 @@ export class Game extends Scene
 
     private setupBackground(): void
     {
-        const bg = this.add.image(0, 0, 'background-sky')
-            .setOrigin(0, 0);
-        
-        const scaleX = this.scale.width / bg.width;
-        const scaleY = this.scale.height / bg.height;
-        bg.setScale(Math.max(scaleX, scaleY));
+        // Background colors are now handled dynamically by BackgroundColorManager
+        // No static background image needed - camera background color will be updated in real-time
+        console.log('✅ Background setup complete - using dynamic color system');
     }
 
     private setupPlatforms(): void
@@ -254,6 +255,11 @@ export class Game extends Scene
     private setupBiomeManager(): void
     {
         this.biomeManager = new BiomeManager(this);
+    }
+
+    private setupBackgroundColorManager(): void
+    {
+        this.backgroundColorManager = new BackgroundColorManager(this, this.biomeManager);
     }
 
     private setupEventListeners(): void
@@ -585,6 +591,11 @@ export class Game extends Scene
         if (this.biomeManager) {
             this.biomeManager.destroy();
             this.biomeManager = null as any;
+        }
+        
+        if (this.backgroundColorManager) {
+            this.backgroundColorManager.destroy();
+            this.backgroundColorManager = null as any;
         }
         
         // Reset flags

@@ -5,7 +5,6 @@ export class WallBounceEffects {
   private scene: Scene;
   
   // Visual effects for physics-based wall bounces
-  private flashEffect: Phaser.GameObjects.Rectangle | null = null;
   private wallContactEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private successEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   
@@ -18,18 +17,6 @@ export class WallBounceEffects {
   }
 
   private setupVisualEffects(): void {
-    // Create flash effect rectangle
-    this.flashEffect = this.scene.add.rectangle(
-      this.scene.scale.width / 2,
-      this.scene.scale.height / 2,
-      this.scene.scale.width,
-      this.scene.scale.height,
-      0xffffff,
-      0
-    );
-    this.flashEffect.setDepth(600);
-    this.flashEffect.setVisible(false);
-
     // Initialize particle emitters with safety checks
     this.initializeParticleEmitters();
   }
@@ -104,41 +91,10 @@ export class WallBounceEffects {
   }
 
   private onSuccessfulBounce(data: any): void {
-    // Success flash effect based on bounce efficiency
+    // Success particles based on bounce efficiency
     const efficiency = data.efficiency || 0.8;
-    let flashColor = 0x00ff00; // Green for normal bounce
-    let flashIntensity = 0.3;
 
     console.log(`🎨 Wall bounce visual effect: efficiency=${efficiency.toFixed(2)}`);
-
-    if (efficiency > 1.0) {
-      flashColor = 0xffd700; // Gold for high efficiency
-      flashIntensity = 0.5;
-      console.log(`🟡 Using GOLD flash (efficiency > 1.0)`);
-    } else if (efficiency < 0.8) {
-      flashColor = 0xff6600; // Orange for low efficiency
-      flashIntensity = 0.2;
-      console.log(`🟠 Using ORANGE flash (efficiency < 0.8)`);
-    } else {
-      console.log(`🟢 Using GREEN flash (efficiency >= 0.8)`);
-    }
-
-    // Flash effect
-    if (this.flashEffect) {
-      this.flashEffect.setVisible(true);
-      this.flashEffect.setFillStyle(flashColor, flashIntensity);
-      
-      this.scene.tweens.add({
-        targets: this.flashEffect,
-        alpha: 0,
-        duration: 150,
-        ease: 'Power2',
-        onComplete: () => {
-          this.flashEffect?.setVisible(false);
-          this.flashEffect?.setAlpha(1);
-        }
-      });
-    }
 
     // Success particles
     if (this.successEmitter) {
@@ -199,10 +155,6 @@ export class WallBounceEffects {
       this.successEmitter = null;
     }
 
-    if (this.flashEffect) {
-      this.flashEffect.destroy();
-      this.flashEffect = null;
-    }
 
     // Audio cleanup no longer needed - handled by AudioManager
   }

@@ -409,8 +409,7 @@ export class GameUI {
     .setScrollFactor(0)
     .showMessage();
     
-    // Add screen shake for celebration effect
-    this.scene.cameras.main.shake(200, 0.01);
+    // Screen shake removed - was distracting with new background effects
   }
 
   private showComboCompletedEffect(comboChain: any): void {
@@ -457,8 +456,7 @@ export class GameUI {
     .setScrollFactor(0)
     .showMessage();
     
-    // Add camera shake for impact
-    this.scene.cameras.main.shake(150, 0.008);
+    // Camera shake removed - was distracting with new effects
   }
 
   private showComboBrokenEffect(): void {
