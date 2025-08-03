@@ -17,6 +17,8 @@ export class DeathLine {
   private deathLineY: number = 0;
   private gameStartTime: number = 0;
   private isGameOver: boolean = false;
+  private deathLineActive: boolean = false;
+  private highestPlayerY: number = 0;
   
   // Visual effects
   private pulseIntensity: number = 0;
@@ -31,6 +33,7 @@ export class DeathLine {
     this.config = gameConfig.camera;
     
     this.gameStartTime = Date.now();
+    this.highestPlayerY = player.y;
     this.setupVisuals();
     this.setupEventListeners();
   }
@@ -75,10 +78,41 @@ export class DeathLine {
   update(deltaTime: number): void {
     if (this.isGameOver) return;
     
-    this.updateDeathLinePosition(deltaTime);
-    this.updateVisuals();
-    this.checkPlayerCollision();
-    this.updateWarningSystem();
+    this.updateDeathLineActivation();
+    
+    if (this.deathLineActive) {
+      this.updateDeathLinePosition(deltaTime);
+      this.updateVisuals();
+      this.checkPlayerCollision();
+      this.updateWarningSystem();
+    } else {
+      // Clear visuals when inactive
+      this.deathLineGraphics.clear();
+      this.warningZone.clear();
+      this.warningText.setVisible(false);
+    }
+  }
+
+  private updateDeathLineActivation(): void {
+    if (this.deathLineActive) return; // Already active
+    
+    // Track player's highest point
+    if (this.player.y < this.highestPlayerY) {
+      this.highestPlayerY = this.player.y;
+    }
+    
+    const timeElapsed = Date.now() - this.gameStartTime;
+    const heightClimbed = Math.abs(this.player.y - this.highestPlayerY); // Start Y minus current Y
+    
+    // Activate death line if either condition is met
+    const timeConditionMet = timeElapsed >= this.config.deathLineStartDelay;
+    const heightConditionMet = heightClimbed >= this.config.deathLineMinHeight;
+    
+    if (timeConditionMet || heightConditionMet) {
+      this.deathLineActive = true;
+      console.log(`💀 Death line activated! Time: ${(timeElapsed/1000).toFixed(1)}s, Height: ${heightClimbed.toFixed(0)}px`);
+      EventBus.emit('death-line-activated');
+    }
   }
 
   private updateDeathLinePosition(deltaTime: number): void {

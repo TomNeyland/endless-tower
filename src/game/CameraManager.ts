@@ -12,6 +12,7 @@ export class CameraManager {
   private highestPlayerY: number = 0;
   private cameraTargetY: number = 0;
   private initialCameraY: number = 0;
+  private autoScrollEnabled: boolean = false;
 
   constructor(scene: Scene, player: Player, gameConfig: GameConfiguration) {
     this.scene = scene;
@@ -45,6 +46,7 @@ export class CameraManager {
   private setupEventListeners(): void {
     EventBus.on('player-height-changed', this.onPlayerHeightChanged.bind(this));
     EventBus.on('camera-shake', this.onCameraShake.bind(this));
+    EventBus.on('death-line-activated', this.onDeathLineActivated.bind(this));
   }
 
   update(deltaTime: number): void {
@@ -73,8 +75,8 @@ export class CameraManager {
   }
 
   private updateAutoScroll(deltaTime: number): void {
-    // Optional: Slowly push camera upward to create urgency
-    if (this.config.autoScrollSpeed > 0) {
+    // Only auto-scroll when death line is active
+    if (this.autoScrollEnabled && this.config.autoScrollSpeed > 0) {
       const scrollAmount = this.config.autoScrollSpeed * (deltaTime / 1000);
       this.cameraTargetY -= scrollAmount;
       
@@ -133,6 +135,11 @@ export class CameraManager {
 
   isPlayerBelowDeathLine(): boolean {
     return this.player.y > this.getDeathLineY();
+  }
+
+  private onDeathLineActivated(): void {
+    this.autoScrollEnabled = true;
+    console.log('📷 Camera auto-scroll enabled');
   }
 
   focusOnPlayer(): void {

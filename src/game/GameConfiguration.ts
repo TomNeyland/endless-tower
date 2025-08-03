@@ -31,6 +31,8 @@ export interface CameraConfig {
   maxScrollSpeed: number;
   deathLineOffset: number;
   cameraFollowSmoothing: number;
+  deathLineStartDelay: number;  // Time in ms before death line starts
+  deathLineMinHeight: number;   // Minimum height player must reach before death line activates
 }
 
 export interface WallConfig {
@@ -91,7 +93,9 @@ export const DEFAULT_CONFIG: GameConfig = {
     scrollAcceleration: 0.5,
     maxScrollSpeed: 200,
     deathLineOffset: 200,
-    cameraFollowSmoothing: 0.1
+    cameraFollowSmoothing: 0.1,
+    deathLineStartDelay: 30000, // 30 seconds before death line starts
+    deathLineMinHeight: 300     // Must climb at least 300px before death line activates
   },
   
   walls: {
