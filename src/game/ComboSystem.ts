@@ -77,19 +77,20 @@ export class ComboSystem {
   }
 
   private onWallBounce(data: any): void {
-    const eventType = data.timingQuality === 'perfect' ? 'perfect-wall-bounce' : 'wall-bounce';
+    const efficiency = data.efficiency || 0.8;
+    const eventType = efficiency > 1.0 ? 'perfect-wall-bounce' : 'wall-bounce';
     
     console.log('🎯 Wall Bounce Event:', {
       type: eventType,
       side: data.side,
-      timingQuality: data.timingQuality,
+      efficiency: efficiency,
       speedGained: data.newSpeed - data.oldSpeed,
       bounceCount: data.bounceCount
     });
     
     this.addComboEvent(eventType, {
       side: data.side,
-      timingQuality: data.timingQuality,
+      efficiency: efficiency,
       speedGained: data.newSpeed - data.oldSpeed,
       bounceCount: data.bounceCount
     });
@@ -330,7 +331,7 @@ export class ComboSystem {
     this.currentCombo.forEach(event => {
       if (event.type === 'wall-bounce') {
         totalWallBounces++;
-        if (event.data && event.data.timing === 'perfect') {
+        if (event.data && event.data.efficiency > 1.0) {
           perfectWallBounces++;
         }
       }

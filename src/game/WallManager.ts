@@ -43,8 +43,13 @@ export class WallManager {
     const startY = screenHeight;
     const endY = -this.config.generateDistance;
     
+    console.log(`🏗️ Generating initial walls from Y=${startY} to Y=${endY}`);
+    console.log(`🏗️ Screen width: ${this.scene.scale.width}, tile width: ${this.TILE_WIDTH}`);
+    
     this.generateWallSegments('left', 0, startY, endY);
     this.generateWallSegments('right', this.scene.scale.width - this.TILE_WIDTH, startY, endY);
+    
+    console.log(`🏗️ Wall generation complete. Left walls: ${this.leftWalls.children.size}, Right walls: ${this.rightWalls.children.size}`);
   }
 
   private generateWallSegments(side: 'left' | 'right', x: number, startY: number, endY: number): void {
@@ -110,13 +115,19 @@ export class WallManager {
   update(cameraY: number): void {
     if (Math.abs(cameraY - this.lastCameraY) < 50) return; // Only update when camera moves significantly
     
-    this.generateWallsAbove(cameraY);
-    this.removeWallsBelow(cameraY);
+    const hadWallChanges = this.generateWallsAbove(cameraY) || this.removeWallsBelow(cameraY);
+    
+    // Notify collision system if walls changed
+    if (hadWallChanges) {
+      console.log('🔄 WallManager: Walls changed, updating collision system');
+      EventBus.emit('walls-updated');
+    }
     
     this.lastCameraY = cameraY;
   }
 
-  private generateWallsAbove(cameraY: number): void {
+  private generateWallsAbove(cameraY: number): boolean {
+    let wallsGenerated = false;
     const generateThreshold = cameraY - this.config.generateDistance;
     
     // Find the highest wall segment for each side
@@ -127,15 +138,20 @@ export class WallManager {
     if (!leftHighest || leftHighest.topY > generateThreshold) {
       const startY = leftHighest ? leftHighest.topY : cameraY;
       this.generateWallSegments('left', 0, startY, generateThreshold);
+      wallsGenerated = true;
     }
     
     if (!rightHighest || rightHighest.topY > generateThreshold) {
       const startY = rightHighest ? rightHighest.topY : cameraY;
       this.generateWallSegments('right', this.scene.scale.width - this.TILE_WIDTH, startY, generateThreshold);
+      wallsGenerated = true;
     }
+    
+    return wallsGenerated;
   }
 
-  private removeWallsBelow(cameraY: number): void {
+  private removeWallsBelow(cameraY: number): boolean {
+    let wallsRemoved = false;
     const cleanupThreshold = cameraY + this.config.cleanupDistance;
     
     const segmentsToRemove: string[] = [];
@@ -148,7 +164,10 @@ export class WallManager {
     
     segmentsToRemove.forEach(id => {
       this.removeWallSegment(id);
+      wallsRemoved = true;
     });
+    
+    return wallsRemoved;
   }
 
   private getHighestWallSegment(side: 'left' | 'right'): WallSegment | null {
@@ -192,6 +211,10 @@ export class WallManager {
 
   getRightWalls(): Physics.Arcade.StaticGroup {
     return this.rightWalls;
+  }
+
+  getWallConfig(): WallConfig {
+    return this.config;
   }
 
   getAllWalls(): Physics.Arcade.StaticGroup {

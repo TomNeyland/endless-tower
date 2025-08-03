@@ -4,8 +4,7 @@ import { EventBus } from './EventBus';
 export class WallBounceEffects {
   private scene: Scene;
   
-  // Visual effects
-  private timingWindowOverlay: Phaser.GameObjects.Rectangle | null = null;
+  // Visual effects for physics-based wall bounces
   private flashEffect: Phaser.GameObjects.Rectangle | null = null;
   private wallContactEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private successEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
@@ -13,10 +12,6 @@ export class WallBounceEffects {
   // Audio
   private wallContactSound: Phaser.Sound.BaseSound | null = null;
   private successSound: Phaser.Sound.BaseSound | null = null;
-  private missedSound: Phaser.Sound.BaseSound | null = null;
-  
-  // Timing window visual state
-  private timingWindowTween: Phaser.Tweens.Tween | null = null;
 
   constructor(scene: Scene) {
     this.scene = scene;
@@ -26,19 +21,6 @@ export class WallBounceEffects {
   }
 
   private setupVisualEffects(): void {
-    // Create timing window overlay (screen border effect)
-    this.timingWindowOverlay = this.scene.add.rectangle(
-      this.scene.scale.width / 2,
-      this.scene.scale.height / 2,
-      this.scene.scale.width,
-      this.scene.scale.height,
-      0xffffff,
-      0
-    );
-    this.timingWindowOverlay.setDepth(500);
-    this.timingWindowOverlay.setStrokeStyle(8, 0x00ffff, 0);
-    this.timingWindowOverlay.setVisible(false);
-
     // Create flash effect rectangle
     this.flashEffect = this.scene.add.rectangle(
       this.scene.scale.width / 2,
@@ -98,43 +80,14 @@ export class WallBounceEffects {
     // In a real game, these would be distinct sound effects
     this.wallContactSound = this.scene.sound.add('jump-sound', { volume: 0.2, rate: 0.8 });
     this.successSound = this.scene.sound.add('jump-sound', { volume: 0.4, rate: 1.2 });
-    this.missedSound = this.scene.sound.add('jump-sound', { volume: 0.1, rate: 0.5 });
   }
 
   private setupEventListeners(): void {
-    EventBus.on('wall-bounce-window-started', this.onTimingWindowStarted.bind(this));
-    EventBus.on('wall-bounce-window-missed', this.onTimingWindowMissed.bind(this));
+    // Physics-based wall bounce events
     EventBus.on('player-wall-bounce', this.onSuccessfulBounce.bind(this));
     EventBus.on('wall-contact-effects', this.onWallContact.bind(this));
   }
 
-  private onTimingWindowStarted(data: any): void {
-    if (!this.timingWindowOverlay) return;
-
-    // Show timing window border
-    this.timingWindowOverlay.setVisible(true);
-    this.timingWindowOverlay.setStrokeStyle(8, 0x00ffff, 1);
-
-    // Animate border intensity
-    this.timingWindowTween = this.scene.tweens.add({
-      targets: this.timingWindowOverlay,
-      alpha: 0.3,
-      duration: 100,
-      ease: 'Power2',
-      yoyo: true,
-      repeat: -1
-    });
-
-    // Play wall contact sound
-    if (this.wallContactSound) {
-      this.wallContactSound.play();
-    }
-
-    // Hide after window duration
-    this.scene.time.delayedCall(data.windowDuration, () => {
-      this.hideTimingWindow();
-    });
-  }
 
   private onWallContact(data: any): void {
     // Emit contact particles at player position
@@ -160,17 +113,16 @@ export class WallBounceEffects {
   }
 
   private onSuccessfulBounce(data: any): void {
-    this.hideTimingWindow();
-
-    // Success flash effect based on timing quality
-    let flashColor = 0x00ff00; // Green for good timing
+    // Success flash effect based on bounce efficiency
+    const efficiency = data.efficiency || 0.8;
+    let flashColor = 0x00ff00; // Green for normal bounce
     let flashIntensity = 0.3;
 
-    if (data.timingQuality === 'perfect') {
-      flashColor = 0xffd700; // Gold for perfect timing
+    if (efficiency > 1.0) {
+      flashColor = 0xffd700; // Gold for high efficiency
       flashIntensity = 0.5;
-    } else if (data.timingQuality === 'late') {
-      flashColor = 0xff6600; // Orange for late timing
+    } else if (efficiency < 0.8) {
+      flashColor = 0xff6600; // Orange for low efficiency
       flashIntensity = 0.2;
     }
 
@@ -194,14 +146,12 @@ export class WallBounceEffects {
     // Success particles
     if (this.successEmitter) {
       try {
-        // Additional safety check for particle emitter internal state
         if (this.successEmitter.active && this.successEmitter.explode) {
           let particleColor = 0x00ff00;
-          if (data.timingQuality === 'perfect') {
+          if (efficiency > 1.0) {
             particleColor = 0xffd700;
           }
 
-          // Update particle color by recreating with new tint
           this.successEmitter.setConfig({ tint: particleColor });
           this.successEmitter.setPosition(data.position.x, data.position.y);
           this.successEmitter.explode(15);
@@ -211,77 +161,30 @@ export class WallBounceEffects {
         }
       } catch (error) {
         console.warn('WallBounceEffects: Error in success particles:', error);
-        // Reinitialize particle emitters if they're corrupted
         this.initializeParticleEmitters();
       }
     } else {
-      // Try to initialize if emitters are null
       this.initializeParticleEmitters();
     }
 
-    // Success sound
+    // Success sound with pitch based on efficiency
     if (this.successSound) {
-      // Vary pitch based on timing quality
-      const rate = data.timingQuality === 'perfect' ? 1.4 : 
-                   data.timingQuality === 'good' ? 1.2 : 1.0;
+      const rate = efficiency > 1.0 ? 1.4 : efficiency > 0.9 ? 1.2 : 1.0;
       this.successSound.play({ rate });
     }
 
     // Camera shake for successful bounces
     EventBus.emit('camera-shake', {
-      intensity: data.timingQuality === 'perfect' ? 8 : 5,
+      intensity: efficiency > 1.0 ? 8 : 5,
       duration: 100
     });
   }
 
-  private onTimingWindowMissed(data: any): void {
-    this.hideTimingWindow();
 
-    // Missed flash (red, subtle)
-    if (this.flashEffect) {
-      this.flashEffect.setVisible(true);
-      this.flashEffect.setFillStyle(0xff0000, 0.1);
-      
-      this.scene.tweens.add({
-        targets: this.flashEffect,
-        alpha: 0,
-        duration: 200,
-        ease: 'Power2',
-        onComplete: () => {
-          this.flashEffect?.setVisible(false);
-          this.flashEffect?.setAlpha(1);
-        }
-      });
-    }
-
-    // Missed sound
-    if (this.missedSound) {
-      this.missedSound.play();
-    }
-  }
-
-  private hideTimingWindow(): void {
-    if (this.timingWindowOverlay) {
-      this.timingWindowOverlay.setVisible(false);
-      this.timingWindowOverlay.setStrokeStyle(8, 0x00ffff, 0);
-    }
-
-    if (this.timingWindowTween) {
-      this.timingWindowTween.destroy();
-      this.timingWindowTween = null;
-    }
-  }
 
   destroy(): void {
-    EventBus.off('wall-bounce-window-started', this.onTimingWindowStarted.bind(this));
-    EventBus.off('wall-bounce-window-missed', this.onTimingWindowMissed.bind(this));
     EventBus.off('player-wall-bounce', this.onSuccessfulBounce.bind(this));
     EventBus.off('wall-contact-effects', this.onWallContact.bind(this));
-
-    if (this.timingWindowTween) {
-      this.timingWindowTween.destroy();
-      this.timingWindowTween = null;
-    }
 
     // Safe particle emitter cleanup
     if (this.wallContactEmitter) {
@@ -302,11 +205,6 @@ export class WallBounceEffects {
       this.successEmitter = null;
     }
 
-    if (this.timingWindowOverlay) {
-      this.timingWindowOverlay.destroy();
-      this.timingWindowOverlay = null;
-    }
-
     if (this.flashEffect) {
       this.flashEffect.destroy();
       this.flashEffect = null;
@@ -315,6 +213,5 @@ export class WallBounceEffects {
     // Clean up audio references
     this.wallContactSound = null;
     this.successSound = null;
-    this.missedSound = null;
   }
 }

@@ -69,9 +69,9 @@ export class DebugUI {
     });
     this.configPanel.add(wallTitle);
     
-    this.createWallConfigControl('Timing Window (ms)', 'timingWindowMs', 250, 100, 500, 25);
-    this.createWallConfigControl('Perfect Timing (ms)', 'perfectTimingMs', 280, 25, 100, 25);
-    this.createWallConfigControl('Perfect Preservation', 'perfectPreservation', 310, 0.8, 1.3, 0.05);
+    this.createWallConfigControl('Base Efficiency', 'baseBounceEfficiency', 250, 0.5, 1.0, 0.05);
+    this.createWallConfigControl('Max Efficiency', 'maxBounceEfficiency', 280, 0.8, 1.5, 0.05);
+    this.createWallConfigControl('Min Speed for Bounce', 'minSpeedForBounce', 310, 10, 80, 5);
   }
 
   private createConfigControl(label: string, configKey: string, y: number, min: number, max: number, step: number = 10): void {
@@ -161,13 +161,15 @@ export class DebugUI {
   }
 
   private setupControls(): void {
-    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE,D');
+    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE,FOUR,D,COMMA');
     
     (keys as any).D.on('down', () => this.toggleDebugUI());
     (keys as any).C.on('down', () => this.toggleConfigPanel());
-    (keys as any).ONE.on('down', () => this.setPreset('default'));
-    (keys as any).TWO.on('down', () => this.setPreset('high_momentum'));
-    (keys as any).THREE.on('down', () => this.setPreset('low_momentum'));
+    (keys as any).COMMA.on('down', () => this.togglePlatforms());
+    (keys as any).ONE.on('down', () => this.setPreset('beginner'));
+    (keys as any).TWO.on('down', () => this.setPreset('classic'));
+    (keys as any).THREE.on('down', () => this.setPreset('expert'));
+    (keys as any).FOUR.on('down', () => this.setPreset('speedrun'));
     
     // Keyboard shortcuts for common adjustments
     (keys as any).Q.on('down', () => this.adjustConfig('momentumCouplingFactor', -0.05, 0.1, 0.8));
@@ -178,10 +180,10 @@ export class DebugUI {
     (keys as any).R.on('down', () => this.adjustConfig('maxHorizontalSpeed', 50, 300, 1000));
     
     // Wall bounce controls
-    (keys as any).T.on('down', () => this.adjustWallConfig('timingWindowMs', -25, 100, 500));
-    (keys as any).Y.on('down', () => this.adjustWallConfig('timingWindowMs', 25, 100, 500));
-    (keys as any).U.on('down', () => this.adjustWallConfig('perfectPreservation', -0.05, 0.8, 1.3));
-    (keys as any).I.on('down', () => this.adjustWallConfig('perfectPreservation', 0.05, 0.8, 1.3));
+    (keys as any).T.on('down', () => this.adjustWallConfig('baseBounceEfficiency', -0.05, 0.5, 1.0));
+    (keys as any).Y.on('down', () => this.adjustWallConfig('baseBounceEfficiency', 0.05, 0.5, 1.0));
+    (keys as any).U.on('down', () => this.adjustWallConfig('maxBounceEfficiency', -0.05, 0.8, 1.5));
+    (keys as any).I.on('down', () => this.adjustWallConfig('maxBounceEfficiency', 0.05, 0.8, 1.5));
   }
 
   private initializeConfigValues(): void {
@@ -196,9 +198,9 @@ export class DebugUI {
     this.configValues.set('gravity', physics.gravity);
     
     // Wall bounce configuration
-    this.configValues.set('timingWindowMs', walls.timingWindowMs);
-    this.configValues.set('perfectTimingMs', walls.perfectTimingMs);
-    this.configValues.set('perfectPreservation', walls.momentumPreservation.perfect);
+    this.configValues.set('baseBounceEfficiency', walls.baseBounceEfficiency);
+    this.configValues.set('maxBounceEfficiency', walls.maxBounceEfficiency);
+    this.configValues.set('minSpeedForBounce', walls.minSpeedForBounce);
     
     this.updateConfigDisplay();
   }
@@ -221,18 +223,8 @@ export class DebugUI {
     const newValue = Math.max(min, Math.min(max, currentValue + delta));
     this.configValues.set(key, newValue);
     
-    // Handle special case for nested momentum preservation values
-    if (key === 'perfectPreservation') {
-      const currentWalls = this.gameConfig.walls;
-      this.gameConfig.updateWalls({
-        momentumPreservation: {
-          ...currentWalls.momentumPreservation,
-          perfect: newValue
-        }
-      });
-    } else {
-      this.gameConfig.updateWalls({ [key]: newValue } as any);
-    }
+    // Update wall bounce configuration
+    this.gameConfig.updateWalls({ [key]: newValue } as any);
     
     this.player.updateConfiguration(this.gameConfig);
     this.updateConfigDisplay();
@@ -240,56 +232,29 @@ export class DebugUI {
     EventBus.emit('wall-config-updated', { key, value: newValue });
   }
 
-  private setPreset(preset: string): void {
-    let newConfig: any = {};
-    
-    switch (preset) {
-      case 'default':
-        newConfig = {
-          baseJumpSpeed: 400,
-          momentumCouplingFactor: 0.3,
-          maxHorizontalSpeed: 600,
-          horizontalAcceleration: 1200,
-          horizontalDrag: 800,
-          gravity: 800
-        };
-        break;
-      case 'high_momentum':
-        newConfig = {
-          baseJumpSpeed: 350,
-          momentumCouplingFactor: 0.5,
-          maxHorizontalSpeed: 800,
-          horizontalAcceleration: 1500,
-          horizontalDrag: 600,
-          gravity: 750
-        };
-        break;
-      case 'low_momentum':
-        newConfig = {
-          baseJumpSpeed: 450,
-          momentumCouplingFactor: 0.15,
-          maxHorizontalSpeed: 400,
-          horizontalAcceleration: 800,
-          horizontalDrag: 1000,
-          gravity: 850
-        };
-        break;
-    }
-    
-    Object.entries(newConfig).forEach(([key, value]) => {
-      this.configValues.set(key, value as number);
-    });
-    
-    this.gameConfig.updatePhysics(newConfig);
+  private setPreset(preset: 'beginner' | 'classic' | 'expert' | 'speedrun'): void {
+    // Apply the new physics preset
+    this.gameConfig.applyPreset(preset);
     this.player.updateConfiguration(this.gameConfig);
+    
+    // Update the displayed values
+    this.initializeConfigValues();
     this.updateConfigDisplay();
+    
+    console.log(`🎮 Applied ${preset} physics preset for optimized gameplay`);
+  }
+
+  private togglePlatforms(): void {
+    // Emit event to toggle platform generation
+    EventBus.emit('debug-toggle-platforms');
+    console.log('🏗️ Toggled platform generation for wall bounce testing');
   }
 
   private updateConfigDisplay(): void {
     this.configValues.forEach((value, key) => {
       const text = this.configTexts.get(key);
       if (text) {
-        if (key === 'momentumCouplingFactor' || key === 'perfectPreservation') {
+        if (key === 'momentumCouplingFactor' || key === 'baseBounceEfficiency' || key === 'maxBounceEfficiency') {
           text.setText(value.toFixed(3));
         } else {
           text.setText(Math.round(value).toString());
@@ -322,7 +287,7 @@ export class DebugUI {
   private updateDebugInfo(): void {
     const state = this.player.getMovementState();
     const jumpPreview = this.player.getJumpPreview();
-    const wallMetrics = this.player.getMovementController().getWallBounceMetrics();
+    const wallMetrics = { bounceCount: state.wallBounceCount, contactSide: 'None' };
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     
     const physics = this.gameConfig.physics;
@@ -369,12 +334,10 @@ export class DebugUI {
       ``,
       `=== WALL BOUNCE ===`,
       `Bounce Count: ${wallMetrics.bounceCount}`,
-      `In Timing Window: ${wallMetrics.isInTimingWindow ? 'YES' : 'NO'}`,
-      `Window Time Left: ${Math.round(wallMetrics.timingWindowTimeLeft)}ms`,
-      `Contact Side: ${wallMetrics.contactSide}`,
-      `Pre-Contact Speed: ${Math.round(wallMetrics.preContactSpeed)}`,
-      `Timing Window: ${walls.timingWindowMs}ms`,
-      `Perfect Preservation: ${walls.momentumPreservation.perfect.toFixed(2)}`,
+      `Contact Side: ${wallMetrics.contactSide || 'None'}`,
+      `Base Efficiency: ${walls.baseBounceEfficiency.toFixed(2)}`,
+      `Max Efficiency: ${walls.maxBounceEfficiency.toFixed(2)}`,
+      `Min Speed: ${walls.minSpeedForBounce}px/s`,
       ``,
       `=== BOUNCE ELIGIBILITY ===`,
       `Speed: ${Math.round(Math.abs(state.horizontalSpeed))}/${walls.minSpeedForBounce} ${Math.abs(state.horizontalSpeed) >= walls.minSpeedForBounce ? '✓' : '✗'}`,
@@ -384,16 +347,20 @@ export class DebugUI {
       `=== DEBUG INFO ===`,
       `Exact H Speed: ${state.horizontalSpeed.toFixed(1)}`,
       `Grounded State: ${state.isGrounded ? 'GROUND' : 'AIR'}`,
-      `Window Active: ${state.isInWallBounceWindow ? 'ACTIVE' : 'NONE'}`,
+      `Wall Bounce Ready: ${Math.abs(state.horizontalSpeed) >= walls.minSpeedForBounce ? 'YES' : 'NO'}`,
       ``,
       `=== CONTROLS ===`,
       `C: Toggle Config Panel`,
       `Q/W: Adjust Coupling Factor`,
       `A/S: Adjust Base Jump Speed`,
       `E/R: Adjust Max H Speed`,
-      `T/Y: Adjust Timing Window`,
-      `U/I: Adjust Perfect Preservation`,
-      `1/2/3: Load Presets`
+      `T/Y: Adjust Base Efficiency`,
+      `U/I: Adjust Max Efficiency`,
+      `,: Toggle Platforms`,
+      `1: Beginner Preset`,
+      `2: Classic Preset`,  
+      `3: Expert Preset`,
+      `4: Speedrun Preset`
     ].join('\n');
     
     this.debugText.setText(debugInfo);

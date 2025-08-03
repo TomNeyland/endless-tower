@@ -40,15 +40,11 @@ export interface CameraConfig {
 
 export interface WallConfig {
   enabled: boolean;
-  timingWindowMs: number;
-  perfectTimingMs: number;
-  momentumPreservation: {
-    perfect: number;  // 0-1, percentage of momentum preserved
-    good: number;
-    late: number;
-  };
-  perfectVerticalBoost: number;  // Vertical velocity boost for perfect timing
-  minSpeedForBounce: number;
+  // Physics-based bounce parameters (to be implemented)
+  baseBounceEfficiency: number;  // Base efficiency for momentum redirection (0.0-1.0)
+  maxBounceEfficiency: number;   // Maximum efficiency with perfect execution (0.0-1.2)
+  minSpeedForBounce: number;     // Minimum speed required for wall bounce
+  // Wall generation parameters
   segmentHeight: number;
   tileHeight: number;
   generateDistance: number;
@@ -106,19 +102,15 @@ export const DEFAULT_CONFIG: GameConfig = {
   
   walls: {
     enabled: true,
-    timingWindowMs: 200,
-    perfectTimingMs: 50,
-    momentumPreservation: {
-      perfect: 1.10,  // Perfect timing gives 110% - builds speed with skill!
-      good: 0.90,     // Good timing preserves 90% of momentum  
-      late: 0.80      // Late timing preserves 80% of momentum
-    },
-    perfectVerticalBoost: 100,  // Small upward velocity boost for perfect wall bounces
-    minSpeedForBounce: 10,  // Very low threshold for debugging
+    // Physics-based bounce parameters (very forgiving by default)
+    baseBounceEfficiency: 0.95,  // Base 95% momentum preservation (very forgiving)
+    maxBounceEfficiency: 1.3,    // Up to 130% with perfect technique (very rewarding)
+    minSpeedForBounce: 20,       // Very low threshold for easy wall bounces
+    // Wall generation parameters
     segmentHeight: 640,
     tileHeight: 64,
-    generateDistance: 3000,  // Increased from 1536 to ensure adequate wall coverage
-    cleanupDistance: 1500    // Increased from 768 to match generation distance ratio
+    generateDistance: 3000,
+    cleanupDistance: 1500
   }
 };
 
@@ -127,6 +119,61 @@ export class GameConfiguration {
   
   constructor(customConfig?: Partial<GameConfig>) {
     this.config = this.mergeConfigs(DEFAULT_CONFIG, customConfig);
+  }
+
+  // Physics presets for different gameplay styles
+  static getPreset(preset: 'beginner' | 'classic' | 'expert' | 'speedrun'): Partial<GameConfig> {
+    const presets: Record<string, Partial<GameConfig>> = {
+      beginner: {
+        walls: {
+          ...DEFAULT_CONFIG.walls,
+          baseBounceEfficiency: 0.9,  // Very forgiving
+          maxBounceEfficiency: 1.15,  // Modest skill ceiling
+          minSpeedForBounce: 30       // Very accessible
+        },
+        physics: {
+          ...DEFAULT_CONFIG.physics,
+          momentumCouplingFactor: 0.4, // Higher momentum boost
+          maxHorizontalSpeed: 600      // Lower top speed
+        }
+      },
+      classic: DEFAULT_CONFIG, // Use default tuned values
+      expert: {
+        walls: {
+          ...DEFAULT_CONFIG.walls,
+          baseBounceEfficiency: 0.75, // Requires more skill
+          maxBounceEfficiency: 1.3,   // Higher reward for perfect play
+          minSpeedForBounce: 60       // Higher skill requirement
+        },
+        physics: {
+          ...DEFAULT_CONFIG.physics,
+          momentumCouplingFactor: 0.25, // Less momentum assistance
+          maxHorizontalSpeed: 800       // Higher skill ceiling
+        }
+      },
+      speedrun: {
+        walls: {
+          ...DEFAULT_CONFIG.walls,
+          baseBounceEfficiency: 0.8,
+          maxBounceEfficiency: 1.4,   // Maximum reward for perfect play
+          minSpeedForBounce: 50
+        },
+        physics: {
+          ...DEFAULT_CONFIG.physics,
+          momentumCouplingFactor: 0.35,
+          maxHorizontalSpeed: 1000,   // Extreme high speed for speedrunners
+          gravity: 900                // Faster falling for quicker gameplay
+        }
+      }
+    };
+    
+    return presets[preset];
+  }
+
+  applyPreset(preset: 'beginner' | 'classic' | 'expert' | 'speedrun'): void {
+    const presetConfig = GameConfiguration.getPreset(preset);
+    this.config = this.mergeConfigs(this.config, presetConfig);
+    console.log(`🎮 Applied ${preset} physics preset`);
   }
   
   get physics(): PhysicsConfig {

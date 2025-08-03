@@ -16,6 +16,9 @@ export class PlatformManager {
     private platforms: Physics.Arcade.StaticGroup;
     private config: PlatformConfig;
     
+    // Debug toggle for platform generation
+    private platformGenerationEnabled: boolean = true;
+    
     // Infinite generation tracking
     private generatedPlatforms: Map<string, PlatformData> = new Map();
     private highestGeneratedY: number = 0;
@@ -37,6 +40,31 @@ export class PlatformManager {
         this.config = gameConfig.platforms;
         
         this.setupEventListeners();
+    }
+
+    private setupEventListeners(): void {
+        EventBus.on('debug-toggle-platforms', this.togglePlatformGeneration.bind(this));
+        EventBus.on('camera-state-updated', this.onCameraStateUpdated.bind(this));
+    }
+
+    private togglePlatformGeneration(): void {
+        this.platformGenerationEnabled = !this.platformGenerationEnabled;
+        
+        if (!this.platformGenerationEnabled) {
+            // Hide existing platforms (except ground)
+            this.generatedPlatforms.forEach((platformData, id) => {
+                if (!platformData.isCheckpoint) { // Keep ground platform
+                    platformData.group.setVisible(false);
+                }
+            });
+            console.log('🚫 Platform generation DISABLED - wall bounce testing mode');
+        } else {
+            // Show platforms again
+            this.generatedPlatforms.forEach((platformData, id) => {
+                platformData.group.setVisible(true);
+            });
+            console.log('✅ Platform generation ENABLED - normal gameplay mode');
+        }
     }
 
     createPlatform(x: number, y: number, width: number): { group: Physics.Arcade.StaticGroup, platformId: string } {
@@ -133,9 +161,6 @@ export class PlatformManager {
         this.generatedPlatforms.clear();
     }
 
-    private setupEventListeners(): void {
-        EventBus.on('camera-state-updated', this.onCameraStateUpdated.bind(this));
-    }
 
     private onCameraStateUpdated(cameraState: any): void {
         this.updateInfinitePlatforms(cameraState.scrollY);
@@ -147,6 +172,10 @@ export class PlatformManager {
     }
 
     private generatePlatformsAhead(cameraY: number): void {
+        // Skip generation if disabled
+        if (!this.platformGenerationEnabled) {
+            return;
+        }
         const targetY = cameraY - this.GENERATION_DISTANCE;
         
         while (this.nextPlatformY > targetY) {
@@ -369,6 +398,7 @@ export class PlatformManager {
 
     destroy(): void {
         EventBus.off('camera-state-updated', this.onCameraStateUpdated.bind(this));
+        EventBus.off('debug-toggle-platforms', this.togglePlatformGeneration.bind(this));
         
         // Safely destroy all generated platforms first
         this.generatedPlatforms.forEach((platformData, id) => {

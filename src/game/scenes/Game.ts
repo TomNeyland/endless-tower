@@ -368,6 +368,11 @@ export class Game extends Scene
             this.wallManager.reset();
         }
         
+        // Reset wall collision cooldowns
+        if (this.wallCollision) {
+            this.wallCollision.reset();
+        }
+        
         // Camera reset moved to separate phase
     }
 
