@@ -392,21 +392,21 @@ export class WallCollision {
     
     console.log('🔧 Setting up wall bounce visual debugging...');
     
-    // Create debug graphics for wall collision areas
+    // Create debug graphics for wall collision areas and player bounds
     this.debugGraphics = this.scene.add.graphics();
     this.debugGraphics.setDepth(1000);
-    this.debugGraphics.setScrollFactor(0, 0); // Stay fixed to screen
+    this.debugGraphics.setScrollFactor(1, 1); // Follow world coordinates (walls and player are in world space)
     
-    // Create grace period indicator
+    // Create grace period indicator (this should stay on screen)
     this.gracePeriodIndicator = this.scene.add.rectangle(0, 0, 100, 20, 0x00ff00, 0.7);
     this.gracePeriodIndicator.setDepth(1001);
     this.gracePeriodIndicator.setVisible(false);
-    this.gracePeriodIndicator.setScrollFactor(0, 0); // Stay fixed to screen
+    this.gracePeriodIndicator.setScrollFactor(0, 0); // UI element - stay fixed to screen
     
-    // Create velocity arrow
+    // Create velocity arrow (should follow player in world space)
     this.velocityArrow = this.scene.add.graphics();
     this.velocityArrow.setDepth(1002);
-    this.velocityArrow.setScrollFactor(0, 0); // Stay fixed to screen
+    this.velocityArrow.setScrollFactor(1, 1); // Follow world coordinates like the player
     
     console.log('✅ Wall bounce visual debugging setup complete');
   }
@@ -437,18 +437,22 @@ export class WallCollision {
     this.debugGraphics.clear();
     this.velocityArrow.clear();
     
-    // Draw wall collision zones with screen coordinates (ignore scroll)
+    // Draw wall collision zones in world coordinates
     this.debugGraphics.lineStyle(5, 0xff0000, 1.0); // Thicker and more opaque
     
-    // Left wall - use screen coordinates
-    this.debugGraphics.moveTo(0, 0);
-    this.debugGraphics.lineTo(0, this.scene.scale.height);
+    const cameraY = this.scene.cameras.main.scrollY;
+    const visibleTop = cameraY - 200;
+    const visibleBottom = cameraY + this.scene.scale.height + 200;
     
-    // Right wall - use screen coordinates  
-    this.debugGraphics.moveTo(this.scene.scale.width - 5, 0); // Offset slightly to be visible
-    this.debugGraphics.lineTo(this.scene.scale.width - 5, this.scene.scale.height);
+    // Left wall - world coordinate X=0, extends vertically around camera view
+    this.debugGraphics.moveTo(0, visibleTop);
+    this.debugGraphics.lineTo(0, visibleBottom);
     
-    console.log(`🎨 Drew wall lines: left at X=0, right at X=${this.scene.scale.width-5}, screen height=${this.scene.scale.height}`);
+    // Right wall - world coordinate X=screen width
+    this.debugGraphics.moveTo(this.scene.scale.width, visibleTop);
+    this.debugGraphics.lineTo(this.scene.scale.width, visibleBottom);
+    
+    console.log(`🎨 Drew wall lines in world coords: left at X=0, right at X=${this.scene.scale.width}, Y range ${visibleTop.toFixed(0)} to ${visibleBottom.toFixed(0)}`);
     
     // Grace period indicator
     const oppositeWallGracePeriod = 200;
@@ -470,36 +474,39 @@ export class WallCollision {
       this.gracePeriodIndicator.setVisible(false);
     }
     
-    // Draw velocity arrow using simpler coordinates
+    // Draw velocity arrow in world coordinates
     const totalSpeed = Math.sqrt(movementState.horizontalSpeed * movementState.horizontalSpeed + movementState.verticalSpeed * movementState.verticalSpeed);
     
     if (totalSpeed > 10) { // Only draw if moving with significant speed
-      const playerScreenX = playerBody.x - this.scene.cameras.main.scrollX;
-      const playerScreenY = playerBody.y - this.scene.cameras.main.scrollY;
+      // Use world coordinates (player's actual position)
+      const playerWorldX = playerBody.x;
+      const playerWorldY = playerBody.y;
       
       // Scale the velocity for visibility
       const velocityScale = 3;
-      const endX = playerScreenX + (movementState.horizontalSpeed * velocityScale);
-      const endY = playerScreenY + (movementState.verticalSpeed * velocityScale);
+      const endX = playerWorldX + (movementState.horizontalSpeed * velocityScale);
+      const endY = playerWorldY + (movementState.verticalSpeed * velocityScale);
       
       // Draw velocity arrow
       this.velocityArrow.lineStyle(4, 0xffff00, 1.0); // Thicker and more opaque
-      this.velocityArrow.moveTo(playerScreenX, playerScreenY);
+      this.velocityArrow.moveTo(playerWorldX, playerWorldY);
       this.velocityArrow.lineTo(endX, endY);
       
-      console.log(`🎯 Drew velocity arrow from (${playerScreenX.toFixed(0)}, ${playerScreenY.toFixed(0)}) to (${endX.toFixed(0)}, ${endY.toFixed(0)}) - speed: ${totalSpeed.toFixed(1)}`);
+      console.log(`🎯 Drew velocity arrow in world coords from (${playerWorldX.toFixed(0)}, ${playerWorldY.toFixed(0)}) to (${endX.toFixed(0)}, ${endY.toFixed(0)}) - speed: ${totalSpeed.toFixed(1)}`);
     } else {
       console.log(`🐌 No velocity arrow - speed too low: ${totalSpeed.toFixed(1)}`);
     }
     
-    // Draw player collision bounds
-    this.debugGraphics.lineStyle(2, 0x00ffff, 0.6);
+    // Draw player collision bounds in world coordinates
+    this.debugGraphics.lineStyle(2, 0x00ffff, 0.8); // More opaque
     this.debugGraphics.strokeRect(
-      playerBody.x - this.scene.cameras.main.scrollX, 
-      playerBody.y - this.scene.cameras.main.scrollY,
+      playerBody.x, 
+      playerBody.y,
       playerBody.width, 
       playerBody.height
     );
+    
+    console.log(`📦 Drew player collision box at world coords (${playerBody.x.toFixed(0)}, ${playerBody.y.toFixed(0)}) size ${playerBody.width}x${playerBody.height}`);
   }
 
   destroy(): void {
