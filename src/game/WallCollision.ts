@@ -395,18 +395,18 @@ export class WallCollision {
     // Create debug graphics for wall collision areas
     this.debugGraphics = this.scene.add.graphics();
     this.debugGraphics.setDepth(1000);
-    this.debugGraphics.setScrollFactor(0, 1); // Follow camera vertically but not horizontally
+    this.debugGraphics.setScrollFactor(0, 0); // Stay fixed to screen
     
     // Create grace period indicator
     this.gracePeriodIndicator = this.scene.add.rectangle(0, 0, 100, 20, 0x00ff00, 0.7);
     this.gracePeriodIndicator.setDepth(1001);
     this.gracePeriodIndicator.setVisible(false);
-    this.gracePeriodIndicator.setScrollFactor(0);
+    this.gracePeriodIndicator.setScrollFactor(0, 0); // Stay fixed to screen
     
     // Create velocity arrow
     this.velocityArrow = this.scene.add.graphics();
     this.velocityArrow.setDepth(1002);
-    this.velocityArrow.setScrollFactor(0, 1);
+    this.velocityArrow.setScrollFactor(0, 0); // Stay fixed to screen
     
     console.log('✅ Wall bounce visual debugging setup complete');
   }
@@ -437,14 +437,18 @@ export class WallCollision {
     this.debugGraphics.clear();
     this.velocityArrow.clear();
     
-    // Draw wall collision zones (simplified - just highlight the wall edges)
-    this.debugGraphics.lineStyle(3, 0xff0000, 0.8);
-    // Left wall
-    this.debugGraphics.moveTo(0, this.scene.cameras.main.scrollY - 200);
-    this.debugGraphics.lineTo(0, this.scene.cameras.main.scrollY + this.scene.scale.height + 200);
-    // Right wall  
-    this.debugGraphics.moveTo(this.scene.scale.width, this.scene.cameras.main.scrollY - 200);
-    this.debugGraphics.lineTo(this.scene.scale.width, this.scene.cameras.main.scrollY + this.scene.scale.height + 200);
+    // Draw wall collision zones with screen coordinates (ignore scroll)
+    this.debugGraphics.lineStyle(5, 0xff0000, 1.0); // Thicker and more opaque
+    
+    // Left wall - use screen coordinates
+    this.debugGraphics.moveTo(0, 0);
+    this.debugGraphics.lineTo(0, this.scene.scale.height);
+    
+    // Right wall - use screen coordinates  
+    this.debugGraphics.moveTo(this.scene.scale.width - 5, 0); // Offset slightly to be visible
+    this.debugGraphics.lineTo(this.scene.scale.width - 5, this.scene.scale.height);
+    
+    console.log(`🎨 Drew wall lines: left at X=0, right at X=${this.scene.scale.width-5}, screen height=${this.scene.scale.height}`);
     
     // Grace period indicator
     const oppositeWallGracePeriod = 200;
@@ -466,32 +470,26 @@ export class WallCollision {
       this.gracePeriodIndicator.setVisible(false);
     }
     
-    // Draw velocity arrow
-    const velocityScale = 2;
-    const arrowLength = Math.sqrt(movementState.horizontalSpeed * movementState.horizontalSpeed + movementState.verticalSpeed * movementState.verticalSpeed) * velocityScale;
+    // Draw velocity arrow using simpler coordinates
+    const totalSpeed = Math.sqrt(movementState.horizontalSpeed * movementState.horizontalSpeed + movementState.verticalSpeed * movementState.verticalSpeed);
     
-    if (arrowLength > 10) { // Only draw if moving with significant speed
+    if (totalSpeed > 10) { // Only draw if moving with significant speed
       const playerScreenX = playerBody.x - this.scene.cameras.main.scrollX;
       const playerScreenY = playerBody.y - this.scene.cameras.main.scrollY;
       
-      const angle = Math.atan2(movementState.verticalSpeed, movementState.horizontalSpeed);
-      const endX = playerScreenX + Math.cos(angle) * arrowLength;
-      const endY = playerScreenY + Math.sin(angle) * arrowLength;
+      // Scale the velocity for visibility
+      const velocityScale = 3;
+      const endX = playerScreenX + (movementState.horizontalSpeed * velocityScale);
+      const endY = playerScreenY + (movementState.verticalSpeed * velocityScale);
       
       // Draw velocity arrow
-      this.velocityArrow.lineStyle(3, 0xffff00, 0.8);
+      this.velocityArrow.lineStyle(4, 0xffff00, 1.0); // Thicker and more opaque
       this.velocityArrow.moveTo(playerScreenX, playerScreenY);
       this.velocityArrow.lineTo(endX, endY);
       
-      // Draw arrowhead
-      const arrowHeadSize = 10;
-      const arrowAngle1 = angle + Math.PI * 0.8;
-      const arrowAngle2 = angle - Math.PI * 0.8;
-      
-      this.velocityArrow.moveTo(endX, endY);
-      this.velocityArrow.lineTo(endX + Math.cos(arrowAngle1) * arrowHeadSize, endY + Math.sin(arrowAngle1) * arrowHeadSize);
-      this.velocityArrow.moveTo(endX, endY);
-      this.velocityArrow.lineTo(endX + Math.cos(arrowAngle2) * arrowHeadSize, endY + Math.sin(arrowAngle2) * arrowHeadSize);
+      console.log(`🎯 Drew velocity arrow from (${playerScreenX.toFixed(0)}, ${playerScreenY.toFixed(0)}) to (${endX.toFixed(0)}, ${endY.toFixed(0)}) - speed: ${totalSpeed.toFixed(1)}`);
+    } else {
+      console.log(`🐌 No velocity arrow - speed too low: ${totalSpeed.toFixed(1)}`);
     }
     
     // Draw player collision bounds
