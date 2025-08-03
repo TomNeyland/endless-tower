@@ -16,6 +16,12 @@ export class WallCollision {
   private wallBounceCooldown: number = 500; // 500ms cooldown between bounces
   private lastBounceSide: 'left' | 'right' | null = null;
 
+  // Visual debugging overlays
+  private debugGraphics: Phaser.GameObjects.Graphics | null = null;
+  private gracePeriodIndicator: Phaser.GameObjects.Rectangle | null = null;
+  private velocityArrow: Phaser.GameObjects.Graphics | null = null;
+  private debugEnabled: boolean = true;
+
   constructor(scene: Scene, player: Player, wallManager: WallManager) {
     this.scene = scene;
     this.player = player;
@@ -23,6 +29,7 @@ export class WallCollision {
     
     this.setupWallCollision();
     this.setupEventListeners();
+    this.setupVisualDebugging();
   }
 
   private setupEventListeners(): void {
@@ -353,6 +360,111 @@ export class WallCollision {
     this.updateWallCollision();
   }
 
+  private setupVisualDebugging(): void {
+    if (!this.debugEnabled) return;
+    
+    // Create debug graphics for wall collision areas
+    this.debugGraphics = this.scene.add.graphics();
+    this.debugGraphics.setDepth(1000);
+    this.debugGraphics.setScrollFactor(0, 1); // Follow camera vertically but not horizontally
+    
+    // Create grace period indicator
+    this.gracePeriodIndicator = this.scene.add.rectangle(0, 0, 100, 20, 0x00ff00, 0.7);
+    this.gracePeriodIndicator.setDepth(1001);
+    this.gracePeriodIndicator.setVisible(false);
+    this.gracePeriodIndicator.setScrollFactor(0);
+    
+    // Create velocity arrow
+    this.velocityArrow = this.scene.add.graphics();
+    this.velocityArrow.setDepth(1002);
+    this.velocityArrow.setScrollFactor(0, 1);
+  }
+
+  update(): void {
+    if (!this.debugEnabled) return;
+    
+    this.updateVisualDebugging();
+  }
+
+  private updateVisualDebugging(): void {
+    if (!this.debugGraphics || !this.gracePeriodIndicator || !this.velocityArrow) return;
+    
+    const playerBody = this.player.body as Physics.Arcade.Body;
+    const movementState = this.player.getMovementState();
+    const now = Date.now();
+    const timeSinceLastBounce = now - this.lastWallBounceTime;
+    
+    // Clear previous drawings
+    this.debugGraphics.clear();
+    this.velocityArrow.clear();
+    
+    // Draw wall collision zones (simplified - just highlight the wall edges)
+    this.debugGraphics.lineStyle(3, 0xff0000, 0.8);
+    // Left wall
+    this.debugGraphics.moveTo(0, this.scene.cameras.main.scrollY - 200);
+    this.debugGraphics.lineTo(0, this.scene.cameras.main.scrollY + this.scene.scale.height + 200);
+    // Right wall  
+    this.debugGraphics.moveTo(this.scene.scale.width, this.scene.cameras.main.scrollY - 200);
+    this.debugGraphics.lineTo(this.scene.scale.width, this.scene.cameras.main.scrollY + this.scene.scale.height + 200);
+    
+    // Grace period indicator
+    const oppositeWallGracePeriod = 200;
+    const inGracePeriod = timeSinceLastBounce < oppositeWallGracePeriod;
+    
+    if (this.lastBounceSide !== null && inGracePeriod) {
+      const gracePeriodProgress = timeSinceLastBounce / oppositeWallGracePeriod;
+      this.gracePeriodIndicator.setVisible(true);
+      this.gracePeriodIndicator.setPosition(this.scene.scale.width / 2, 50);
+      this.gracePeriodIndicator.setFillStyle(0x00ff00, 0.7 * (1 - gracePeriodProgress));
+      this.gracePeriodIndicator.setSize(200 * (1 - gracePeriodProgress), 20);
+      
+      // Highlight the wall that can be passed through
+      const wallX = this.lastBounceSide === 'left' ? this.scene.scale.width : 0;
+      this.debugGraphics.lineStyle(8, 0x00ff00, 0.5);
+      this.debugGraphics.moveTo(wallX, this.scene.cameras.main.scrollY - 200);
+      this.debugGraphics.lineTo(wallX, this.scene.cameras.main.scrollY + this.scene.scale.height + 200);
+    } else {
+      this.gracePeriodIndicator.setVisible(false);
+    }
+    
+    // Draw velocity arrow
+    const velocityScale = 2;
+    const arrowLength = Math.sqrt(movementState.horizontalSpeed * movementState.horizontalSpeed + movementState.verticalSpeed * movementState.verticalSpeed) * velocityScale;
+    
+    if (arrowLength > 10) { // Only draw if moving with significant speed
+      const playerScreenX = playerBody.x - this.scene.cameras.main.scrollX;
+      const playerScreenY = playerBody.y - this.scene.cameras.main.scrollY;
+      
+      const angle = Math.atan2(movementState.verticalSpeed, movementState.horizontalSpeed);
+      const endX = playerScreenX + Math.cos(angle) * arrowLength;
+      const endY = playerScreenY + Math.sin(angle) * arrowLength;
+      
+      // Draw velocity arrow
+      this.velocityArrow.lineStyle(3, 0xffff00, 0.8);
+      this.velocityArrow.moveTo(playerScreenX, playerScreenY);
+      this.velocityArrow.lineTo(endX, endY);
+      
+      // Draw arrowhead
+      const arrowHeadSize = 10;
+      const arrowAngle1 = angle + Math.PI * 0.8;
+      const arrowAngle2 = angle - Math.PI * 0.8;
+      
+      this.velocityArrow.moveTo(endX, endY);
+      this.velocityArrow.lineTo(endX + Math.cos(arrowAngle1) * arrowHeadSize, endY + Math.sin(arrowAngle1) * arrowHeadSize);
+      this.velocityArrow.moveTo(endX, endY);
+      this.velocityArrow.lineTo(endX + Math.cos(arrowAngle2) * arrowHeadSize, endY + Math.sin(arrowAngle2) * arrowHeadSize);
+    }
+    
+    // Draw player collision bounds
+    this.debugGraphics.lineStyle(2, 0x00ffff, 0.6);
+    this.debugGraphics.strokeRect(
+      playerBody.x - this.scene.cameras.main.scrollX, 
+      playerBody.y - this.scene.cameras.main.scrollY,
+      playerBody.width, 
+      playerBody.height
+    );
+  }
+
   destroy(): void {
     // Clean up event listeners
     EventBus.off('walls-updated', this.onWallsUpdated.bind(this));
@@ -362,6 +474,17 @@ export class WallCollision {
     }
     if (this.rightWallCollider) {
       this.scene.physics.world.removeCollider(this.rightWallCollider);
+    }
+    
+    // Clean up debug visuals
+    if (this.debugGraphics) {
+      this.debugGraphics.destroy();
+    }
+    if (this.gracePeriodIndicator) {
+      this.gracePeriodIndicator.destroy();
+    }
+    if (this.velocityArrow) {
+      this.velocityArrow.destroy();
     }
     
     // Reset state

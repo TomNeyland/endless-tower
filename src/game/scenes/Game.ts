@@ -106,6 +106,10 @@ export class Game extends Scene
             this.wallManager.update(this.player.y);
         }
         
+        if (this.wallCollision) {
+            this.wallCollision.update();
+        }
+        
         if (this.cameraManager) {
             this.cameraManager.update(delta);
         }
