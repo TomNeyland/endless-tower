@@ -18,10 +18,11 @@ export class GameUI {
   private comboSystem: ComboSystem;
   
   // UI Elements - RexUI components
-  private scoreLabel: any; // RexUI Label
-  private heightLabel: any; // RexUI Label
-  private comboSizer: any; // RexUI Sizer container
-  private comboLabel: any; // RexUI Label
+  private mainHUD: any; // RexUI Sizer - Unified main display
+  private heightText: any; // Current height display
+  private bestText: any; // Best height display  
+  private multiplierText: any; // Current multiplier display
+  private comboToast: any; // Dynamic combo celebration
   private comboProgressBar: any; // RexUI Progress bar
   
   // UI State
@@ -47,114 +48,75 @@ export class GameUI {
     const screenWidth = this.scene.scale.width;
     const screenHeight = this.scene.scale.height;
     
-    // Score display (top left) - RexUI Label with background
-    this.scoreLabel = this.scene.rexUI.add.label({
-      x: 20,
-      y: 20,
-      width: 280,
-      height: 100,
-      orientation: 'horizontal',
-      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 10, 0x000000, 0.8),
-      text: this.scene.add.text(0, 0, '', {
-        fontSize: '22px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }),
+    this.setupMainHUD();
+    this.setupComboDisplay();
+  }
+
+  private setupMainHUD(): void {
+    // Create unified HUD in top-left corner - ice/mountain themed
+    const hudX = 20;
+    const hudY = 20;
+    
+    // Current height display (primary metric - largest)
+    this.heightText = this.scene.add.text(0, 0, '🏔️ 0m', {
+      fontSize: '28px',
+      color: '#00FFFF', // Bright cyan for current height
+      fontStyle: 'bold',
+      fontFamily: 'monospace', // Pixel-like font
+      stroke: '#003366',
+      strokeThickness: 2
+    });
+    
+    // Best height display (secondary metric)
+    this.bestText = this.scene.add.text(0, 0, '🥇 0m', {
+      fontSize: '20px',
+      color: '#FFD700', // Gold for best achievement
+      fontStyle: 'bold',
+      fontFamily: 'monospace',
+      stroke: '#664400',
+      strokeThickness: 1
+    });
+    
+    // Multiplier display (secondary metric - dynamic color)
+    this.multiplierText = this.scene.add.text(0, 0, '⚡ 1.0x', {
+      fontSize: '20px',
+      color: '#FFFFFF', // White for base, will change dynamically
+      fontStyle: 'bold',
+      fontFamily: 'monospace',
+      stroke: '#333333',
+      strokeThickness: 1
+    });
+    
+    // Create main HUD container with ice-themed background
+    this.mainHUD = this.scene.rexUI.add.sizer({
+      x: hudX,
+      y: hudY,
+      orientation: 'vertical',
+      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 12, 0x001133, 0.85)
+        .setStrokeStyle(2, 0x0066CC, 0.9), // Ice blue border
       space: {
-        left: 15,
-        right: 15,
-        top: 10,
-        bottom: 10
+        left: 16,
+        right: 16,
+        top: 12,
+        bottom: 12,
+        item: 6
       },
       anchor: {
         left: 'left',
         top: 'top'
       }
-    }).setDepth(1100).setScrollFactor(0);
-    
-    // Height display (top right, upper section) - RexUI Label with background
-    this.heightLabel = this.scene.rexUI.add.label({
-      x: screenWidth - 20,
-      y: 20,
-      width: 200,
-      height: 80,
-      orientation: 'horizontal',
-      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 8, 0x333333, 0.9),
-      text: this.scene.add.text(0, 0, '', {
-        fontSize: '16px',
-        color: '#ffff00',
-        fontStyle: 'bold'
-      }),
-      space: {
-        left: 12,
-        right: 12,
-        top: 8,
-        bottom: 8
-      },
-      anchor: {
-        right: 'right',
-        top: 'top'
-      }
-    }).setDepth(1100).setScrollFactor(0);
-    
-    // Combo display (center, slightly above middle)
-    this.setupComboDisplay();
+    })
+    .add(this.heightText, { align: 'left' })
+    .add(this.bestText, { align: 'left' })
+    .add(this.multiplierText, { align: 'left' })
+    .setDepth(1100)
+    .setScrollFactor(0)
+    .layout();
   }
 
   private setupComboDisplay(): void {
-    const screenWidth = this.scene.scale.width;
-    const comboX = screenWidth - 20;
-    const comboY = 120; // Below height display
-    
-    // Create combo label with styled background
-    this.comboLabel = this.scene.rexUI.add.label({
-      width: 180,
-      height: 60,
-      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 8, 0x000000, 0.9)
-        .setStrokeStyle(2, 0xffaa00, 1),
-      text: this.scene.add.text(0, 0, 'COMBO\n0x (1.0x)', {
-        fontSize: '16px',
-        color: '#ffaa00',
-        fontStyle: 'bold',
-        align: 'center'
-      }),
-      space: {
-        left: 12,
-        right: 12,
-        top: 8,
-        bottom: 8
-      }
-    }).setDepth(1200).setScrollFactor(0);
-    
-    // Create progress bar for combo timer
-    this.comboProgressBar = this.scene.rexUI.add.circularProgress({
-      x: 0,
-      y: 0,
-      radius: 8,
-      barColor: 0x00ff00,
-      trackColor: 0x333333,
-      centerColor: 0x000000,
-      thickness: 0.2,
-      startAngle: Phaser.Math.DegToRad(270), // Start from top
-      anticlockwise: false
-    }).setDepth(1210).setScrollFactor(0);
-    
-    // Create sizer to organize combo display components
-    this.comboSizer = this.scene.rexUI.add.sizer({
-      x: comboX,
-      y: comboY,
-      orientation: 'vertical',
-      space: { item: 5 },
-      anchor: {
-        right: 'right'
-      }
-    })
-    .add(this.comboLabel, { align: 'right' })
-    .add(this.comboProgressBar, { align: 'right' })
-    .setDepth(1200)
-    .setScrollFactor(0)
-    .setVisible(true)
-    .layout();
+    // Combo system will now be dynamic toasts only during active combos
+    // Progress bar will be created when combo toast is created
   }
 
   private setupEventListeners(): void {
@@ -200,8 +162,8 @@ export class GameUI {
   }
 
   private updateDisplay(): void {
-    // Add null safety checks for RexUI labels and score system
-    if (!this.scoreSystem || !this.scoreLabel || !this.heightLabel) {
+    // Add null safety checks for score system and new HUD elements
+    if (!this.scoreSystem || !this.mainHUD || !this.heightText || !this.bestText || !this.multiplierText) {
       return;
     }
 
@@ -209,69 +171,138 @@ export class GameUI {
     try {
       this.currentScore = this.scoreSystem.getScoreData();
     
-      // Update score label text
-      const scoreText = 
-        `Score: ${this.currentScore.totalScore.toLocaleString()}\n` +
-        `Height: ${Math.round(this.currentScore.heightScore).toLocaleString()}\n` +
-        `Combo: ${Math.round(this.currentScore.comboScore).toLocaleString()}`;
-      this.scoreLabel.getElement('text').setText(scoreText);
+      // Update current height (primary metric)
+      const currentHeight = Math.round(this.currentScore.currentHeight);
+      this.heightText.setText(`🏔️ ${currentHeight}m`);
       
-      // Update height label text
-      const heightText =
-        `Height: ${Math.round(this.currentScore.currentHeight)}m\n` +
-        `Best: ${Math.round(this.currentScore.highestHeight)}m\n` +
-        `Mult: ${this.currentScore.multiplier.toFixed(1)}x`;
-      this.heightLabel.getElement('text').setText(heightText);
+      // Update best height
+      const bestHeight = Math.round(this.currentScore.highestHeight);
+      this.bestText.setText(`🥇 ${bestHeight}m`);
       
-      // Layout the labels to adjust to new text size
-      this.scoreLabel.layout();
-      this.heightLabel.layout();
+      // Update multiplier with dynamic color
+      const multiplier = this.currentScore.multiplier;
+      this.multiplierText.setText(`⚡ ${multiplier.toFixed(1)}x`);
       
-      // Always update combo display
+      // Dynamic multiplier color based on value
+      if (multiplier >= 2.0) {
+        this.multiplierText.setColor('#FF6600'); // Fire orange for high multipliers
+        this.multiplierText.setStroke('#662200', 2);
+      } else if (multiplier > 1.0) {
+        this.multiplierText.setColor('#FFD700'); // Gold for active multipliers
+        this.multiplierText.setStroke('#664400', 1);
+      } else {
+        this.multiplierText.setColor('#FFFFFF'); // White for base multiplier
+        this.multiplierText.setStroke('#333333', 1);
+      }
+      
+      // Layout the main HUD to adjust to new text sizes
+      this.mainHUD.layout();
+      
+      // Update combo display (now only during active combos)
       this.updateComboDisplay();
     } catch (error) {
-      console.warn('GameUI updateDisplay failed, RexUI objects not ready yet:', error);
+      console.warn('GameUI updateDisplay failed, HUD objects not ready yet:', error);
     }
   }
 
   private showComboDisplay(): void {
-    if (!this.comboVisible) {
+    // Create dynamic combo toast for active combos
+    if (!this.comboVisible && this.comboSystem.isComboActive()) {
       this.comboVisible = true;
-      this.comboSizer.setVisible(true);
       
-      // Cancel any existing fade out
-      if (this.comboFadeOut) {
-        this.comboFadeOut.destroy();
-        this.comboFadeOut = null;
+      const centerX = this.scene.scale.width / 2;
+      const centerY = this.scene.scale.height * 0.75; // Bottom center
+      
+      const comboLength = this.comboSystem.getCurrentComboLength();
+      const multiplier = this.comboSystem.getCurrentMultiplier();
+      
+      // Ensure any existing progress bar is cleaned up first
+      if (this.comboProgressBar) {
+        this.comboProgressBar.destroy();
+        this.comboProgressBar = null;
       }
       
-      // Animate in
-      this.comboSizer.setAlpha(0);
-      this.comboSizer.setScale(0.5);
+      // Create fresh progress bar for this combo display
+      this.comboProgressBar = this.scene.rexUI.add.circularProgress({
+        radius: 12,
+        barColor: 0xFF6600, // Fire orange
+        trackColor: 0x330000,
+        centerColor: 0x000000,
+        thickness: 0.3,
+        startAngle: Phaser.Math.DegToRad(270), // Start from top
+        anticlockwise: false
+      }).setScrollFactor(0);
+      
+      // Create dynamic combo celebration toast
+      this.comboToast = this.scene.rexUI.add.sizer({
+        x: centerX,
+        y: centerY,
+        orientation: 'vertical',
+        background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 15, 0x330000, 0.95)
+          .setStrokeStyle(3, 0xFF6600, 1), // Fire orange border
+        space: {
+          left: 20,
+          right: 20,
+          top: 15,
+          bottom: 15,
+          item: 8
+        }
+      })
+      .add(
+        this.scene.add.text(0, 0, `🔥 ${comboLength}-HIT COMBO! 🔥`, {
+          fontSize: '24px',
+          color: '#FF6600',
+          fontStyle: 'bold',
+          fontFamily: 'monospace',
+          align: 'center'
+        }).setScrollFactor(0), { align: 'center' }
+      )
+      .add(
+        this.scene.add.text(0, 0, `${multiplier.toFixed(1)}x MULTIPLIER`, {
+          fontSize: '20px',
+          color: '#FFD700',
+          fontStyle: 'bold',
+          fontFamily: 'monospace',
+          align: 'center'
+        }).setScrollFactor(0), { align: 'center' }
+      )
+      .add(this.comboProgressBar, { align: 'center' })
+      .setDepth(1300)
+      .setScrollFactor(0) // Ensure entire toast is screen-fixed
+      .layout();
+      
+      // Animate in with bounce effect
+      this.comboToast.setAlpha(0).setScale(0.5);
       this.scene.tweens.add({
-        targets: this.comboSizer,
+        targets: this.comboToast,
         alpha: 1,
         scaleX: 1,
         scaleY: 1,
-        duration: 200,
+        duration: 300,
         ease: 'Back.out'
       });
     }
   }
 
   private hideComboDisplay(): void {
-    if (this.comboVisible) {
+    if (this.comboVisible && this.comboToast) {
       this.comboFadeOut = this.scene.tweens.add({
-        targets: this.comboSizer,
+        targets: this.comboToast,
         alpha: 0,
         scaleX: 0.8,
         scaleY: 0.8,
-        duration: 300,
+        duration: 400,
         ease: 'Power2.out',
         onComplete: () => {
-          this.comboSizer.setVisible(false);
+          this.comboToast?.destroy();
+          this.comboToast = null;
           this.comboVisible = false;
           this.comboFadeOut = null;
+          // Explicitly destroy progress bar to ensure cleanup
+          if (this.comboProgressBar) {
+            this.comboProgressBar.destroy();
+            this.comboProgressBar = null;
+          }
         }
       });
     }
@@ -279,47 +310,55 @@ export class GameUI {
 
   private updateComboDisplay(): void {
     // Add null safety checks
-    if (!this.comboSystem || !this.comboLabel || !this.comboProgressBar) {
+    if (!this.comboSystem || !this.comboProgressBar) {
       return;
     }
 
     try {
-      const comboLength = this.comboSystem.getCurrentComboLength();
-      const multiplier = this.comboSystem.getCurrentMultiplier();
-      const timeRemaining = this.comboSystem.getComboTimeRemaining();
       const isActive = this.comboSystem.isComboActive();
+      const timeRemaining = this.comboSystem.getComboTimeRemaining();
       
-      // Update combo label text and color
-      const comboText = isActive ? `COMBO\n${comboLength}x (${multiplier.toFixed(1)}x)` : 'COMBO\n0x (1.0x)';
-      const textColor = isActive ? '#ffaa00' : '#666666';
+      // Show/hide combo display based on active state
+      if (isActive && !this.comboVisible) {
+        this.showComboDisplay();
+      } else if (!isActive && this.comboVisible) {
+        this.hideComboDisplay();
+      }
       
-      this.comboLabel.getElement('text').setText(comboText);
-      this.comboLabel.getElement('text').setColor(textColor);
-      this.comboLabel.layout();
-      
-      // Update progress bar
-      if (isActive) {
+      // Update progress bar during active combos
+      if (isActive && this.comboToast && this.comboProgressBar) {
         const timePercent = Math.max(0, timeRemaining / 2500); // 2500ms combo timeout
         
-        // Color based on time remaining
-        let barColor = 0x00ff00; // Green
+        // Color based on time remaining - fire theme
+        let barColor = 0x00FF00; // Green for safe
         if (timePercent < 0.3) {
-          barColor = 0xff0000; // Red
+          barColor = 0xFF0000; // Red for danger
         } else if (timePercent < 0.6) {
-          barColor = 0xff8800; // Orange
+          barColor = 0xFF6600; // Fire orange for warning
         }
         
         this.comboProgressBar.setBarColor(barColor);
         this.comboProgressBar.setValue(timePercent);
-        this.comboProgressBar.setVisible(true);
-      } else {
-        this.comboProgressBar.setVisible(false);
+        
+        // Update combo text if toast is active
+        const comboLength = this.comboSystem.getCurrentComboLength();
+        const multiplier = this.comboSystem.getCurrentMultiplier();
+        
+        // Update the combo text elements within the toast
+        const comboText = this.comboToast.getElement('items')[0];
+        const multiplierText = this.comboToast.getElement('items')[1];
+        
+        if (comboText) {
+          comboText.setText(`🔥 ${comboLength}-HIT COMBO! 🔥`);
+        }
+        if (multiplierText) {
+          multiplierText.setText(`${multiplier.toFixed(1)}x MULTIPLIER`);
+        }
+        
+        this.comboToast.layout();
       }
-      
-      // Layout the entire sizer
-      this.comboSizer.layout();
     } catch (error) {
-      console.warn('GameUI updateComboDisplay failed, RexUI combo objects not ready yet:', error);
+      console.warn('GameUI updateComboDisplay failed, combo objects not ready yet:', error);
     }
   }
 
@@ -327,34 +366,37 @@ export class GameUI {
     const centerX = this.scene.scale.width / 2;
     const centerY = this.scene.scale.height * 0.3;
     
-    // Create RexUI Toast for milestone notification
+    // Create enhanced milestone toast with ice/mountain theme
     const milestoneToast = this.scene.rexUI.add.toast({
       x: centerX,
       y: centerY,
       
-      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 15, 0x000000, 0.9)
-        .setStrokeStyle(3, 0xffaa00, 1),
+      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 18, 0x001133, 0.95)
+        .setStrokeStyle(4, 0x00FFFF, 1), // Ice cyan border
       
-      text: this.scene.add.text(0, 0, `🎯 HEIGHT MILESTONE!\n${milestone}m reached!\n+${bonusPoints} bonus points!`, {
-        fontSize: '28px',
-        color: '#ffff00',
+      text: this.scene.add.text(0, 0, `🎯 HEIGHT MILESTONE! 🎯\n🏔️ ${milestone}m REACHED! 🏔️\n+${bonusPoints.toLocaleString()} bonus points!`, {
+        fontSize: '32px',
+        color: '#00FFFF', // Ice cyan
         fontStyle: 'bold',
+        fontFamily: 'monospace',
         align: 'center',
-        lineSpacing: 8
+        lineSpacing: 12,
+        stroke: '#003366',
+        strokeThickness: 2
       }),
       
       space: {
-        left: 25,
-        right: 25,
-        top: 20,
-        bottom: 20
+        left: 30,
+        right: 30,
+        top: 25,
+        bottom: 25
       },
       
-      // Toast animation configuration
+      // Toast animation configuration - more impactful
       duration: {
-        in: 300,
-        hold: 2000,
-        out: 400
+        in: 400,
+        hold: 2500,
+        out: 500
       },
       
       transitIn: 'popup',
@@ -363,29 +405,82 @@ export class GameUI {
       // Destroy after animation
       destroy: true
     })
-    .setDepth(1300)
+    .setDepth(1400)
     .setScrollFactor(0)
     .showMessage();
+    
+    // Add screen shake for celebration effect
+    this.scene.cameras.main.shake(200, 0.01);
   }
 
   private showComboCompletedEffect(comboChain: any): void {
     const centerX = this.scene.scale.width / 2;
     const centerY = this.scene.scale.height * 0.4;
     
-    // Create RexUI Toast for combo completion
+    // Create enhanced combo completion toast with fire theme
     const comboToast = this.scene.rexUI.add.toast({
       x: centerX,
       y: centerY,
       
-      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 12, 0x003300, 0.95)
-        .setStrokeStyle(2, 0x00ff00, 1),
+      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 15, 0x330000, 0.95)
+        .setStrokeStyle(3, 0xFF6600, 1), // Fire orange border
       
-      text: this.scene.add.text(0, 0, `🔥 COMBO COMPLETE!\n${comboChain.chain} hits\n+${comboChain.totalPoints} points!`, {
-        fontSize: '24px',
-        color: '#00ff00',
+      text: this.scene.add.text(0, 0, `🔥 COMBO COMPLETE! 🔥\n${comboChain.chain}-HIT CHAIN\n+${comboChain.totalPoints.toLocaleString()} points!`, {
+        fontSize: '28px',
+        color: '#FF6600', // Fire orange
         fontStyle: 'bold',
+        fontFamily: 'monospace',
         align: 'center',
-        lineSpacing: 6
+        lineSpacing: 8,
+        stroke: '#662200',
+        strokeThickness: 2
+      }),
+      
+      space: {
+        left: 25,
+        right: 25,
+        top: 18,
+        bottom: 18
+      },
+      
+      duration: {
+        in: 250,
+        hold: 2000,
+        out: 350
+      },
+      
+      transitIn: 'popup',
+      transitOut: 'fadeOut',
+      destroy: true
+    })
+    .setDepth(1350)
+    .setScrollFactor(0)
+    .showMessage();
+    
+    // Add camera shake for impact
+    this.scene.cameras.main.shake(150, 0.008);
+  }
+
+  private showComboBrokenEffect(): void {
+    const centerX = this.scene.scale.width / 2;
+    const centerY = this.scene.scale.height * 0.4;
+    
+    // Create combo broken toast with ice theme (cooling down from fire)
+    const brokenToast = this.scene.rexUI.add.toast({
+      x: centerX,
+      y: centerY,
+      
+      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 12, 0x001133, 0.9)
+        .setStrokeStyle(2, 0x4488FF, 1), // Cool blue for broken combo
+      
+      text: this.scene.add.text(0, 0, '❄️ COMBO COOLED DOWN ❄️', {
+        fontSize: '24px',
+        color: '#4488FF', // Cool blue
+        fontStyle: 'bold',
+        fontFamily: 'monospace',
+        align: 'center',
+        stroke: '#002266',
+        strokeThickness: 1
       }),
       
       space: {
@@ -397,49 +492,8 @@ export class GameUI {
       
       duration: {
         in: 200,
-        hold: 1500,
+        hold: 1200,
         out: 300
-      },
-      
-      transitIn: 'popup',
-      transitOut: 'fadeOut',
-      destroy: true
-    })
-    .setDepth(1300)
-    .setScrollFactor(0)
-    .showMessage();
-  }
-
-  private showComboBrokenEffect(): void {
-    const centerX = this.scene.scale.width / 2;
-    const centerY = this.scene.scale.height * 0.4;
-    
-    // Create RexUI Toast for combo broken
-    const brokenToast = this.scene.rexUI.add.toast({
-      x: centerX,
-      y: centerY,
-      
-      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 10, 0x330000, 0.9)
-        .setStrokeStyle(2, 0xff4444, 1),
-      
-      text: this.scene.add.text(0, 0, '💥 COMBO BROKEN!', {
-        fontSize: '22px',
-        color: '#ff4444',
-        fontStyle: 'bold',
-        align: 'center'
-      }),
-      
-      space: {
-        left: 18,
-        right: 18,
-        top: 12,
-        bottom: 12
-      },
-      
-      duration: {
-        in: 150,
-        hold: 1000,
-        out: 250
       },
       
       transitIn: 'popup',
@@ -468,8 +522,12 @@ export class GameUI {
       this.comboFadeOut.destroy();
     }
     
-    this.scoreLabel?.destroy();
-    this.heightLabel?.destroy();
-    this.comboSizer?.destroy();
+    // Clean up new UI elements
+    this.mainHUD?.destroy();
+    this.heightText?.destroy();
+    this.bestText?.destroy();
+    this.multiplierText?.destroy();
+    this.comboToast?.destroy();
+    this.comboProgressBar?.destroy();
   }
 }
