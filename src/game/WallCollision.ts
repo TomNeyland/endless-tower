@@ -66,7 +66,7 @@ export class WallCollision {
     const inGracePeriod = timeSinceLastBounce < oppositeWallGracePeriod;
     
     if (isOppositeWall && inGracePeriod) {
-      console.log(`🌟 Wall collision BYPASSED: ${side} side (grace period: ${timeSinceLastBounce}ms < ${oppositeWallGracePeriod}ms)`);
+      console.log(`🌟 Wall collision BYPASSED: ${side} side (grace period: ${timeSinceLastBounce}ms < ${oppositeWallGracePeriod}ms, last bounce: ${this.lastBounceSide})`);
       return false; // Allow passage through opposite wall
     }
     
