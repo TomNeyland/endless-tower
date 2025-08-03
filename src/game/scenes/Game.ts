@@ -7,6 +7,7 @@ import { OneWayPlatform } from '../OneWayPlatform';
 import { WallManager } from '../WallManager';
 import { WallCollision } from '../WallCollision';
 import { WallBounceEffects } from '../WallBounceEffects';
+import { SpinningParticleEffects } from '../SpinningParticleEffects';
 import { CameraManager } from '../CameraManager';
 import { DeathLine } from '../DeathLine';
 import { ScoreSystem } from '../ScoreSystem';
@@ -25,6 +26,7 @@ export class Game extends Scene
     private wallManager: WallManager;
     private wallCollision: WallCollision;
     private wallBounceEffects: WallBounceEffects;
+    private spinningParticleEffects: SpinningParticleEffects;
     private cameraManager: CameraManager;
     private deathLine: DeathLine;
     private scoreSystem: ScoreSystem;
@@ -56,6 +58,9 @@ export class Game extends Scene
         );
         
         this.load.image('background-sky', 'Sprites/Backgrounds/Default/background_solid_sky.png');
+        
+        // Load star texture for spinning particle effects
+        this.load.image('star', 'Sprites/Tiles/Default/star.png');
         
         this.load.audio('jump-sound', 'Sounds/sfx_jump.ogg');
     }
@@ -180,6 +185,7 @@ export class Game extends Scene
     private setupEffects(): void
     {
         this.wallBounceEffects = new WallBounceEffects(this);
+        this.spinningParticleEffects = new SpinningParticleEffects(this);
     }
 
     private setupGameSystems(): void

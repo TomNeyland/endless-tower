@@ -139,6 +139,7 @@ export class Player extends Physics.Arcade.Sprite {
         const initialJumpSpeed = this.lastJumpVerticalSpeed; // Use captured initial jump speed
         const speedThreshold = 400; // Lower threshold - easier to trigger spinning
         const maxRotationSpeed = 1200; // Lower max threshold for smoother scaling
+        const minHorizontalSpeedForParticles = 150; // Much lower threshold - easier to trigger
         
         if (!state.isGrounded && initialJumpSpeed > speedThreshold) {
             // Calculate rotation speed with much gentler initial scaling
@@ -151,7 +152,23 @@ export class Player extends Physics.Arcade.Sprite {
             this.rotation += rotationSpeed * rotationDirection * (deltaTime / 1000);
             
             console.log(`🌪️ Jump-based rotation: initial=${initialJumpSpeed.toFixed(0)}, facing=${rotationDirection > 0 ? 'right' : 'left'}, rotation=${(this.rotation * 180 / Math.PI).toFixed(0)}°`);
+            
+            // Check if we should emit spinning particles (fast movement + spinning)
+            const currentHorizontalSpeed = Math.abs(state.horizontalSpeed);
+            const minRotationForParticles = 5; // Much lower threshold - easier to trigger
+            
+            if (currentHorizontalSpeed >= minHorizontalSpeedForParticles && rotationSpeed >= minRotationForParticles) {
+                // Emit spinning event with data
+                EventBus.emit('player-spinning', {
+                    rotationSpeed: rotationSpeed,
+                    horizontalSpeed: currentHorizontalSpeed,
+                    playerPosition: { x: this.x, y: this.y }
+                });
+            }
         } else {
+            // Stop spinning particles when conditions no longer met
+            EventBus.emit('player-spinning-stop');
+            
             // Smoothly return to upright when grounded or below threshold
             if (Math.abs(this.rotation) > 0.01) {
                 this.rotation = Phaser.Math.Angle.RotateTo(this.rotation, 0, 0.15);
