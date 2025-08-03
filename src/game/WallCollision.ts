@@ -57,11 +57,21 @@ export class WallCollision {
   private shouldCollideWithWall(player: Player, side: 'left' | 'right'): boolean {
     const playerBody = player.body as Physics.Arcade.Body;
     const movementState = player.getMovementState();
+    const now = Date.now();
+    const timeSinceLastBounce = now - this.lastWallBounceTime;
     
-    console.log(`🧱 Wall collision check: ${side} side, player can go through? NO - always block`);
+    // Allow passage through opposite wall for a brief period after bouncing
+    const oppositeWallGracePeriod = 200; // 200ms grace period
+    const isOppositeWall = this.lastBounceSide !== null && this.lastBounceSide !== side;
+    const inGracePeriod = timeSinceLastBounce < oppositeWallGracePeriod;
     
-    // ALWAYS collide with walls - walls should be solid barriers
-    return true; // Always collide - walls are solid
+    if (isOppositeWall && inGracePeriod) {
+      console.log(`🌟 Wall collision BYPASSED: ${side} side (grace period: ${timeSinceLastBounce}ms < ${oppositeWallGracePeriod}ms)`);
+      return false; // Allow passage through opposite wall
+    }
+    
+    console.log(`🧱 Wall collision check: ${side} side, player can go through? NO - solid wall`);
+    return true; // Normal solid wall collision
   }
 
   private handleLeftWallCollision(): void {
