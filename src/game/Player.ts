@@ -32,7 +32,11 @@ export class Player extends Physics.Arcade.Sprite {
 
     private setupPhysics(): void {
         const body = this.body as Physics.Arcade.Body;
+        
+        // Set custom world bounds - keep left/right walls but allow infinite vertical climbing
         body.setCollideWorldBounds(true);
+        body.world.setBounds(0, -10000, this.scene.scale.width, 20000); // Huge vertical space for infinite climbing
+        
         body.setSize(80, 100);
         body.setOffset(24, 28);
     }
