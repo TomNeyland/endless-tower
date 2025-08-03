@@ -61,8 +61,8 @@ export class WallCollision {
     this.leftWallCollider = this.scene.physics.add.collider(
       this.player,
       this.wallManager.getLeftWalls(),
-      (player, wall) => this.handleWallCollisionDirect(player as Player, wall, 'left'),
-      (player, wall) => this.shouldCollideWithWall(player as Player, 'left'),
+      (player, wall) => this.onCollideAfterSeparation(player as Player, wall, 'left'),
+      (player, wall) => this.capturePreCollisionVelocity(player as Player, wall, 'left'),
       this.scene
     );
     
@@ -70,48 +70,54 @@ export class WallCollision {
     this.rightWallCollider = this.scene.physics.add.collider(
       this.player,
       this.wallManager.getRightWalls(),
-      (player, wall) => this.handleWallCollisionDirect(player as Player, wall, 'right'),
-      (player, wall) => this.shouldCollideWithWall(player as Player, 'right'),
+      (player, wall) => this.onCollideAfterSeparation(player as Player, wall, 'right'),
+      (player, wall) => this.capturePreCollisionVelocity(player as Player, wall, 'right'),
       this.scene
     );
   }
 
 
-  private shouldCollideWithWall(player: Player, side: 'left' | 'right'): boolean {
+  private capturePreCollisionVelocity(player: Player, wall: any, side: 'left' | 'right'): boolean {
+    const playerBody = player.body as Physics.Arcade.Body;
     const now = Date.now();
     const timeSinceLastBounce = now - this.lastWallBounceTime;
     
-    // Allow passage through opposite wall for a brief period after bouncing
+    // Clone velocity before collision resolution (as per Phaser docs)
+    (player as any).preHitVel = playerBody.velocity.clone();
+    
+    console.log(`⚡ ProcessCallback (BEFORE separation): ${side} wall, velocity X=${playerBody.velocity.x.toFixed(1)}, Y=${playerBody.velocity.y.toFixed(1)}`);
+    
+    // Handle grace period - if in grace period, don't allow collision
     const oppositeWallGracePeriod = 200; // 200ms grace period
     const isOppositeWall = this.lastBounceSide !== null && this.lastBounceSide !== side;
     const inGracePeriod = timeSinceLastBounce < oppositeWallGracePeriod;
     
     if (isOppositeWall && inGracePeriod) {
       console.log(`🌟 Wall collision BYPASSED: ${side} side (grace period: ${timeSinceLastBounce}ms < ${oppositeWallGracePeriod}ms, last bounce: ${this.lastBounceSide})`);
-      return false; // Allow passage through opposite wall
+      return false; // Block collision - allow passage through opposite wall
     }
     
-    // Normal solid wall collision
+    // Normal collision allowed - velocity will be captured for collision handler
     return true;
   }
 
-  private handleWallCollisionDirect(player: Player, wall: any, side: 'left' | 'right'): void {
-    const playerBody = player.body as Physics.Arcade.Body;
+  private onCollideAfterSeparation(player: Player, wall: any, side: 'left' | 'right'): void {
+    // Use the pre-collision velocity captured in processCallback
+    const preHitVel = (player as any).preHitVel;
     
-    // Access velocity directly in collision handler - this is the CORRECT way per Phaser docs
-    const preCollisionVelocity = {
-      x: playerBody.velocity.x,
-      y: playerBody.velocity.y
-    };
+    if (!preHitVel) {
+      console.log(`⚠️ No pre-hit velocity captured for ${side} wall collision`);
+      return;
+    }
     
-    console.log(`🎯 DIRECT collision handler: ${side} wall, velocity X=${preCollisionVelocity.x.toFixed(1)}, Y=${preCollisionVelocity.y.toFixed(1)}`);
+    console.log(`🎯 CollideCallback (AFTER separation): ${side} wall, using captured velocity X=${preHitVel.x.toFixed(1)}, Y=${preHitVel.y.toFixed(1)}`);
     
     const wallConfig = this.wallManager.getWallConfig();
     
-    // Create movement state object with the pre-collision velocity
+    // Create movement state object with the captured pre-collision velocity
     const effectiveMovementState = {
-      horizontalSpeed: preCollisionVelocity.x,
-      verticalSpeed: preCollisionVelocity.y,
+      horizontalSpeed: preHitVel.x,
+      verticalSpeed: preHitVel.y,
       isGrounded: player.getMovementState().isGrounded,
       wallBounceCount: player.getMovementState().wallBounceCount
     };
@@ -126,6 +132,9 @@ export class WallCollision {
     } else {
       console.log(`❌ Wall bounce rejected: ${side} side`);
     }
+    
+    // Clear the captured velocity to prevent stale data
+    (player as any).preHitVel = null;
   }
 
   // These old methods are no longer needed - using direct collision handler approach
