@@ -28,16 +28,15 @@ export interface ComboConfig {
 }
 
 export interface CameraConfig {
-  autoScrollSpeed: number;
-  scrollAcceleration: number;
-  maxScrollSpeed: number;
-  deathLineOffset: number;
-  cameraFollowSmoothing: number;
-  deathLineStartDelay: number;  // Time in ms before death line starts
-  deathLineMinHeight: number;   // Minimum height player must reach before death line activates
-  verticalDeadzone: number;     // Vertical distance player can move without camera following
-  maxDescentSpeed: number;      // Maximum speed camera can move down when player descends
-  descentSmoothingFactor: number; // Smoothing factor for descent camera movement
+  cameraFollowSmoothing: number; // Smoothing factor for Phaser's built-in camera following
+}
+
+export interface DeathLineConfig {
+  riseSpeed: number;            // Speed at which death line rises (pixels per second)
+  startDelay: number;           // Time in ms before death line starts
+  minHeight: number;            // Minimum height player must reach before death line activates
+  warningDistance: number;      // Distance from death line to show warnings
+  visualOpacity: number;        // Opacity of the death line block (0.0-1.0)
 }
 
 export interface WallConfig {
@@ -58,6 +57,7 @@ export interface GameConfig {
   platforms: PlatformConfig;
   combos: ComboConfig;
   camera: CameraConfig;
+  deathLine: DeathLineConfig;
   walls: WallConfig;
 }
 
@@ -92,16 +92,15 @@ export const DEFAULT_CONFIG: GameConfig = {
   },
   
   camera: {
-    autoScrollSpeed: 50,
-    scrollAcceleration: 0.5,
-    maxScrollSpeed: 200,
-    deathLineOffset: 200,
-    cameraFollowSmoothing: 0.1,
-    deathLineStartDelay: 30000, // 30 seconds before death line starts
-    deathLineMinHeight: 300,    // Must climb at least 300px before death line activates
-    verticalDeadzone: 150,      // Player can move 150px up/down without camera following
-    maxDescentSpeed: 100,       // Camera can move down at max 100px/s when player descends
-    descentSmoothingFactor: 0.05 // Slower smoothing for descent to prevent jarring movement
+    cameraFollowSmoothing: 0.1  // Phaser built-in camera smoothing
+  },
+  
+  deathLine: {
+    riseSpeed: 50,              // Death line rises at 50 pixels per second
+    startDelay: 30000,          // 30 seconds before death line starts
+    minHeight: 300,             // Must climb at least 300px before death line activates
+    warningDistance: 300,       // Show warnings when within 300px of death line
+    visualOpacity: 0.7          // 70% opacity for the translucent block
   },
   
   walls: {
@@ -201,6 +200,10 @@ export class GameConfiguration {
   get camera(): CameraConfig {
     return { ...this.config.camera };
   }
+
+  get deathLine(): DeathLineConfig {
+    return { ...this.config.deathLine };
+  }
   
   get walls(): WallConfig {
     return { ...this.config.walls };
@@ -297,6 +300,7 @@ export class GameConfiguration {
       platforms: { ...base.platforms, ...custom.platforms },
       combos: { ...base.combos, ...custom.combos },
       camera: { ...base.camera, ...custom.camera },
+      deathLine: { ...base.deathLine, ...custom.deathLine },
       walls: { ...base.walls, ...custom.walls }
     };
   }

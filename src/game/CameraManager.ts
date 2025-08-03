@@ -14,10 +14,7 @@ export class CameraManager {
   private highestPlayerY: number = 0;
   private cameraTargetY: number = 0;
   private initialCameraY: number = 0;
-  private autoScrollEnabled: boolean = false;
-  private playerDeadzoneBottom: number = 0;
-  private playerDeadzoneTop: number = 0;
-  private usingBuiltInFollowing: boolean = true;
+  // Removed custom control variables - using pure Phaser implementation
 
   constructor(scene: Scene, player: Player, gameConfig: GameConfiguration, gameStateManager: GameStateManager) {
     this.scene = scene;
@@ -39,17 +36,16 @@ export class CameraManager {
     // Set camera bounds (no horizontal bounds, but track vertical movement)
     this.camera.setBounds(0, -Infinity, this.scene.scale.width, Infinity);
     
-    // Initially enable Phaser's built-in following (will be disabled when auto-scroll starts)
+    // Enable Phaser's built-in following for smooth normal movement
     this.camera.startFollow(this.player, false, this.config.cameraFollowSmoothing, this.config.cameraFollowSmoothing);
     
-    // Set camera deadzone for vertical following only
+    // Set camera deadzone for comfortable player movement
     this.camera.setDeadzone(this.scene.scale.width * 0.3, this.scene.scale.height * 0.2);
     
-    // Camera should follow player upward but not downward too quickly
-    this.camera.setFollowOffset(0, this.scene.scale.height * 0.3); // Player in upper third of screen
+    // Camera should follow player with player in upper third of screen
+    this.camera.setFollowOffset(0, this.scene.scale.height * 0.3);
     
-    // Initialize player deadzone bounds
-    this.updatePlayerDeadzone();
+    // Camera setup complete - using pure Phaser following
   }
 
   private setupEventListeners(): void {
@@ -64,25 +60,17 @@ export class CameraManager {
       return;
     }
 
-    if (this.autoScrollEnabled) {
-      this.updateUnifiedCameraControl(deltaTime);
-    } else {
-      this.updateCameraPosition();
-    }
+    this.trackPlayerHeight();
     this.emitCameraState();
   }
 
-  private updateCameraPosition(): void {
+  private trackPlayerHeight(): void {
     const playerY = this.player.y;
     
     // Track the highest point the player has reached
     if (playerY < this.highestPlayerY) {
       this.highestPlayerY = playerY;
       
-      // Camera should follow upward movement immediately
-      const targetY = this.highestPlayerY + this.scene.scale.height * 0.3;
-      this.cameraTargetY = Math.min(this.cameraTargetY, targetY);
-      
       EventBus.emit('player-height-record', {
         height: this.getPlayerHeight(),
         position: { x: this.player.x, y: this.player.y },
@@ -91,53 +79,6 @@ export class CameraManager {
     }
   }
 
-  private updateUnifiedCameraControl(deltaTime: number): void {
-    // Calculate auto-scroll target
-    const autoScrollAmount = this.config.autoScrollSpeed * (deltaTime / 1000);
-    let autoScrollTargetY = this.cameraTargetY - autoScrollAmount;
-    
-    // Calculate player-based target with deadzone
-    const playerBasedTargetY = this.calculatePlayerBasedTarget();
-    
-    // Choose the higher priority target (upward movement wins)
-    let finalTargetY: number;
-    
-    if (this.isPlayerInDeadzone()) {
-      // Player is in deadzone, prioritize auto-scroll
-      finalTargetY = autoScrollTargetY;
-    } else if (this.player.y < this.highestPlayerY) {
-      // Player reached new height, follow immediately
-      this.highestPlayerY = this.player.y;
-      finalTargetY = Math.min(autoScrollTargetY, playerBasedTargetY);
-      this.updatePlayerDeadzone();
-      
-      EventBus.emit('player-height-record', {
-        height: this.getPlayerHeight(),
-        position: { x: this.player.x, y: this.player.y },
-        timestamp: Date.now()
-      });
-    } else if (this.player.y > this.playerDeadzoneBottom) {
-      // Player descended beyond deadzone, allow limited downward camera movement
-      const descentAmount = Math.min(
-        this.config.maxDescentSpeed * (deltaTime / 1000),
-        this.player.y - this.playerDeadzoneBottom
-      );
-      finalTargetY = Math.max(autoScrollTargetY, this.cameraTargetY + descentAmount);
-    } else {
-      // Player is within acceptable range, use auto-scroll
-      finalTargetY = autoScrollTargetY;
-    }
-    
-    this.cameraTargetY = finalTargetY;
-    
-    // Smooth camera movement toward target
-    const currentY = this.camera.scrollY;
-    const smoothingFactor = this.player.y > this.playerDeadzoneBottom ? 
-      this.config.descentSmoothingFactor : this.config.cameraFollowSmoothing;
-    const newY = Phaser.Math.Linear(currentY, this.cameraTargetY, smoothingFactor);
-    
-    this.camera.setScroll(this.camera.scrollX, newY);
-  }
 
   private onPlayerHeightChanged(data: any): void {
     // Custom event for when player reaches new heights
@@ -153,7 +94,6 @@ export class CameraManager {
       scrollY: this.camera.scrollY,
       playerHeight: this.getPlayerHeight(),
       highestHeight: this.getHighestHeight(),
-      deathLineY: this.getDeathLineY(),
       isPlayerAboveCamera: this.player.y < this.camera.scrollY - this.scene.scale.height * 0.1
     };
     
@@ -169,10 +109,6 @@ export class CameraManager {
     return Math.max(0, this.initialCameraY + this.scene.scale.height * 0.7 - this.highestPlayerY);
   }
 
-  getDeathLineY(): number {
-    // Death line follows camera at bottom with offset
-    return this.camera.scrollY + this.scene.scale.height + this.config.deathLineOffset;
-  }
 
   getCameraViewBounds(): { top: number; bottom: number; left: number; right: number } {
     return {
@@ -183,46 +119,14 @@ export class CameraManager {
     };
   }
 
-  isPlayerBelowDeathLine(): boolean {
-    return this.player.y > this.getDeathLineY();
-  }
 
   private onDeathLineActivated(): void {
-    this.autoScrollEnabled = true;
-    this.usingBuiltInFollowing = false;
-    
-    // Disable Phaser's built-in camera following to prevent conflicts
-    this.camera.stopFollow();
-    
-    // Set camera target to current position
-    this.cameraTargetY = this.camera.scrollY;
-    
-    // Update deadzone based on current player position
-    this.updatePlayerDeadzone();
-    
-    console.log('📷 Camera auto-scroll enabled, built-in following disabled');
+    // Death line activation no longer affects camera behavior
+    // Pure Phaser camera following continues unchanged
+    console.log('📷 Death line activated, camera continues pure Phaser following');
   }
 
-  private updatePlayerDeadzone(): void {
-    // Create a vertical deadzone around the player's current position
-    const playerScreenY = this.player.y - this.camera.scrollY;
-    const screenCenterY = this.scene.scale.height / 2;
-    const idealPlayerScreenY = this.scene.scale.height * 0.3; // Player in upper third
-    
-    // Deadzone is centered around ideal player screen position
-    this.playerDeadzoneTop = this.camera.scrollY + idealPlayerScreenY - (this.config.verticalDeadzone / 2);
-    this.playerDeadzoneBottom = this.camera.scrollY + idealPlayerScreenY + (this.config.verticalDeadzone / 2);
-  }
-
-  private calculatePlayerBasedTarget(): number {
-    // Calculate where camera should be to keep player in the upper third of screen
-    const idealOffsetFromPlayer = this.scene.scale.height * 0.3;
-    return this.player.y - idealOffsetFromPlayer;
-  }
-
-  private isPlayerInDeadzone(): boolean {
-    return this.player.y >= this.playerDeadzoneTop && this.player.y <= this.playerDeadzoneBottom;
-  }
+  // Removed custom deadzone methods - using pure Phaser deadzone system
 
   focusOnPlayer(): void {
     this.camera.centerOn(this.player.x, this.player.y);
@@ -241,21 +145,16 @@ export class CameraManager {
     // Reset camera state to initial values
     this.highestPlayerY = this.player.y;
     this.cameraTargetY = this.initialCameraY;
-    this.autoScrollEnabled = false;
-    this.usingBuiltInFollowing = true;
     
     // Reset camera position
     this.camera.setScroll(0, this.initialCameraY);
     
-    // Re-enable built-in following
+    // Re-enable pure Phaser built-in following
     this.camera.startFollow(this.player, false, this.config.cameraFollowSmoothing, this.config.cameraFollowSmoothing);
     this.camera.setDeadzone(this.scene.scale.width * 0.3, this.scene.scale.height * 0.2);
     this.camera.setFollowOffset(0, this.scene.scale.height * 0.3);
     
-    // Update player deadzone
-    this.updatePlayerDeadzone();
-    
-    console.log('✅ CameraManager: Reset complete - camera following restored');
+    console.log('✅ CameraManager: Reset complete - pure Phaser following');
   }
 
   destroy(): void {

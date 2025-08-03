@@ -1,12 +1,12 @@
 import { Scene, GameObjects } from 'phaser';
 import { Player } from './Player';
-import { GameConfiguration, CameraConfig } from './GameConfiguration';
+import { GameConfiguration, DeathLineConfig } from './GameConfiguration';
 import { EventBus } from './EventBus';
 
 export class DeathLine {
   private scene: Scene;
   private player: Player;
-  private config: CameraConfig;
+  private config: DeathLineConfig;
   
   // Visual elements
   private deathLineGraphics: GameObjects.Graphics;
@@ -25,13 +25,13 @@ export class DeathLine {
   private pulseIntensity: number = 0;
   private lastWarningTime: number = 0;
   
-  private readonly WARNING_DISTANCE = 300; // Show warning when player is this close
+  // Warning distance now comes from config
   private readonly PULSE_SPEED = 3; // Speed of death line pulsing effect
 
   constructor(scene: Scene, player: Player, gameConfig: GameConfiguration) {
     this.scene = scene;
     this.player = player;
-    this.config = gameConfig.camera;
+    this.config = gameConfig.deathLine;
     
     this.gameStartTime = Date.now();
     this.initialPlayerY = player.y;
@@ -41,11 +41,11 @@ export class DeathLine {
   }
 
   private setupVisuals(): void {
-    // Create death line graphics
+    // Create death line graphics (translucent full-width block)
     this.deathLineGraphics = this.scene.add.graphics();
     this.deathLineGraphics.setDepth(800); // Above most game elements but below UI
     
-    // Create warning zone graphics
+    // Create warning zone graphics  
     this.warningZone = this.scene.add.graphics();
     this.warningZone.setDepth(700);
     this.warningZone.setAlpha(0.3);
@@ -70,11 +70,7 @@ export class DeathLine {
   }
 
   private setupEventListeners(): void {
-    EventBus.on('camera-state-updated', this.onCameraStateUpdated.bind(this));
-  }
-
-  private onCameraStateUpdated(cameraState: any): void {
-    this.deathLineY = cameraState.deathLineY;
+    // Death line no longer depends on camera events
   }
 
   update(deltaTime: number): void {
@@ -109,23 +105,22 @@ export class DeathLine {
     const heightClimbed = Math.max(0, this.initialPlayerY - this.highestPlayerY);
     
     // Activate death line if either condition is met
-    const timeConditionMet = timeElapsed >= this.config.deathLineStartDelay;
-    const heightConditionMet = heightClimbed >= this.config.deathLineMinHeight;
+    const timeConditionMet = timeElapsed >= this.config.startDelay;
+    const heightConditionMet = heightClimbed >= this.config.minHeight;
     
     if (timeConditionMet || heightConditionMet) {
       this.deathLineActive = true;
+      // Initialize death line position below the initial player position
+      this.deathLineY = this.initialPlayerY + 200; // Start 200px below initial position
       console.log(`💀 Death line activated! Time: ${(timeElapsed/1000).toFixed(1)}s, Height: ${heightClimbed.toFixed(0)}px`);
       EventBus.emit('death-line-activated');
     }
   }
 
   private updateDeathLinePosition(deltaTime: number): void {
-    // Death line rises automatically based on auto scroll speed
-    if (this.config.autoScrollSpeed > 0) {
-      const camera = this.scene.cameras.main;
-      const cameraBottom = camera.scrollY + this.scene.scale.height;
-      this.deathLineY = cameraBottom + this.config.deathLineOffset;
-    }
+    // Death line rises independently at its own speed
+    const riseAmount = this.config.riseSpeed * (deltaTime / 1000);
+    this.deathLineY -= riseAmount; // Negative Y = upward movement
   }
 
   private updateVisuals(): void {
@@ -152,32 +147,39 @@ export class DeathLine {
 
   private drawDeathLine(): void {
     const screenWidth = this.scene.scale.width;
-    const pulseOffset = Math.sin(this.pulseIntensity) * 3;
-    const baseAlpha = 0.8;
-    const pulseAlpha = baseAlpha + (Math.sin(this.pulseIntensity) * 0.2);
+    const blockHeight = 100; // Height of the translucent block
     
-    // Main death line (thick red line)
-    this.deathLineGraphics.lineStyle(8 + pulseOffset, 0xff0000, pulseAlpha);
+    // Pulsing effect for the opacity
+    const pulseAlpha = this.config.visualOpacity + (Math.sin(this.pulseIntensity) * 0.2);
+    
+    // Draw translucent full-width rising block
+    this.deathLineGraphics.fillStyle(0xff0000, Math.max(0.3, Math.min(1.0, pulseAlpha)));
+    this.deathLineGraphics.fillRect(0, this.deathLineY - blockHeight, screenWidth, blockHeight);
+    
+    // Add animated danger border at the top
+    const borderPulse = Math.sin(this.pulseIntensity * 2) * 3;
+    this.deathLineGraphics.lineStyle(4 + borderPulse, 0xff4444, 0.9);
     this.deathLineGraphics.beginPath();
-    this.deathLineGraphics.moveTo(0, this.deathLineY);
-    this.deathLineGraphics.lineTo(screenWidth, this.deathLineY);
+    this.deathLineGraphics.moveTo(0, this.deathLineY - blockHeight);
+    this.deathLineGraphics.lineTo(screenWidth, this.deathLineY - blockHeight);
     this.deathLineGraphics.strokePath();
     
-    // Add danger pattern above the line
-    this.deathLineGraphics.lineStyle(2, 0xff4444, 0.6);
-    for (let x = 0; x < screenWidth; x += 40) {
+    // Add animated flame-like effects at the top (preparation for fire graphics)
+    this.deathLineGraphics.lineStyle(2, 0xffaa00, 0.7);
+    for (let x = 0; x < screenWidth; x += 30) {
+      const flameHeight = 15 + Math.sin(this.pulseIntensity + x * 0.01) * 8;
       this.deathLineGraphics.beginPath();
-      this.deathLineGraphics.moveTo(x, this.deathLineY - 20);
-      this.deathLineGraphics.lineTo(x + 20, this.deathLineY);
-      this.deathLineGraphics.lineTo(x + 40, this.deathLineY - 20);
+      this.deathLineGraphics.moveTo(x, this.deathLineY - blockHeight);
+      this.deathLineGraphics.lineTo(x + 10, this.deathLineY - blockHeight - flameHeight);
+      this.deathLineGraphics.lineTo(x + 20, this.deathLineY - blockHeight);
       this.deathLineGraphics.strokePath();
     }
   }
 
   private drawWarningZone(): void {
     const screenWidth = this.scene.scale.width;
-    const warningZoneTop = this.deathLineY - this.WARNING_DISTANCE;
-    const warningHeight = this.WARNING_DISTANCE;
+    const warningZoneTop = this.deathLineY - this.config.warningDistance;
+    const warningHeight = this.config.warningDistance;
     
     // Gradient warning zone
     const gradient = this.scene.add.graphics();
@@ -201,7 +203,7 @@ export class DeathLine {
 
   private updateWarningSystem(): void {
     const distanceToDeathLine = this.deathLineY - this.player.y;
-    const showWarning = distanceToDeathLine <= this.WARNING_DISTANCE && distanceToDeathLine > 0;
+    const showWarning = distanceToDeathLine <= this.config.warningDistance && distanceToDeathLine > 0;
     
     if (showWarning) {
       this.warningText.setVisible(true);
@@ -211,7 +213,7 @@ export class DeathLine {
       this.warningText.setAlpha(pulse);
       
       // Vary text based on urgency
-      const urgency = 1 - (distanceToDeathLine / this.WARNING_DISTANCE);
+      const urgency = 1 - (distanceToDeathLine / this.config.warningDistance);
       if (urgency > 0.8) {
         this.warningText.setText('CRITICAL! CLIMB NOW!');
         this.warningText.setColor('#ff0000');
@@ -273,7 +275,7 @@ export class DeathLine {
   }
 
   isPlayerInDanger(): boolean {
-    return this.getPlayerDistanceFromDeathLine() <= this.WARNING_DISTANCE;
+    return this.getPlayerDistanceFromDeathLine() <= this.config.warningDistance;
   }
 
   isPlayerDead(): boolean {
@@ -292,7 +294,9 @@ export class DeathLine {
     // This prevents immediate reactivation due to height calculation
     this.initialPlayerY = this.player.y;
     this.highestPlayerY = this.player.y;
-    this.deathLineY = 0;
+    
+    // Reset death line position to be well below player (will be set properly when activated)
+    this.deathLineY = this.player.y + 500; // Start 500px below player
     
     // Reset visual effects
     this.pulseIntensity = 0;
@@ -303,15 +307,15 @@ export class DeathLine {
     this.deathLineGraphics.clear();
     this.warningZone.clear();
     
-    console.log(`✅ DeathLine: Reset complete - death line deactivated, player at Y: ${this.player.y}, highestY: ${this.highestPlayerY}`);
+    console.log(`✅ DeathLine: Reset complete - death line deactivated, player at Y: ${this.player.y}, deathLine at Y: ${this.deathLineY}`);
   }
 
   updateConfiguration(newConfig: GameConfiguration): void {
-    this.config = newConfig.camera;
+    this.config = newConfig.deathLine;
   }
 
   destroy(): void {
-    EventBus.off('camera-state-updated', this.onCameraStateUpdated.bind(this));
+    // No event listeners to clean up anymore
     
     if (this.deathLineGraphics) {
       this.deathLineGraphics.destroy();
