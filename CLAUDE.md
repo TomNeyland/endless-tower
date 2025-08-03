@@ -15,6 +15,18 @@ This project aims to implement a clone of **Icy Tower**, a classic endless platf
 
 The original Icy Tower featured simple but addictive mechanics where building momentum through left/right movement allows for spectacular multi-floor jumps, creating a satisfying risk/reward dynamic.
 
+## Progress Logs
+
+Development progress, experiments, and technical insights are documented in `progress-logs/` directory. These logs capture institutional knowledge about what was tried, what worked, what didn't, and why.
+
+**Naming Convention**: `YYYY-MM-DD-DESCRIPTIVE_TITLE.md`
+**Content Guidelines**: 
+- Document both successful and failed approaches with technical details
+- Include code examples of problematic patterns and their solutions  
+- Explain gotchas that made approaches seem broken when they weren't
+- Provide specific retry steps for inconclusive experiments
+- Focus on technical lessons that help future developers avoid the same pitfalls
+
 ## Project Overview
 
 This is an **MVP-complete Icy Tower clone** built with Angular 19 + Phaser 3. The project has evolved from a basic template into a functional platformer game with core mechanics implemented. While the fundamental game systems are working, significant polish, content expansion, and system refinement work remains to achieve a production-quality experience.

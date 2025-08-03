@@ -68,8 +68,8 @@ export const DEFAULT_CONFIG: GameConfig = {
     jumpScalingExponent: 1.0,      // Linear scaling for now
     horizontalRetentionFactor: 0.6, // Retain 60% of horizontal velocity on jump
     gravity: 800,
-    horizontalAcceleration: 1200,  // Responsive acceleration
-    maxHorizontalSpeed: 700,       // Max speed achievable
+    horizontalAcceleration: 600,   // Slower acceleration creates bigger skill gap
+    maxHorizontalSpeed: 900,       // Higher ceiling unlocked by wall bouncing skill
     horizontalDrag: 300            // Low drag for smooth long-distance acceleration
   },
   

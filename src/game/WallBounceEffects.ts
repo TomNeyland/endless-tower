@@ -118,12 +118,18 @@ export class WallBounceEffects {
     let flashColor = 0x00ff00; // Green for normal bounce
     let flashIntensity = 0.3;
 
+    console.log(`🎨 Wall bounce visual effect: efficiency=${efficiency.toFixed(2)}`);
+
     if (efficiency > 1.0) {
       flashColor = 0xffd700; // Gold for high efficiency
       flashIntensity = 0.5;
+      console.log(`🟡 Using GOLD flash (efficiency > 1.0)`);
     } else if (efficiency < 0.8) {
       flashColor = 0xff6600; // Orange for low efficiency
       flashIntensity = 0.2;
+      console.log(`🟠 Using ORANGE flash (efficiency < 0.8)`);
+    } else {
+      console.log(`🟢 Using GREEN flash (efficiency >= 0.8)`);
     }
 
     // Flash effect
@@ -147,10 +153,15 @@ export class WallBounceEffects {
     if (this.successEmitter) {
       try {
         if (this.successEmitter.active && this.successEmitter.explode) {
-          let particleColor = 0x00ff00;
+          let particleColor = 0x00ff00; // Green for normal efficiency
+          
           if (efficiency > 1.0) {
-            particleColor = 0xffd700;
+            particleColor = 0xffd700; // Gold for high efficiency
+          } else if (efficiency < 0.8) {
+            particleColor = 0xff0000; // Red for low efficiency (bad hits)
           }
+
+          console.log(`🎨 Using particle color: ${efficiency < 0.8 ? 'RED' : efficiency > 1.0 ? 'GOLD' : 'GREEN'} (efficiency: ${efficiency.toFixed(2)})`);
 
           this.successEmitter.setConfig({ tint: particleColor });
           this.successEmitter.setPosition(data.position.x, data.position.y);
@@ -173,11 +184,7 @@ export class WallBounceEffects {
       this.successSound.play({ rate });
     }
 
-    // Camera shake for successful bounces
-    EventBus.emit('camera-shake', {
-      intensity: efficiency > 1.0 ? 8 : 5,
-      duration: 100
-    });
+    // No camera shake for wall bounces - keep it smooth
   }
 
 

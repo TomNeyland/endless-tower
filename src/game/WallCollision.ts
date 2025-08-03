@@ -207,8 +207,8 @@ export class WallCollision {
   }
 
   private calculateBounceEfficiency(movementState: any, side: 'left' | 'right', input: any, wallConfig: any): number {
-    // Simple physics-based efficiency calculation
-    let efficiency = 1.0; // Start with 100% momentum redirection
+    // Realistic momentum losses - prevent infinite wall climbing
+    let efficiency = 0.6; // Default: some momentum loss
     
     // Check input direction vs wall side
     const pressingIntoWall = side === 'left' ? input.left : input.right;
@@ -216,16 +216,16 @@ export class WallCollision {
     
     if (pressingIntoWall) {
       // Penalty for pressing into wall - fighting the redirect
-      efficiency = 0.8;
-      console.log(`⚠️ Penalty applied: pressing INTO ${side} wall (efficiency: 0.8)`);
+      efficiency = 0.4;
+      console.log(`⚠️ Penalty applied: pressing INTO ${side} wall (efficiency: 0.4)`);
     } else if (pressingAwayFromWall) {
       // Bonus for pressing away from wall - helping the redirect
-      efficiency = 1.25;
-      console.log(`🚀 Bonus applied: pressing AWAY from ${side} wall (efficiency: 1.25)`);
+      efficiency = 0.8;
+      console.log(`🚀 Bonus applied: pressing AWAY from ${side} wall (efficiency: 0.8)`);
     } else {
       // Neutral - no input or different direction
-      efficiency = 1.0;
-      console.log(`➡️ Neutral redirect: no relevant input (efficiency: 1.0)`);
+      efficiency = 0.6;
+      console.log(`➡️ Neutral redirect: no relevant input (efficiency: 0.6)`);
     }
     
     return efficiency;
@@ -382,11 +382,7 @@ export class WallCollision {
       timestamp: Date.now()
     });
     
-    // Light camera shake effect for wall contact
-    EventBus.emit('camera-shake', {
-      intensity: 2,
-      duration: 50
-    });
+    // No camera shake for wall bounces - keep it smooth
   }
 
   updateWallCollision(): void {
