@@ -17,15 +17,11 @@ export class GameStateManager {
   private setupEventListeners(): void {
     // Listen for game over events
     EventBus.on('game-over', this.onGameOver.bind(this));
-    EventBus.on('restart-game', this.onRestart.bind(this));
+    // Note: restart is handled by scene restart, not events
   }
 
   private onGameOver(): void {
     this.setState(GameState.GAME_OVER);
-  }
-
-  private onRestart(): void {
-    this.setState(GameState.PLAYING);
   }
 
   public setState(newState: GameState): void {
@@ -98,12 +94,33 @@ export class GameStateManager {
     this.setState(GameState.GAME_OVER);
   }
 
-  public restart(): void {
+  // Reset functionality for controlled game restart
+  public reset(): void {
+    console.log('🔄 GameStateManager: Initiating controlled reset');
+    
+    // Store previous state for potential rollback
+    const previousState = this.currentState;
+    
+    // Emit reset start event for systems to prepare
+    EventBus.emit('game-reset-starting', {
+      fromState: this.currentState,
+      timestamp: Date.now()
+    });
+    
+    // Transition to playing state
     this.setState(GameState.PLAYING);
+    
+    // Emit reset complete event
+    EventBus.emit('game-reset-complete', {
+      fromState: previousState,
+      newState: this.currentState,
+      timestamp: Date.now()
+    });
+    
+    console.log('✅ GameStateManager: Reset complete');
   }
 
   public destroy(): void {
     EventBus.off('game-over', this.onGameOver.bind(this));
-    EventBus.off('restart-game', this.onRestart.bind(this));
   }
 }

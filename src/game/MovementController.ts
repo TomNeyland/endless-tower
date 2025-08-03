@@ -376,6 +376,27 @@ export class MovementController {
     this.setupPhysicsBody();
   }
 
+  reset(): void {
+    // Reset all movement state to initial values
+    this.isGrounded = false;
+    this.facingDirection = 1;
+    this.lastGroundedTime = 0;
+    this.jumpBuffer = 0;
+    
+    // Reset wall bounce state
+    this.wallBounceCount = 0;
+    this.isInWallBounceWindow = false;
+    this.wallBounceWindowStartTime = 0;
+    this.wallContactSide = null;
+    this.preWallContactSpeed = 0;
+    
+    // Reset physics body
+    this.body.setVelocity(0, 0);
+    this.body.setAcceleration(0, 0);
+    
+    console.log('🔄 MovementController: Reset complete');
+  }
+
   getConfiguration(): PhysicsConfig {
     return { ...this.config };
   }

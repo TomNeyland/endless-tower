@@ -115,8 +115,9 @@ export class GameOverScreen {
 
   private setupEventListeners(): void {
     EventBus.on('game-over', this.onGameOver.bind(this));
-    EventBus.on('restart-game', this.hide.bind(this));
     EventBus.on('game-stats-collected', this.onGameStatsCollected.bind(this));
+    EventBus.on('game-reset-starting', this.onGameReset.bind(this));
+    EventBus.on('game-state-changed', this.onGameStateChanged.bind(this));
   }
 
   private onGameOver(gameOverData: any): void {
@@ -149,6 +150,19 @@ export class GameOverScreen {
       this.updateStatsDisplay();
       this.updateHighScoreDisplay();
       this.show();
+    }
+  }
+
+  private onGameReset(): void {
+    console.log('🔄 GameOverScreen: Game reset detected, hiding screen');
+    this.hide();
+  }
+
+  private onGameStateChanged(data: any): void {
+    // Hide the screen when transitioning back to playing state
+    if (data.newState === 'playing' && this.isVisible) {
+      console.log('🔄 GameOverScreen: Game state changed to playing, hiding screen');
+      this.hide();
     }
   }
 
@@ -483,8 +497,9 @@ export class GameOverScreen {
 
   destroy(): void {
     EventBus.off('game-over', this.onGameOver.bind(this));
-    EventBus.off('restart-game', this.hide.bind(this));
     EventBus.off('game-stats-collected', this.onGameStatsCollected.bind(this));
+    EventBus.off('game-reset-starting', this.onGameReset.bind(this));
+    EventBus.off('game-state-changed', this.onGameStateChanged.bind(this));
     
     if (this.container) {
       this.container.destroy();

@@ -62,13 +62,19 @@ export class Game extends Scene
 
     create ()
     {
+        console.log('🎮 Game scene create() called');
         this.setupBackground();
+        console.log('✅ Background setup complete');
         this.setupPlayer();
+        console.log('✅ Player setup complete');
         this.setupPlatforms();
+        console.log('✅ Platforms setup complete');
         this.setupWalls();
         this.setupCollisions();
         this.setupGameStateManager();
+        console.log('✅ GameStateManager setup complete');
         this.setupCamera();
+        console.log('✅ Camera setup complete');
         this.setupGameSystems();
         this.setupEffects();
         this.setupUI();
@@ -76,6 +82,7 @@ export class Game extends Scene
         this.setupGameOverScreen();
         this.setupEventListeners();
         
+        console.log('🎮 Game scene initialization complete');
         EventBus.emit('current-scene-ready', this);
     }
 
@@ -86,8 +93,8 @@ export class Game extends Scene
             this.debugUI.update(time);
         }
 
-        // Only update gameplay systems when playing
-        if (!this.gameStateManager || !this.gameStateManager.allowsGameplayUpdates()) {
+        // Only update gameplay systems when playing (with null safety during initialization)
+        if (this.gameStateManager && !this.gameStateManager.allowsGameplayUpdates()) {
             return;
         }
 
@@ -148,11 +155,14 @@ export class Game extends Scene
 
     private setupCollisions(): void
     {
-        this.oneWayPlatforms = new OneWayPlatform(this, this.player);
-        
-        // Add the ground platform to the one-way platform system
-        const groundPlatforms = this.platformManager.getPlatforms();
-        this.oneWayPlatforms.addPlatformGroup(groundPlatforms);
+        // Delay OneWayPlatform creation to ensure physics is fully ready
+        this.time.delayedCall(100, () => {
+            this.oneWayPlatforms = new OneWayPlatform(this, this.player);
+            
+            // Add the ground platform to the one-way platform system
+            const groundPlatforms = this.platformManager.getPlatforms();
+            this.oneWayPlatforms.addPlatformGroup(groundPlatforms);
+        });
         
         // Set up wall collision
         this.wallCollision = new WallCollision(this, this.player, this.wallManager);
@@ -225,7 +235,14 @@ export class Game extends Scene
 
     private onKeyDown(event: KeyboardEvent): void
     {
-        // Only handle restart if game is not playing and game over screen is showing
+        // R key for restart - works anytime for debugging
+        if (event.code === 'KeyR') {
+            console.log('🔧 Debug restart triggered by R key');
+            this.restartGame();
+            return;
+        }
+
+        // Only handle movement key restart if game is not playing and game over screen is showing
         if (this.gameStateManager.isPlaying() || !this.gameOverScreen.isShowing()) {
             return;
         }
@@ -234,6 +251,7 @@ export class Game extends Scene
         const movementKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'];
         
         if (movementKeys.includes(event.code)) {
+            console.log('🎮 Movement key restart triggered');
             this.restartGame();
         }
     }
@@ -241,69 +259,239 @@ export class Game extends Scene
     private restartGame(): void
     {
         console.log('🔄 Restarting game...');
+        console.log('🔄 Current game state:', this.gameStateManager ? this.gameStateManager.getState() : 'undefined');
+        console.log('🔄 Game over screen showing:', this.gameOverScreen ? this.gameOverScreen.isShowing() : 'undefined');
         
-        // Reset game over state
+        // Use custom reset instead of scene.restart()
+        this.resetGameSystems();
+    }
+
+    private resetGameSystems(): void {
+        console.log('🔄 Starting custom game reset...');
+        
+        try {
+            // Phase 1: Reset game state manager first
+            if (this.gameStateManager) {
+                this.gameStateManager.reset();
+            }
+
+            // Phase 2: Reset all game systems in specific order
+            this.resetGameplayState();
+            this.resetPlayerState();
+            this.resetWorldState();
+            this.resetUIState();
+            
+            // Phase 3: Re-initialize critical systems
+            this.reinitializeGameSystems();
+            
+            console.log('✅ Custom game reset complete');
+            
+        } catch (error) {
+            console.error('❌ Error during custom reset, falling back to scene restart:', error);
+            // Fallback to scene restart if custom reset fails
+            this.scene.restart();
+        }
+    }
+
+    private resetGameplayState(): void {
+        console.log('🔄 Resetting gameplay state...');
+        
+        // Reset gameplay flags
         this.isGameOver = false;
         
-        // Emit restart event for GameOverScreen to hide
-        EventBus.emit('restart-game');
+        // Reset scoring and combo systems
+        if (this.scoreSystem) {
+            this.scoreSystem.reset();
+        }
         
-        // Reset camera fade if it was applied
-        this.cameras.main.resetFX();
+        if (this.comboSystem) {
+            this.comboSystem.reset();
+        }
         
-        // Restart the scene
-        this.scene.restart();
+        // Reset death line system
+        if (this.deathLine) {
+            this.deathLine.reset();
+        }
+    }
+
+    private resetPlayerState(): void {
+        console.log('🔄 Resetting player state...');
+        
+        if (this.player) {
+            // Reset player position to ground level
+            const groundY = this.scale.height - 100;
+            const playerX = this.scale.width / 2;
+            const playerY = groundY - 100;
+            
+            this.player.setPosition(playerX, playerY);
+            this.player.setVelocity(0, 0);
+            this.player.setGrounded(true);
+            
+            // Reset player movement controller state
+            const movementController = this.player.getMovementController();
+            if (movementController && typeof movementController.reset === 'function') {
+                movementController.reset();
+            }
+        }
+    }
+
+    private resetWorldState(): void {
+        console.log('🔄 Resetting world state...');
+        
+        // Clear and regenerate platforms
+        if (this.platformManager) {
+            // Clear existing platforms
+            this.platformManager.clear();
+            
+            // Recreate ground platform
+            this.platformManager.createGroundPlatform();
+            
+            // Re-register with collision system
+            if (this.oneWayPlatforms) {
+                const groundPlatforms = this.platformManager.getPlatforms();
+                this.oneWayPlatforms.addPlatformGroup(groundPlatforms);
+            }
+        }
+        
+        // Reset wall system
+        if (this.wallManager) {
+            // WallManager should reset its internal state
+            // Most walls are generated dynamically, so this mainly resets tracking
+        }
+        
+        // Reset camera
+        if (this.cameraManager) {
+            this.cameraManager.reset();
+        }
+    }
+
+    private resetUIState(): void {
+        console.log('🔄 Resetting UI state...');
+        
+        // Reset game UI displays
+        if (this.gameUI) {
+            // GameUI will automatically update based on reset systems
+        }
+        
+        // Hide game over screen
+        if (this.gameOverScreen && this.gameOverScreen.isShowing()) {
+            // The screen should automatically hide when game state changes
+        }
+    }
+
+    private reinitializeGameSystems(): void {
+        console.log('🔄 Reinitializing game systems...');
+        
+        // Ensure collision systems are properly reconnected
+        if (this.oneWayPlatforms && this.platformManager) {
+            // Platform collision system should be ready
+            const platforms = this.platformManager.getPlatforms();
+            if (platforms && platforms.children) {
+                // Systems should be already connected, but ensure they're active
+            }
+        }
+        
+        // Restart camera following if needed
+        if (this.cameraManager && this.player) {
+            this.cameraManager.focusOnPlayer();
+        }
+        
+        // Emit reset complete event for any systems that need to know
+        EventBus.emit('game-fully-reset', {
+            timestamp: Date.now(),
+            playerPosition: this.player ? { x: this.player.x, y: this.player.y } : null
+        });
     }
 
     destroy(): void
     {
+        console.log('🧹 Game scene destroy() called - cleaning up all systems');
+        
         // Clean up event listeners
         EventBus.off('game-over', this.onGameOver.bind(this));
         EventBus.off('request-game-stats', this.onRequestGameStats.bind(this));
         
-        if (this.input.keyboard) {
+        // Properly clean up input handlers
+        if (this.input && this.input.keyboard) {
+            // Remove all keyboard event listeners to prevent accumulation
+            this.input.keyboard.removeAllListeners();
             this.input.keyboard.off('keydown', this.onKeyDown.bind(this));
         }
 
-        // Destroy all systems
-        if (this.gameStateManager) {
-            this.gameStateManager.destroy();
-        }
-
+        // Destroy all systems in reverse order of creation
         if (this.gameOverScreen) {
             this.gameOverScreen.destroy();
+            this.gameOverScreen = null as any;
         }
         
         if (this.debugUI) {
             this.debugUI.destroy();
+            this.debugUI = null as any;
         }
         
         if (this.gameUI) {
             this.gameUI.destroy();
+            this.gameUI = null as any;
         }
         
         if (this.comboSystem) {
             this.comboSystem.destroy();
+            this.comboSystem = null as any;
         }
         
         if (this.scoreSystem) {
             this.scoreSystem.destroy();
+            this.scoreSystem = null as any;
         }
         
         if (this.deathLine) {
             this.deathLine.destroy();
+            this.deathLine = null as any;
+        }
+        
+        if (this.wallBounceEffects) {
+            this.wallBounceEffects.destroy();
+            this.wallBounceEffects = null as any;
+        }
+        
+        if (this.wallCollision) {
+            this.wallCollision.destroy();
+            this.wallCollision = null as any;
+        }
+        
+        if (this.oneWayPlatforms) {
+            this.oneWayPlatforms.destroy();
+            this.oneWayPlatforms = null as any;
         }
         
         if (this.cameraManager) {
             this.cameraManager.destroy();
+            this.cameraManager = null as any;
         }
         
         if (this.wallManager) {
             this.wallManager.destroy();
+            this.wallManager = null as any;
         }
         
         if (this.platformManager) {
             this.platformManager.destroy();
+            this.platformManager = null as any;
         }
+        
+        if (this.player) {
+            this.player.destroy();
+            this.player = null as any;
+        }
+
+        if (this.gameStateManager) {
+            this.gameStateManager.destroy();
+            this.gameStateManager = null as any;
+        }
+        
+        // Reset flags
+        this.isGameOver = false;
+        
+        console.log('✅ Game scene destruction complete');
     }
 }

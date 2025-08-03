@@ -277,9 +277,27 @@ export class DeathLine {
   }
 
   reset(): void {
+    console.log('🔄 DeathLine: Resetting death line system');
+    
+    // Reset all death line state
     this.isGameOver = false;
+    this.deathLineActive = false;
     this.gameStartTime = Date.now();
+    
+    // Reset position tracking
+    this.highestPlayerY = this.player.y;
+    this.deathLineY = 0;
+    
+    // Reset visual effects
+    this.pulseIntensity = 0;
+    this.lastWarningTime = 0;
+    
+    // Hide and clear all visuals
     this.warningText.setVisible(false);
+    this.deathLineGraphics.clear();
+    this.warningZone.clear();
+    
+    console.log('✅ DeathLine: Reset complete - death line deactivated');
   }
 
   updateConfiguration(newConfig: GameConfiguration): void {

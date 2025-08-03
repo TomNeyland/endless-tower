@@ -40,6 +40,22 @@ export class PlatformManager {
     }
 
     createPlatform(x: number, y: number, width: number): { group: Physics.Arcade.StaticGroup, platformId: string } {
+        // Add safety check for physics system
+        if (!this.scene.physics || !this.scene.physics.add) {
+            console.warn('PlatformManager: Physics system not ready during createPlatform');
+            // Return a minimal valid result to prevent crashes
+            return { 
+                group: null as any, 
+                platformId: `platform_${Date.now()}` 
+            };
+        }
+
+        // Additional safety check for main platforms group
+        if (!this.platforms || !this.platforms.children) {
+            console.warn('PlatformManager: Main platforms group corrupted, reinitializing');
+            this.platforms = this.scene.physics.add.staticGroup();
+        }
+
         const tileWidth = 64;
         const numMiddleTiles = Math.max(1, Math.floor((width - 2 * tileWidth) / tileWidth));
         const actualWidth = (numMiddleTiles + 2) * tileWidth;
@@ -47,6 +63,15 @@ export class PlatformManager {
         const startX = x - actualWidth / 2;
         
         const platformGroup = this.scene.physics.add.staticGroup();
+
+        // Check if platformGroup was created successfully
+        if (!platformGroup || !platformGroup.children) {
+            console.error('PlatformManager: Failed to create platform group');
+            return { 
+                group: null as any, 
+                platformId: `platform_${Date.now()}` 
+            };
+        }
 
         platformGroup.create(startX, y, 'tiles', 'terrain_grass_cloud_left')
             .setOrigin(0, 0.5)
@@ -62,7 +87,16 @@ export class PlatformManager {
             .setOrigin(0, 0.5)
             .refreshBody();
 
-        this.platforms.addMultiple(platformGroup.children.entries);
+        // Safely add to main platforms group with additional checks
+        try {
+            if (this.platforms.children && platformGroup.children) {
+                this.platforms.addMultiple(platformGroup.children.entries);
+            } else {
+                console.warn('PlatformManager: Cannot add platform children - children property undefined');
+            }
+        } catch (error) {
+            console.error('PlatformManager: Error adding platform to main group:', error);
+        }
         
         EventBus.emit('platform-created', platformGroup, actualWidth, tileWidth);
         
@@ -146,13 +180,16 @@ export class PlatformManager {
         this.highestGeneratedY = this.nextPlatformY;
         this.nextPlatformY -= this.generateVerticalSpacing();
         
-        EventBus.emit('platform-generated', {
-            id: result.platformId,
-            x: platformX,
-            y: this.highestGeneratedY,
-            width: platformWidth,
-            group: result.group  // Include the group for collision system
-        });
+        // Only emit if we have a valid group
+        if (result.group) {
+            EventBus.emit('platform-generated', {
+                id: result.platformId,
+                x: platformX,
+                y: this.highestGeneratedY,
+                width: platformWidth,
+                group: result.group  // Include the group for collision system
+            });
+        }
     }
 
     private generatePlatformWidth(): number {
@@ -265,6 +302,33 @@ export class PlatformManager {
 
     destroy(): void {
         EventBus.off('camera-state-updated', this.onCameraStateUpdated.bind(this));
-        this.clear();
+        
+        // Safely destroy all generated platforms first
+        this.generatedPlatforms.forEach((platformData, id) => {
+            try {
+                if (platformData.group && platformData.group.children) {
+                    // Remove children from main platforms group first
+                    platformData.group.children.entries.forEach(child => {
+                        if (this.platforms && this.platforms.children) {
+                            this.platforms.remove(child, true, true);
+                        }
+                    });
+                    
+                    // Then destroy the platform group
+                    platformData.group.destroy();
+                }
+            } catch (error) {
+                console.warn(`Failed to destroy platform ${id}:`, error);
+            }
+        });
+        
+        // Clear tracking maps
+        this.generatedPlatforms.clear();
+        this.checkpoints.length = 0;
+        
+        // Finally clear and destroy the main platforms group
+        if (this.platforms && this.platforms.children) {
+            this.platforms.clear(true, true);
+        }
     }
 }

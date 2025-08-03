@@ -51,29 +51,46 @@ export class WallBounceEffects {
     this.flashEffect.setDepth(600);
     this.flashEffect.setVisible(false);
 
-    // Wall contact particles (sparks)
-    this.wallContactEmitter = this.scene.add.particles(0, 0, 'character', {
-      frame: 'character_beige_idle',
-      scale: { start: 0.05, end: 0 },
-      speed: { min: 100, max: 200 },
-      lifespan: 200,
-      quantity: 8,
-      tint: 0xffaa00,
-      emitting: false
-    });
-    this.wallContactEmitter.setDepth(400);
+    // Initialize particle emitters with safety checks
+    this.initializeParticleEmitters();
+  }
 
-    // Success particles (burst)
-    this.successEmitter = this.scene.add.particles(0, 0, 'character', {
-      frame: 'character_beige_idle',
-      scale: { start: 0.08, end: 0 },
-      speed: { min: 150, max: 300 },
-      lifespan: 400,
-      quantity: 15,
-      tint: 0x00ff00,
-      emitting: false
-    });
-    this.successEmitter.setDepth(400);
+  private initializeParticleEmitters(): void {
+    // Add safety check for texture availability
+    if (!this.scene.textures.exists('character')) {
+      console.warn('WallBounceEffects: Character texture not ready, deferring particle emitter creation');
+      return;
+    }
+
+    try {
+      // Wall contact particles (sparks)
+      this.wallContactEmitter = this.scene.add.particles(0, 0, 'character', {
+        frame: 'character_beige_idle',
+        scale: { start: 0.05, end: 0 },
+        speed: { min: 100, max: 200 },
+        lifespan: 200,
+        quantity: 8,
+        tint: 0xffaa00,
+        emitting: false
+      });
+      this.wallContactEmitter.setDepth(400);
+
+      // Success particles (burst)
+      this.successEmitter = this.scene.add.particles(0, 0, 'character', {
+        frame: 'character_beige_idle',
+        scale: { start: 0.08, end: 0 },
+        speed: { min: 150, max: 300 },
+        lifespan: 400,
+        quantity: 15,
+        tint: 0x00ff00,
+        emitting: false
+      });
+      this.successEmitter.setDepth(400);
+    } catch (error) {
+      console.warn('WallBounceEffects: Failed to create particle emitters:', error);
+      this.wallContactEmitter = null;
+      this.successEmitter = null;
+    }
   }
 
   private setupAudioEffects(): void {
@@ -122,8 +139,23 @@ export class WallBounceEffects {
   private onWallContact(data: any): void {
     // Emit contact particles at player position
     if (this.wallContactEmitter) {
-      this.wallContactEmitter.setPosition(data.playerPosition.x, data.playerPosition.y);
-      this.wallContactEmitter.explode(8);
+      try {
+        // Additional safety check for particle emitter internal state
+        if (this.wallContactEmitter.active && this.wallContactEmitter.explode) {
+          this.wallContactEmitter.setPosition(data.playerPosition.x, data.playerPosition.y);
+          this.wallContactEmitter.explode(8);
+        } else {
+          console.warn('WallBounceEffects: Wall contact emitter not ready or corrupted, reinitializing...');
+          this.initializeParticleEmitters();
+        }
+      } catch (error) {
+        console.warn('WallBounceEffects: Error in wall contact particles:', error);
+        // Reinitialize particle emitters if they're corrupted
+        this.initializeParticleEmitters();
+      }
+    } else {
+      // Try to initialize if emitters are null
+      this.initializeParticleEmitters();
     }
   }
 
@@ -161,15 +193,30 @@ export class WallBounceEffects {
 
     // Success particles
     if (this.successEmitter) {
-      let particleColor = 0x00ff00;
-      if (data.timingQuality === 'perfect') {
-        particleColor = 0xffd700;
-      }
+      try {
+        // Additional safety check for particle emitter internal state
+        if (this.successEmitter.active && this.successEmitter.explode) {
+          let particleColor = 0x00ff00;
+          if (data.timingQuality === 'perfect') {
+            particleColor = 0xffd700;
+          }
 
-      // Update particle color by recreating with new tint
-      this.successEmitter.setConfig({ tint: particleColor });
-      this.successEmitter.setPosition(data.position.x, data.position.y);
-      this.successEmitter.explode(15);
+          // Update particle color by recreating with new tint
+          this.successEmitter.setConfig({ tint: particleColor });
+          this.successEmitter.setPosition(data.position.x, data.position.y);
+          this.successEmitter.explode(15);
+        } else {
+          console.warn('WallBounceEffects: Success emitter not ready or corrupted, reinitializing...');
+          this.initializeParticleEmitters();
+        }
+      } catch (error) {
+        console.warn('WallBounceEffects: Error in success particles:', error);
+        // Reinitialize particle emitters if they're corrupted
+        this.initializeParticleEmitters();
+      }
+    } else {
+      // Try to initialize if emitters are null
+      this.initializeParticleEmitters();
     }
 
     // Success sound
@@ -233,22 +280,41 @@ export class WallBounceEffects {
 
     if (this.timingWindowTween) {
       this.timingWindowTween.destroy();
+      this.timingWindowTween = null;
     }
 
+    // Safe particle emitter cleanup
     if (this.wallContactEmitter) {
-      this.wallContactEmitter.destroy();
+      try {
+        this.wallContactEmitter.destroy();
+      } catch (error) {
+        console.warn('WallBounceEffects: Error destroying wall contact emitter:', error);
+      }
+      this.wallContactEmitter = null;
     }
 
     if (this.successEmitter) {
-      this.successEmitter.destroy();
+      try {
+        this.successEmitter.destroy();
+      } catch (error) {
+        console.warn('WallBounceEffects: Error destroying success emitter:', error);
+      }
+      this.successEmitter = null;
     }
 
     if (this.timingWindowOverlay) {
       this.timingWindowOverlay.destroy();
+      this.timingWindowOverlay = null;
     }
 
     if (this.flashEffect) {
       this.flashEffect.destroy();
+      this.flashEffect = null;
     }
+
+    // Clean up audio references
+    this.wallContactSound = null;
+    this.successSound = null;
+    this.missedSound = null;
   }
 }

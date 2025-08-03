@@ -28,7 +28,11 @@ export class GameUI {
     
     this.setupUI();
     this.setupEventListeners();
-    this.updateDisplay();
+    
+    // Delay initial update to ensure text objects are ready
+    this.scene.time.delayedCall(50, () => {
+      this.updateDisplay();
+    });
   }
 
   private setupUI(): void {
@@ -141,24 +145,34 @@ export class GameUI {
   }
 
   private updateDisplay(): void {
-    this.currentScore = this.scoreSystem.getScoreData();
+    // Add null safety checks for text objects and score system
+    if (!this.scoreSystem || !this.scoreText || !this.heightText) {
+      return;
+    }
+
+    // Additional check to ensure text objects have valid texture data
+    try {
+      this.currentScore = this.scoreSystem.getScoreData();
     
-    // Update score text
-    this.scoreText.setText(
-      `Score: ${this.currentScore.totalScore.toLocaleString()}\n` +
-      `Height: ${Math.round(this.currentScore.heightScore).toLocaleString()}\n` +
-      `Combo: ${Math.round(this.currentScore.comboScore).toLocaleString()}`
-    );
-    
-    // Update height text
-    this.heightText.setText(
-      `Height: ${Math.round(this.currentScore.currentHeight)}m\n` +
-      `Best: ${Math.round(this.currentScore.highestHeight)}m\n` +
-      `Mult: ${this.currentScore.multiplier.toFixed(1)}x`
-    );
-    
-    // Always update combo display
-    this.updateComboDisplay();
+      // Update score text
+      this.scoreText.setText(
+        `Score: ${this.currentScore.totalScore.toLocaleString()}\n` +
+        `Height: ${Math.round(this.currentScore.heightScore).toLocaleString()}\n` +
+        `Combo: ${Math.round(this.currentScore.comboScore).toLocaleString()}`
+      );
+      
+      // Update height text
+      this.heightText.setText(
+        `Height: ${Math.round(this.currentScore.currentHeight)}m\n` +
+        `Best: ${Math.round(this.currentScore.highestHeight)}m\n` +
+        `Mult: ${this.currentScore.multiplier.toFixed(1)}x`
+      );
+      
+      // Always update combo display
+      this.updateComboDisplay();
+    } catch (error) {
+      console.warn('GameUI updateDisplay failed, text objects not ready yet:', error);
+    }
   }
 
   private showComboDisplay(): void {
@@ -205,46 +219,55 @@ export class GameUI {
   }
 
   private updateComboDisplay(): void {
-    const comboLength = this.comboSystem.getCurrentComboLength();
-    const multiplier = this.comboSystem.getCurrentMultiplier();
-    const timeRemaining = this.comboSystem.getComboTimeRemaining();
-    const isActive = this.comboSystem.isComboActive();
-    
-    // Update combo text
-    if (isActive) {
-      this.comboText.setText(`COMBO\n${comboLength}x (${multiplier.toFixed(1)}x)`);
-      this.comboText.setColor('#ffaa00');
-    } else {
-      this.comboText.setText('COMBO\n0x (1.0x)');
-      this.comboText.setColor('#666666');
+    // Add null safety checks
+    if (!this.comboSystem || !this.comboText || !this.comboTimerBar) {
+      return;
     }
-    
-    // Update timer bar
-    this.comboTimerBar.clear();
-    
-    if (isActive) {
-      const barWidth = 140;
-      const barHeight = 4;
-      const barX = -barWidth - 5; // Right-aligned
-      const barY = 20;
+
+    try {
+      const comboLength = this.comboSystem.getCurrentComboLength();
+      const multiplier = this.comboSystem.getCurrentMultiplier();
+      const timeRemaining = this.comboSystem.getComboTimeRemaining();
+      const isActive = this.comboSystem.isComboActive();
       
-      // Background bar
-      this.comboTimerBar.fillStyle(0x333333, 0.8);
-      this.comboTimerBar.fillRect(barX, barY, barWidth, barHeight);
-      
-      // Timer bar
-      const timePercent = timeRemaining / 2500; // 2500ms combo timeout
-      const timerWidth = barWidth * timePercent;
-      
-      let barColor = 0x00ff00; // Green
-      if (timePercent < 0.3) {
-        barColor = 0xff0000; // Red
-      } else if (timePercent < 0.6) {
-        barColor = 0xff8800; // Orange
+      // Update combo text
+      if (isActive) {
+        this.comboText.setText(`COMBO\n${comboLength}x (${multiplier.toFixed(1)}x)`);
+        this.comboText.setColor('#ffaa00');
+      } else {
+        this.comboText.setText('COMBO\n0x (1.0x)');
+        this.comboText.setColor('#666666');
       }
       
-      this.comboTimerBar.fillStyle(barColor, 1);
-      this.comboTimerBar.fillRect(barX, barY, timerWidth, barHeight);
+      // Update timer bar
+      this.comboTimerBar.clear();
+      
+      if (isActive) {
+        const barWidth = 140;
+        const barHeight = 4;
+        const barX = -barWidth - 5; // Right-aligned
+        const barY = 20;
+        
+        // Background bar
+        this.comboTimerBar.fillStyle(0x333333, 0.8);
+        this.comboTimerBar.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Timer bar
+        const timePercent = timeRemaining / 2500; // 2500ms combo timeout
+        const timerWidth = barWidth * timePercent;
+        
+        let barColor = 0x00ff00; // Green
+        if (timePercent < 0.3) {
+          barColor = 0xff0000; // Red
+        } else if (timePercent < 0.6) {
+          barColor = 0xff8800; // Orange
+        }
+        
+        this.comboTimerBar.fillStyle(barColor, 1);
+        this.comboTimerBar.fillRect(barX, barY, timerWidth, barHeight);
+      }
+    } catch (error) {
+      console.warn('GameUI updateComboDisplay failed, combo objects not ready yet:', error);
     }
   }
 

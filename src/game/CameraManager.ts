@@ -59,8 +59,8 @@ export class CameraManager {
   }
 
   update(deltaTime: number): void {
-    // Don't update camera movement if game state doesn't allow it
-    if (!this.gameStateManager.allowsCameraMovement()) {
+    // Don't update camera movement if game state doesn't allow it (with null safety)
+    if (this.gameStateManager && !this.gameStateManager.allowsCameraMovement()) {
       return;
     }
 
@@ -235,8 +235,32 @@ export class CameraManager {
     this.camera.setLerp(this.config.cameraFollowSmoothing, this.config.cameraFollowSmoothing);
   }
 
+  reset(): void {
+    console.log('🔄 CameraManager: Resetting camera system');
+    
+    // Reset camera state to initial values
+    this.highestPlayerY = this.player.y;
+    this.cameraTargetY = this.initialCameraY;
+    this.autoScrollEnabled = false;
+    this.usingBuiltInFollowing = true;
+    
+    // Reset camera position
+    this.camera.setScroll(0, this.initialCameraY);
+    
+    // Re-enable built-in following
+    this.camera.startFollow(this.player, false, this.config.cameraFollowSmoothing, this.config.cameraFollowSmoothing);
+    this.camera.setDeadzone(this.scene.scale.width * 0.3, this.scene.scale.height * 0.2);
+    this.camera.setFollowOffset(0, this.scene.scale.height * 0.3);
+    
+    // Update player deadzone
+    this.updatePlayerDeadzone();
+    
+    console.log('✅ CameraManager: Reset complete - camera following restored');
+  }
+
   destroy(): void {
     EventBus.off('player-height-changed', this.onPlayerHeightChanged.bind(this));
     EventBus.off('camera-shake', this.onCameraShake.bind(this));
+    EventBus.off('death-line-activated', this.onDeathLineActivated.bind(this));
   }
 }

@@ -10,20 +10,58 @@ export class OneWayPlatform {
   constructor(scene: Scene, player: Player) {
     this.scene = scene;
     this.player = player;
-    this.platforms = scene.physics.add.staticGroup();
+    
+    // Initialize platforms group with safety check
+    this.initializePlatforms();
     this.setupCollision();
     this.setupEventListeners();
   }
 
+  private initializePlatforms(): void {
+    if (this.scene.physics && this.scene.physics.add) {
+      this.platforms = this.scene.physics.add.staticGroup();
+      
+      // Verify the group was properly initialized
+      if (!this.platforms.children) {
+        console.warn('OneWayPlatform: Platform group created but children property is undefined');
+        this.platforms = null as any;
+      }
+    } else {
+      console.warn('OneWayPlatform: Physics system not ready, deferring platform group creation');
+    }
+  }
+
   private setupCollision(): void {
-    // Use overlap instead of collider to get custom collision control
-    this.scene.physics.add.overlap(
-      this.player,
-      this.platforms,
-      (player, platform) => this.handlePlatformCollision(player as Player, platform),
-      (player, platform) => this.shouldCollideWithPlatform(player as Player, platform),
-      this.scene
-    );
+    // Only setup collision if platforms group is ready
+    if (!this.platforms || !this.platforms.children) {
+      console.warn('OneWayPlatform: Deferring collision setup - platforms group not ready');
+      return;
+    }
+
+    // Additional safety check for physics system
+    if (!this.scene.physics || !this.scene.physics.add) {
+      console.warn('OneWayPlatform: Physics system not ready, cannot setup collisions');
+      return;
+    }
+
+    // Additional safety check for player
+    if (!this.player || !this.player.body) {
+      console.warn('OneWayPlatform: Player not ready, cannot setup collisions');
+      return;
+    }
+
+    try {
+      // Use overlap instead of collider to get custom collision control
+      this.scene.physics.add.overlap(
+        this.player,
+        this.platforms,
+        (player, platform) => this.handlePlatformCollision(player as Player, platform),
+        (player, platform) => this.shouldCollideWithPlatform(player as Player, platform),
+        this.scene
+      );
+    } catch (error) {
+      console.error('OneWayPlatform: Failed to setup collision:', error);
+    }
   }
 
   private shouldCollideWithPlatform(player: Player, platform: any): boolean {
@@ -68,9 +106,33 @@ export class OneWayPlatform {
   }
 
   addPlatformGroup(group: Physics.Arcade.StaticGroup): void {
+    // Add null safety checks for group and children
+    if (!group || !group.children || !group.children.entries) {
+      console.warn('OneWayPlatform: Invalid group passed to addPlatformGroup', group);
+      return;
+    }
+
+    // Ensure platforms group is initialized
+    if (!this.platforms) {
+      this.initializePlatforms();
+      if (!this.platforms) {
+        console.warn('OneWayPlatform: Cannot add platform group - platforms group not initialized');
+        return;
+      }
+      // Set up collision now that platforms are ready
+      this.setupCollision();
+    }
+
     // Add all children from the group to our platforms group
     group.children.entries.forEach(child => {
-      this.platforms.add(child);
+      if (child) {
+        // Additional check to ensure platforms group's children property exists
+        if (!this.platforms.children) {
+          console.error('OneWayPlatform: Platform group children property is undefined during add operation');
+          return;
+        }
+        this.platforms.add(child);
+      }
     });
   }
 
@@ -104,6 +166,19 @@ export class OneWayPlatform {
   destroy(): void {
     EventBus.off('platform-generated', this.onPlatformGenerated.bind(this));
     EventBus.off('platform-cleaned-up', this.onPlatformCleanedUp.bind(this));
-    this.clear();
+    
+    // Safely destroy platforms group
+    if (this.platforms) {
+      try {
+        if (this.platforms.children) {
+          this.platforms.clear(true, true);
+        }
+        // Don't call destroy on platforms group - it will be destroyed by scene
+        this.platforms = null as any;
+      } catch (error) {
+        console.warn('OneWayPlatform: Error during destroy:', error);
+        this.platforms = null as any;
+      }
+    }
   }
 }
