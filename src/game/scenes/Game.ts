@@ -365,8 +365,7 @@ export class Game extends Scene
         
         // Reset wall system
         if (this.wallManager) {
-            // WallManager should reset its internal state
-            // Most walls are generated dynamically, so this mainly resets tracking
+            this.wallManager.reset();
         }
         
         // Camera reset moved to separate phase

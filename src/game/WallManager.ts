@@ -213,6 +213,25 @@ export class WallManager {
     this.config = newConfig.walls;
   }
 
+  reset(): void {
+    console.log('🔄 WallManager: Resetting wall system');
+    
+    // Clear all existing walls
+    this.clear();
+    
+    // Reset tracking variables
+    this.segmentIdCounter = 0;
+    this.lastCameraY = 0;
+    
+    // Recreate wall groups in case they got corrupted
+    this.setupWallGroups();
+    
+    // Generate fresh walls around player starting position
+    this.generateInitialWalls();
+    
+    console.log('✅ WallManager: Reset complete - walls regenerated');
+  }
+
   clear(): void {
     this.wallSegments.forEach((segment, id) => {
       this.removeWallSegment(id);
