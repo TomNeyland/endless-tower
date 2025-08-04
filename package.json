@@ -1,7 +1,7 @@
 {
-    "name": "template-angular",
+    "name": "endless-tower",
     "version": "1.1.0",
-    "description": "A Phaser 3 project template that demonstrates Angular communication.",
+    "description": "An Icy Tower clone built with Angular 19 + Phaser 3.",
     "scripts": {
         "ng": "ng",
         "dev": "node log dev & ng serve",
@@ -11,20 +11,22 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/phaserjs/template-angular.git"
+        "url": "git+https://github.com/tcney/endless-tower.git"
     },
-    "author": "Phaser Studio <support@phaser.io> (https://phaser.io/)",
+    "author": "Tom Neyland <tcneyland@gmail.com>",
     "license": "MIT",
     "licenseUrl": "http://www.opensource.org/licenses/mit-license.php",
     "bugs": {
-        "url": "https://github.com/phaserjs/template-angular/issues"
+        "url": "https://github.com/tcney/endless-tower/issues"
     },
-    "homepage": "https://github.com/phaserjs/template-angular#readme",
+    "homepage": "https://github.com/tcney/endless-tower#readme",
     "keywords": [
         "phaser",
         "phaser3",
         "angular",
-        "Angular"
+        "icy-tower",
+        "platformer",
+        "game"
     ],
     "dependencies": {
         "@angular/common": "^19.2.0",

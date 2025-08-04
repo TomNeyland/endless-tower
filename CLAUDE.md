@@ -127,7 +127,7 @@ The project uses Angular CLI with custom configuration:
 - Bundle size limits: 5MB max (5000kb warning)
 - Static assets automatically copied from `public/` to `dist/browser/assets/`
 - Development server runs on default Angular port (4200)
-- Production builds output to `dist/template-angular/`
+- Production builds output to `dist/endless-tower/`
 
 ## Kenney New Platformer Pack 1.0
 

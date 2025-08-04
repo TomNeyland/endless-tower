@@ -117,6 +117,10 @@ export class Game extends Scene
         this.setupEventListeners();
         
         console.log('🎮 Game scene initialization complete');
+        
+        // Add fade-in effect when scene starts
+        this.addSceneFadeIn();
+        
         EventBus.emit('current-scene-ready', this);
     }
 
@@ -618,5 +622,53 @@ export class Game extends Scene
         this.isGameOver = false;
         
         console.log('✅ Game scene destruction complete');
+    }
+
+    // Scene transition methods
+    private addSceneFadeIn(): void {
+        // Create fade overlay starting fully opaque
+        const fadeOverlay = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 1);
+        fadeOverlay.setOrigin(0, 0);
+        fadeOverlay.setDepth(3000); // Above everything else
+        
+        // Fade in animation
+        this.tweens.add({
+            targets: fadeOverlay,
+            alpha: 0,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => {
+                // Remove the fade overlay once fade is complete
+                fadeOverlay.destroy();
+            }
+        });
+        
+        console.log('🎬 Game scene fade-in effect applied');
+    }
+
+    returnToMenu(): void {
+        console.log('🎮 Returning to menu...');
+        
+        // Stop all systems before transitioning
+        if (this.audioManager) {
+            this.audioManager.stopAllSounds();
+        }
+        
+        // Create fade out effect
+        const fadeOverlay = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0);
+        fadeOverlay.setOrigin(0, 0);
+        fadeOverlay.setDepth(3000); // Above everything else
+        
+        // Fade out animation
+        this.tweens.add({
+            targets: fadeOverlay,
+            alpha: 1,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => {
+                // Transition to menu scene after fade completes
+                this.scene.start('MenuScene');
+            }
+        });
     }
 }

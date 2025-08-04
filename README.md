@@ -1,6 +1,6 @@
-# Phaser Angular Template
+# Endless Tower - Icy Tower Clone
 
-This is a Phaser 3 project template that uses the Angular framework. It includes a bridge for Angular to Phaser game communication, hot-reloading for quick development workflow and scripts to generate production-ready builds.
+An Icy Tower clone built with Angular 19 + Phaser 3. This endless vertical platformer features momentum-based physics, combo systems, and infinite procedural generation.
 
 ### Versions
 

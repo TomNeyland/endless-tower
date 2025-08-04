@@ -1,4 +1,5 @@
 import { Game as MainGame } from './scenes/Game';
+import { MenuScene } from './scenes/MenuScene';
 import { AUTO, Game, Types } from "phaser";
 import RexUIPlugin from 'phaser3-rex-plugins/templates/ui/ui-plugin.js';
 
@@ -43,7 +44,8 @@ const config: Types.Core.GameConfig = {
         roundPixels: false  // Smoother sub-pixel movement
     },
     scene: [
-        MainGame
+        MenuScene,  // MenuScene loads first (initial scene)
+        MainGame    // Game scene loads when transitioning from menu
     ],
     plugins: {
         scene: [{

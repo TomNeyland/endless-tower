@@ -2,6 +2,7 @@ import { Scene, Physics } from 'phaser';
 import { MovementController, MovementState } from './MovementController';
 import { GameConfiguration } from './GameConfiguration';
 import { EventBus } from './EventBus';
+import { AIController, AIInput } from './AIController';
 
 export class Player extends Physics.Arcade.Sprite {
     private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -10,6 +11,10 @@ export class Player extends Physics.Arcade.Sprite {
     private gameConfig: GameConfiguration;
     
     private lastJumpVerticalSpeed: number = 0; // Track initial jump velocity for rotation
+    
+    // Demo mode properties
+    private demoMode: boolean = false;
+    private aiController: AIController | null = null;
     
     private readonly WALK_ANIMATION_FRAME_RATE = 8;
 
@@ -114,9 +119,22 @@ export class Player extends Physics.Arcade.Sprite {
     }
 
     private handleInput(): void {
-        const leftPressed = this.cursors.left?.isDown || this.wasd.A.isDown;
-        const rightPressed = this.cursors.right?.isDown || this.wasd.D.isDown;
-        const jumpPressed = this.cursors.up?.isDown || this.wasd.W.isDown || this.wasd.SPACE.isDown;
+        let leftPressed: boolean;
+        let rightPressed: boolean;
+        let jumpPressed: boolean;
+        
+        if (this.demoMode && this.aiController) {
+            // Use AI input in demo mode
+            const aiInput = this.aiController.update(16.67); // Assume ~60fps for deltaTime
+            leftPressed = aiInput.left;
+            rightPressed = aiInput.right;
+            jumpPressed = aiInput.jump;
+        } else {
+            // Use keyboard input in normal mode
+            leftPressed = this.cursors.left?.isDown || this.wasd.A.isDown;
+            rightPressed = this.cursors.right?.isDown || this.wasd.D.isDown;
+            jumpPressed = this.cursors.up?.isDown || this.wasd.W.isDown || this.wasd.SPACE.isDown;
+        }
 
         if (leftPressed) {
             this.movementController.moveLeft();
@@ -245,6 +263,21 @@ export class Player extends Physics.Arcade.Sprite {
 
     getMovementController(): MovementController {
         return this.movementController;
+    }
+
+    // Demo mode methods
+    setDemoMode(enabled: boolean): void {
+        this.demoMode = enabled;
+        console.log(`🤖 Player demo mode ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    setAIController(aiController: AIController): void {
+        this.aiController = aiController;
+        console.log('🤖 AI controller connected to player');
+    }
+
+    isDemoMode(): boolean {
+        return this.demoMode;
     }
 
     override destroy(): void {
