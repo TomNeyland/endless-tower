@@ -3,6 +3,7 @@ import { MovementController, MovementState } from './MovementController';
 import { GameConfiguration } from './GameConfiguration';
 import { EventBus } from './EventBus';
 import { AIController, AIInput } from './AIController';
+import { MobileInputController, MobileInputState } from './MobileInputController';
 
 export class Player extends Physics.Arcade.Sprite {
     private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -11,6 +12,10 @@ export class Player extends Physics.Arcade.Sprite {
     private gameConfig: GameConfiguration;
     
     private lastJumpVerticalSpeed: number = 0; // Track initial jump velocity for rotation
+    
+    // Input mode properties
+    private isMobileDevice: boolean = false;
+    private mobileInputController: MobileInputController | null = null;
     
     // Demo mode properties
     private demoMode: boolean = false;
@@ -29,6 +34,7 @@ export class Player extends Physics.Arcade.Sprite {
         this.setupPhysics();
         this.setupMovementController();
         this.setupInput();
+        this.setupMobileInput();
         this.setupAnimations();
         this.setupEventListeners();
         
@@ -68,6 +74,23 @@ export class Player extends Physics.Arcade.Sprite {
     private setupInput(): void {
         this.cursors = this.scene.input.keyboard!.createCursorKeys();
         this.wasd = this.scene.input.keyboard!.addKeys('W,S,A,D,SPACE');
+    }
+
+    private setupMobileInput(): void {
+        // Detect if we're on a mobile device
+        this.isMobileDevice = MobileInputController.isMobileDevice();
+        
+        if (this.isMobileDevice) {
+            this.mobileInputController = new MobileInputController(this.scene, this.gameConfig);
+            console.log('📱 Mobile device detected - mobile controls enabled');
+            
+            // Enable debug visualization for testing
+            if (this.gameConfig.debug.enabled) {
+                this.mobileInputController.setDebugMode(true);
+            }
+        } else {
+            console.log('🖥️ Desktop device detected - keyboard controls active');
+        }
     }
 
     private setupEventListeners(): void {
@@ -129,8 +152,14 @@ export class Player extends Physics.Arcade.Sprite {
             leftPressed = aiInput.left;
             rightPressed = aiInput.right;
             jumpPressed = aiInput.jump;
+        } else if (this.isMobileDevice && this.mobileInputController) {
+            // Use mobile touch input
+            const mobileInput = this.mobileInputController.getInputState();
+            leftPressed = mobileInput.leftPressed;
+            rightPressed = mobileInput.rightPressed;
+            jumpPressed = mobileInput.jumpPressed;
         } else {
-            // Use keyboard input in normal mode
+            // Use keyboard input for desktop
             leftPressed = this.cursors.left?.isDown || this.wasd.A.isDown;
             rightPressed = this.cursors.right?.isDown || this.wasd.D.isDown;
             jumpPressed = this.cursors.up?.isDown || this.wasd.W.isDown || this.wasd.SPACE.isDown;
@@ -244,6 +273,14 @@ export class Player extends Physics.Arcade.Sprite {
         this.gameConfig = newConfig;
         this.movementController.updateConfiguration(newConfig);
         
+        // Update mobile input controller if it exists
+        if (this.mobileInputController) {
+            this.mobileInputController.updateConfiguration(newConfig);
+            
+            // Update debug mode based on new config
+            this.mobileInputController.setDebugMode(newConfig.debug.enabled);
+        }
+        
         // Update player scale if it changed
         const playerConfig = newConfig.player;
         this.setScale(playerConfig.scale);
@@ -280,7 +317,26 @@ export class Player extends Physics.Arcade.Sprite {
         return this.demoMode;
     }
 
+    // Mobile input methods
+    isMobile(): boolean {
+        return this.isMobileDevice;
+    }
+
+    toggleMobileDebugMode(): void {
+        if (this.mobileInputController) {
+            const currentDebugMode = this.gameConfig.debug.enabled;
+            this.mobileInputController.setDebugMode(!currentDebugMode);
+            console.log(`📱 Mobile debug mode ${!currentDebugMode ? 'enabled' : 'disabled'}`);
+        }
+    }
+
     override destroy(): void {
+        // Clean up mobile input controller
+        if (this.mobileInputController) {
+            this.mobileInputController.destroy();
+            this.mobileInputController = null;
+        }
+        
         EventBus.off('player-jumped', this.onJump.bind(this));
         EventBus.off('player-movement-input', this.onMovementInput.bind(this));
         EventBus.off('player-wall-bounce', this.onWallBounce.bind(this));

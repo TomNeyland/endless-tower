@@ -60,6 +60,17 @@ export interface PlayerConfig {
   baseOffsetY: number;           // Base offset Y before scaling
 }
 
+export interface MobileConfig {
+  leftZonePercent: number;        // Percentage of screen width for left movement zone (0.0-1.0)
+  rightZonePercent: number;       // Percentage of screen width for right jump zone (0.0-1.0)
+  deadZoneRadius: number;         // Radius of dead zone in center of left zone (pixels)
+  touchSensitivity: number;       // Touch sensitivity multiplier (1.0 = normal)
+  hapticFeedback: boolean;        // Enable haptic feedback for touch events
+  extendedCoyoteTime: number;     // Extended coyote time for mobile (ms)
+  extendedJumpBuffer: number;     // Extended jump buffer for mobile (ms)
+  collisionTolerance: number;     // Extended collision tolerance for touch imprecision (pixels)
+}
+
 export interface DebugConfig {
   enabled: boolean;
 }
@@ -72,6 +83,7 @@ export interface GameConfig {
   deathLine: DeathLineConfig;
   walls: WallConfig;
   player: PlayerConfig;
+  mobile: MobileConfig;
   debug: DebugConfig;
 }
 
@@ -136,6 +148,17 @@ export const DEFAULT_CONFIG: GameConfig = {
     baseBodyHeight: 128,         // Tuned for good fit
     baseOffsetX: 10,             // Tuned for 0.7 scale (will scale proportionally)
     baseOffsetY: 14              // Tuned for 0.7 scale (will scale proportionally)
+  },
+  
+  mobile: {
+    leftZonePercent: 0.6,        // 60% of screen for movement zone
+    rightZonePercent: 0.4,       // 40% of screen for jump zone
+    deadZoneRadius: 40,          // 40px dead zone in center of movement area
+    touchSensitivity: 1.0,       // Normal touch sensitivity
+    hapticFeedback: true,        // Enable haptic feedback by default
+    extendedCoyoteTime: 200,     // 200ms coyote time for mobile (vs 100ms desktop)
+    extendedJumpBuffer: 150,     // 150ms jump buffer for mobile (vs 100ms desktop)
+    collisionTolerance: 5        // 5px extra collision tolerance for touch imprecision
   },
   
   debug: {
@@ -239,6 +262,10 @@ export class GameConfiguration {
     return { ...this.config.player };
   }
   
+  get mobile(): MobileConfig {
+    return { ...this.config.mobile };
+  }
+  
   get debug(): DebugConfig {
     return { ...this.config.debug };
   }
@@ -265,6 +292,10 @@ export class GameConfiguration {
   
   updatePlayer(updates: Partial<PlayerConfig>): void {
     this.config.player = { ...this.config.player, ...updates };
+  }
+  
+  updateMobile(updates: Partial<MobileConfig>): void {
+    this.config.mobile = { ...this.config.mobile, ...updates };
   }
   
   updateDebug(updates: Partial<DebugConfig>): void {
@@ -345,6 +376,7 @@ export class GameConfiguration {
       deathLine: { ...base.deathLine, ...custom.deathLine },
       walls: { ...base.walls, ...custom.walls },
       player: { ...base.player, ...custom.player },
+      mobile: { ...base.mobile, ...custom.mobile },
       debug: { ...base.debug, ...custom.debug }
     };
   }
