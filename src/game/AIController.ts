@@ -29,6 +29,7 @@ export enum AIBehaviorMode {
   SAFE_CLIMBING = 'safe_climbing',
   COMBO_SEEKER = 'combo_seeker', 
   WALL_BOUNCER = 'wall_bouncer',
+  SPEED_DEMON = 'speed_demon',
   SHOWOFF = 'showoff'
 }
 
@@ -201,6 +202,8 @@ export class AIController {
         return this.comboSeekerBehavior(context);
       case AIBehaviorMode.WALL_BOUNCER:
         return this.wallBouncerBehavior(context);
+      case AIBehaviorMode.SPEED_DEMON:
+        return this.speedDemonBehavior(context);
       case AIBehaviorMode.SHOWOFF:
         return this.showoffBehavior(context);
       default:
@@ -247,8 +250,8 @@ export class AIController {
       const targetPlatform = platforms[0];
       const horizontalDistance = targetPlatform.x - context.playerX;
       
-      // Build more horizontal speed for bigger jumps
-      if (Math.abs(context.playerVelocityX) < 200 && context.isGrounded) {
+      // Build MORE horizontal speed for spectacular jumps and particle effects
+      if (Math.abs(context.playerVelocityX) < 300 && context.isGrounded) {
         return {
           left: horizontalDistance < 0,
           right: horizontalDistance > 0,
@@ -257,7 +260,7 @@ export class AIController {
       }
       
       // When ready, make the jump
-      if (context.isGrounded && Math.abs(horizontalDistance) < 100) {
+      if (context.isGrounded && Math.abs(horizontalDistance) < 150) {
         return { left: false, right: false, jump: true };
       }
     }
@@ -290,20 +293,76 @@ export class AIController {
     }
   }
 
+  private speedDemonBehavior(context: AIDecisionContext): AIInput {
+    // DEDICATED mode for building maximum horizontal speed to trigger particle effects
+    const currentSpeed = Math.abs(context.playerVelocityX);
+    const SPEED_TARGET = 450; // Very high target speed for particles
+    
+    // If we have high speed and are airborne, continue in same direction
+    if (!context.isGrounded && currentSpeed > 200) {
+      const continueSameDirection = context.playerVelocityX > 0 ? 1 : -1;
+      return {
+        left: continueSameDirection === -1,
+        right: continueSameDirection === 1,
+        jump: false // Don't interfere with current trajectory
+      };
+    }
+    
+    // If grounded and don't have enough speed, build it aggressively
+    if (context.isGrounded && currentSpeed < SPEED_TARGET) {
+      // Build speed in whatever direction has more room
+      const centerX = this.scene.scale.width / 2;
+      const preferRight = context.playerX < centerX;
+      
+      return {
+        left: !preferRight,
+        right: preferRight,
+        jump: false // Stay grounded to build horizontal speed
+      };
+    }
+    
+    // If we have good speed, make strategic jumps to maintain momentum
+    if (currentSpeed >= 250) {
+      // Look for platforms we can reach to continue momentum
+      const platforms = context.nearestPlatforms.filter(p => p.y < context.playerY - 30);
+      if (platforms.length > 0 && context.isGrounded) {
+        return { left: false, right: false, jump: true };
+      }
+    }
+    
+    // Default: continue building speed
+    return {
+      left: context.targetDirection === -1,
+      right: context.targetDirection === 1,
+      jump: false
+    };
+  }
+
   private showoffBehavior(context: AIDecisionContext): AIInput {
     // Combination of aggressive moves - try to show multiple game mechanics
     const random = Math.random();
     
-    if (random < 0.3) {
+    if (random < 0.2) {
       return this.wallBouncerBehavior(context);
-    } else if (random < 0.7) {
+    } else if (random < 0.4) {
       return this.comboSeekerBehavior(context);
+    } else if (random < 0.7) {
+      return this.speedDemonBehavior(context); // Include speed demon for particles
     } else {
-      // Sometimes make risky high-speed moves
+      // High-speed moves to trigger particle effects
+      // Build extreme horizontal speed when grounded
+      if (context.isGrounded && Math.abs(context.playerVelocityX) < 400) {
+        return {
+          left: context.targetDirection === -1,
+          right: context.targetDirection === 1,
+          jump: false
+        };
+      }
+      
       return {
         left: context.targetDirection === -1,
         right: context.targetDirection === 1,
-        jump: Math.random() < 0.4
+        jump: Math.random() < 0.6 // Higher jump probability for more aerial action
       };
     }
   }

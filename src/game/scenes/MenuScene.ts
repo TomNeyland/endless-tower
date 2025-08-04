@@ -218,6 +218,7 @@ export class MenuScene extends Scene {
 
     private setupGameSystems(): void {
         this.deathLine = new DeathLine(this, this.player, this.gameConfig);
+        this.deathLine.setDemoMode(true); // Disable death line in demo mode
         this.scoreSystem = new ScoreSystem(this, this.player);
         this.comboSystem = new ComboSystem(this, this.player);
         this.audioManager = new AudioManager(this);
@@ -276,16 +277,6 @@ export class MenuScene extends Scene {
         this.titleText.setOrigin(0.5);
         this.menuUI.add(this.titleText);
         
-        // Subtitle
-        const subtitleText = this.add.text(this.scale.width / 2, 180, 'An Icy Tower Clone', {
-            fontFamily: 'Arial, sans-serif',
-            fontSize: '24px',
-            color: '#CCCCCC',
-            stroke: '#000000',
-            strokeThickness: 2
-        });
-        subtitleText.setOrigin(0.5);
-        this.menuUI.add(subtitleText);
         
         // Instructions
         this.instructionText = this.add.text(this.scale.width / 2, this.scale.height - 100, 'PRESS ANY KEY TO START', {
@@ -320,19 +311,12 @@ export class MenuScene extends Scene {
         this.currentBehaviorText.setOrigin(0, 0);
         this.menuUI.add(this.currentBehaviorText);
         
-        // Demo notice
-        const demoText = this.add.text(this.scale.width - 20, 20, 'AI Demo Mode - Watch the AI play!', {
-            fontFamily: 'Arial, sans-serif',
-            fontSize: '14px',
-            color: '#00FFFF',
-            stroke: '#000000',
-            strokeThickness: 2
-        });
-        demoText.setOrigin(1, 0);
-        this.menuUI.add(demoText);
         
         // Set menu UI to highest depth so it appears above game elements
         this.menuUI.setDepth(1000);
+        
+        // CRITICAL: Make menu UI follow camera so it stays visible
+        this.menuUI.setScrollFactor(0, 0); // Don't scroll with camera
     }
 
     private setupMenuInput(): void {
@@ -381,7 +365,9 @@ export class MenuScene extends Scene {
             duration: 500,
             ease: 'Power2',
             onComplete: () => {
-                // Transition to main game scene after fade completes
+                // Proper scene transition: stop this scene and start Game scene
+                console.log('🎬 MenuScene: Starting proper scene transition');
+                this.scene.stop('MenuScene');
                 this.scene.start('Game');
             }
         });
@@ -466,14 +452,29 @@ export class MenuScene extends Scene {
     destroy(): void {
         console.log('🧹 MenuScene destroy() called');
         
+        // Stop all tweens to prevent them from continuing after scene destruction
+        this.tweens.killAll();
+        
         // Clean up input handlers
         if (this.input && this.input.keyboard) {
             this.input.keyboard.removeAllListeners();
         }
         
-        // Destroy AI controller
+        // Clean up pointer input
+        if (this.input) {
+            this.input.removeAllListeners();
+        }
+        
+        // Destroy AI controller first to stop it from updating
         if (this.aiController) {
             this.aiController.destroy();
+            this.aiController = null as any;
+        }
+        
+        // Destroy particle effects
+        if (this.spinningParticleEffects) {
+            this.spinningParticleEffects.destroy();
+            this.spinningParticleEffects = null as any;
         }
         
         // Destroy all game systems (identical to Game scene)

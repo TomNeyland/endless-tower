@@ -364,6 +364,12 @@ export class WallCollision {
   }
 
   updateWallCollision(): void {
+    // Safety check: ensure physics world exists
+    if (!this.scene.physics?.world) {
+      console.warn('🚧 WallCollision: Physics world not available, skipping collision update');
+      return;
+    }
+
     // Update colliders when wall groups change
     if (this.leftWallCollider) {
       this.scene.physics.world.removeCollider(this.leftWallCollider);

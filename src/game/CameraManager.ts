@@ -61,6 +61,12 @@ export class CameraManager {
   }
 
   update(deltaTime: number): void {
+    // Safety check: ensure camera and scene are still valid
+    if (!this.camera || !this.scene || !this.scene.scene?.isActive()) {
+      console.warn('🚧 CameraManager: Camera or scene not available, skipping update');
+      return;
+    }
+
     // Don't update camera movement if game state doesn't allow it (with null safety)
     if (this.gameStateManager && !this.gameStateManager.allowsCameraMovement()) {
       return;
@@ -101,6 +107,12 @@ export class CameraManager {
   }
 
   private emitCameraState(): void {
+    // Safety check: ensure camera and scene are still valid
+    if (!this.camera || !this.scene || !this.scene.scene?.isActive()) {
+      console.warn('🚧 CameraManager: Camera or scene not available, skipping state emit');
+      return;
+    }
+
     const cameraState = {
       scrollY: this.camera.scrollY,
       playerHeight: this.getPlayerHeight(),

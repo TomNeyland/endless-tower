@@ -15,10 +15,20 @@ export class BackgroundColorManager {
   private currentColorHex: string = '#4a7c59'; // Start with grassland primary
   private targetColorHex: string = '#4a7c59';
   private readonly SMOOTHING_FACTOR = 0.02; // Slow, smooth transitions
+  
+  // Store bound function references for proper EventBus cleanup
+  private boundOnBiomeChanged: (data: any) => void;
+  private boundOnCameraStateUpdated: (cameraState: any) => void;
+  private boundOnGameReset: () => void;
 
   constructor(scene: Scene, biomeManager: BiomeManager) {
     this.scene = scene;
     this.biomeManager = biomeManager;
+    
+    // Bind event handlers once and store references
+    this.boundOnBiomeChanged = this.onBiomeChanged.bind(this);
+    this.boundOnCameraStateUpdated = this.onCameraStateUpdated.bind(this);
+    this.boundOnGameReset = this.onGameReset.bind(this);
     
     this.initializeColors();
     this.setupEventListeners();
@@ -39,9 +49,9 @@ export class BackgroundColorManager {
   }
 
   private setupEventListeners(): void {
-    EventBus.on('biome-changed', this.onBiomeChanged.bind(this));
-    EventBus.on('camera-state-updated', this.onCameraStateUpdated.bind(this));
-    EventBus.on('game-fully-reset', this.onGameReset.bind(this));
+    EventBus.on('biome-changed', this.boundOnBiomeChanged);
+    EventBus.on('camera-state-updated', this.boundOnCameraStateUpdated);
+    EventBus.on('game-fully-reset', this.boundOnGameReset);
   }
 
   private onBiomeChanged(data: any): void {
@@ -81,6 +91,12 @@ export class BackgroundColorManager {
   private smoothBackgroundColor(): void {
     // Only update if there's a meaningful difference
     if (this.currentColorHex === this.targetColorHex) {
+      return;
+    }
+
+    // Safety check: ensure camera exists before trying to update it
+    if (!this.scene.cameras?.main) {
+      console.warn('🎨 BackgroundColorManager: Camera not available, skipping color update');
       return;
     }
 
@@ -226,8 +242,11 @@ export class BackgroundColorManager {
   }
 
   destroy(): void {
-    EventBus.off('biome-changed', this.onBiomeChanged.bind(this));
-    EventBus.off('camera-state-updated', this.onCameraStateUpdated.bind(this));
-    EventBus.off('game-fully-reset', this.onGameReset.bind(this));
+    // Properly remove EventBus listeners using stored bound function references
+    EventBus.off('biome-changed', this.boundOnBiomeChanged);
+    EventBus.off('camera-state-updated', this.boundOnCameraStateUpdated);
+    EventBus.off('game-fully-reset', this.boundOnGameReset);
+    
+    console.log('🎨 BackgroundColorManager destroyed and EventBus listeners removed');
   }
 }

@@ -167,6 +167,11 @@ export class GameUI {
       return;
     }
 
+    // Safety check: ensure scene is still active
+    if (!this.scene || !this.scene.scene || !this.scene.scene.isActive()) {
+      return;
+    }
+
     // Additional check to ensure UI objects are ready
     try {
       this.currentScore = this.scoreSystem.getScoreData();

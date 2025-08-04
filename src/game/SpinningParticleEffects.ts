@@ -16,8 +16,17 @@ export class SpinningParticleEffects {
   private readonly PARTICLES_PER_FRAME = 3; // Reduced spawn rate (was 6)
   private readonly LIFESPAN = 8000; // 8 seconds for much longer trails
   
+  // Store bound function references for proper EventBus cleanup
+  private boundOnPlayerSpinning: (data: any) => void;
+  private boundOnPlayerSpinningStop: () => void;
+  
   constructor(scene: Scene) {
     this.scene = scene;
+    
+    // Bind event handlers once and store references
+    this.boundOnPlayerSpinning = this.onPlayerSpinning.bind(this);
+    this.boundOnPlayerSpinningStop = this.onPlayerSpinningStop.bind(this);
+    
     this.setupParticleEffects();
     this.setupEventListeners();
   }
@@ -60,8 +69,8 @@ export class SpinningParticleEffects {
 
   private setupEventListeners(): void {
     // Listen for spinning events from player
-    EventBus.on('player-spinning', this.onPlayerSpinning.bind(this));
-    EventBus.on('player-spinning-stop', this.onPlayerSpinningStop.bind(this));
+    EventBus.on('player-spinning', this.boundOnPlayerSpinning);
+    EventBus.on('player-spinning-stop', this.boundOnPlayerSpinningStop);
   }
 
   private onPlayerSpinning(data: any): void {
@@ -178,8 +187,9 @@ export class SpinningParticleEffects {
   }
 
   destroy(): void {
-    EventBus.off('player-spinning', this.onPlayerSpinning.bind(this));
-    EventBus.off('player-spinning-stop', this.onPlayerSpinningStop.bind(this));
+    // Properly remove EventBus listeners using stored bound function references
+    EventBus.off('player-spinning', this.boundOnPlayerSpinning);
+    EventBus.off('player-spinning-stop', this.boundOnPlayerSpinningStop);
 
     // Clean up particle pool
     if (this.particleLayer) {

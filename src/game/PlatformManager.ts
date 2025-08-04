@@ -35,19 +35,29 @@ export class PlatformManager {
     // Generation parameters
     private readonly GENERATION_DISTANCE = 1500; // Generate platforms this far ahead of camera
     private readonly CLEANUP_DISTANCE = 1000;    // Clean up platforms this far behind camera
+    
+    // Store bound function references for proper EventBus cleanup
+    private boundTogglePlatformGeneration: () => void;
+    private boundOnCameraStateUpdated: (cameraState: any) => void;
+    private boundOnBiomeChanged: (data: any) => void;
 
     constructor(scene: Scene, gameConfig: GameConfiguration) {
         this.scene = scene;
         this.platforms = scene.physics.add.staticGroup();
         this.config = gameConfig.platforms;
         
+        // Bind event handlers once and store references
+        this.boundTogglePlatformGeneration = this.togglePlatformGeneration.bind(this);
+        this.boundOnCameraStateUpdated = this.onCameraStateUpdated.bind(this);
+        this.boundOnBiomeChanged = this.onBiomeChanged.bind(this);
+        
         this.setupEventListeners();
     }
 
     private setupEventListeners(): void {
-        EventBus.on('debug-toggle-platforms', this.togglePlatformGeneration.bind(this));
-        EventBus.on('camera-state-updated', this.onCameraStateUpdated.bind(this));
-        EventBus.on('biome-changed', this.onBiomeChanged.bind(this));
+        EventBus.on('debug-toggle-platforms', this.boundTogglePlatformGeneration);
+        EventBus.on('camera-state-updated', this.boundOnCameraStateUpdated);
+        EventBus.on('biome-changed', this.boundOnBiomeChanged);
     }
 
     private togglePlatformGeneration(): void {
@@ -370,9 +380,10 @@ export class PlatformManager {
     }
 
     destroy(): void {
-        EventBus.off('camera-state-updated', this.onCameraStateUpdated.bind(this));
-        EventBus.off('debug-toggle-platforms', this.togglePlatformGeneration.bind(this));
-        EventBus.off('biome-changed', this.onBiomeChanged.bind(this));
+        // Properly remove EventBus listeners using stored bound function references
+        EventBus.off('camera-state-updated', this.boundOnCameraStateUpdated);
+        EventBus.off('debug-toggle-platforms', this.boundTogglePlatformGeneration);
+        EventBus.off('biome-changed', this.boundOnBiomeChanged);
         
         // Safely destroy all generated platforms first
         this.generatedPlatforms.forEach((platformData, id) => {

@@ -25,6 +25,7 @@ export class DeathLine {
   private deathLineActive: boolean = false;
   private highestPlayerY: number = 0;
   private initialPlayerY: number = 0;
+  private demoMode: boolean = false;
   
   // Visual effects
   private pulseIntensity: number = 0;
@@ -154,15 +155,18 @@ export class DeathLine {
   update(deltaTime: number): void {
     if (this.isGameOver) return;
     
-    this.updateDeathLineActivation();
+    // Don't activate death line in demo mode
+    if (!this.demoMode) {
+      this.updateDeathLineActivation();
+    }
     
-    if (this.deathLineActive) {
+    if (this.deathLineActive && !this.demoMode) {
       this.updateDeathLinePosition(deltaTime);
       this.updateVisuals();
       this.checkPlayerCollision();
       this.updateWarningSystem();
     } else {
-      // Clear visuals when inactive
+      // Clear visuals when inactive or in demo mode
       this.deathLineGraphics.clear();
       this.warningZone.clear();
       this.warningText.setVisible(false);
@@ -595,6 +599,24 @@ export class DeathLine {
 
   updateConfiguration(newConfig: GameConfiguration): void {
     this.config = newConfig.deathLine;
+  }
+
+  setDemoMode(enabled: boolean): void {
+    this.demoMode = enabled;
+    console.log(`🤖 DeathLine demo mode ${enabled ? 'enabled' : 'disabled'}`);
+    
+    if (enabled) {
+      // In demo mode, ensure death line is inactive and visuals are cleared
+      this.deathLineActive = false;
+      this.deathLineGraphics.clear();
+      this.warningZone.clear();
+      this.warningText.setVisible(false);
+      
+      // Stop particles
+      if (this.emberParticles && this.emberParticles.emitting) this.emberParticles.stop();
+      if (this.sparkParticles && this.sparkParticles.emitting) this.sparkParticles.stop();
+      if (this.smokeParticles && this.smokeParticles.emitting) this.smokeParticles.stop();
+    }
   }
 
   destroy(): void {

@@ -196,6 +196,12 @@ export class WallManager {
   }
 
   update(cameraY: number): void {
+    // Safety check: ensure scene is still active and physics world exists
+    if (!this.scene || !this.scene.scene?.isActive() || !this.scene.physics?.world) {
+      console.warn('🚧 WallManager: Scene or physics world not available, skipping update');
+      return;
+    }
+
     if (Math.abs(cameraY - this.lastCameraY) < 50) return; // Only update when camera moves significantly
     
     // Only generate walls upward - no more bidirectional complexity

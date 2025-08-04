@@ -126,6 +126,11 @@ export class Game extends Scene
 
     override update(time: number, delta: number)
     {
+        // Safety check: ensure scene is still active
+        if (!this.scene || !this.scene.isActive()) {
+            return;
+        }
+
         // Always update debug UI
         if (this.debugUI) {
             this.debugUI.update(time);
@@ -141,32 +146,37 @@ export class Game extends Scene
             return;
         }
 
-        if (this.player) {
-            this.player.update(delta);
-        }
-        
-        if (this.wallManager) {
-            this.wallManager.update(this.player.y);
-        }
-        
-        if (this.wallCollision) {
-            this.wallCollision.update();
-        }
-        
-        if (this.cameraManager) {
-            this.cameraManager.update(delta);
-        }
-        
-        if (this.deathLine) {
-            this.deathLine.update(delta);
-        }
-        
-        if (this.comboSystem) {
-            this.comboSystem.update(delta);
-        }
-        
-        if (this.gameUI) {
-            this.gameUI.update(delta);
+        try {
+            if (this.player) {
+                this.player.update(delta);
+            }
+            
+            if (this.wallManager) {
+                this.wallManager.update(this.player.y);
+            }
+            
+            if (this.wallCollision) {
+                this.wallCollision.update();
+            }
+            
+            if (this.cameraManager) {
+                this.cameraManager.update(delta);
+            }
+            
+            if (this.deathLine) {
+                this.deathLine.update(delta);
+            }
+            
+            if (this.comboSystem) {
+                this.comboSystem.update(delta);
+            }
+            
+            if (this.gameUI) {
+                this.gameUI.update(delta);
+            }
+        } catch (error) {
+            console.error('🚨 Game update error caught:', error);
+            // Don't crash the whole game, just log and continue
         }
     }
 
