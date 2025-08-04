@@ -280,8 +280,9 @@ export class GameMenu {
 
     // Event label
     const label = this.scene.add.text(0, 0, event.label, {
-      fontSize: '14px',
-      color: '#ffffff'
+      fontSize: 14,  // Use number for pixel-perfect rendering
+      color: '#ffffff',
+      resolution: 2  // Higher resolution for crisp text
     });
     row.add(label, { proportion: 1, align: 'center-left' });
 
@@ -291,8 +292,9 @@ export class GameMenu {
         .setStrokeStyle(1, 0x888888),
       
       text: this.scene.add.text(0, 0, this.getSoundLabel(event.defaultSound), {
-        fontSize: '12px',
-        color: '#ffffff'
+        fontSize: 12,  // Use number for pixel-perfect rendering
+        color: '#ffffff',
+        resolution: 2  // Higher resolution for crisp text
       }),
 
       space: { left: 8, right: 8, top: 5, bottom: 5 },
@@ -313,8 +315,9 @@ export class GameMenu {
           return scene.rexUI.add.label({
             background: scene.rexUI.add.roundRectangle(0, 0, 2, 2, 0, 0x444444, 0.01),
             text: scene.add.text(0, 0, option.text, {
-              fontSize: '12px',
-              color: '#ffffff'  
+              fontSize: 12,  // Use number for pixel-perfect rendering
+              color: '#ffffff',
+              resolution: 2  // Higher resolution for crisp text
             }),
             space: { left: 8, right: 8, top: 4, bottom: 4 }
           })
@@ -352,7 +355,8 @@ export class GameMenu {
       background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 5, 0x666666)
         .setStrokeStyle(1, 0xaaaaaa),
       text: this.scene.add.text(0, 0, '🔊', {
-        fontSize: '12px'
+        fontSize: 12,  // Use number for pixel-perfect rendering
+        resolution: 2  // Higher resolution for crisp text
       }),
       space: { left: 6, right: 6, top: 4, bottom: 4 }
     })
@@ -390,9 +394,10 @@ export class GameMenu {
         .setStrokeStyle(2, 0xffaa00),
       
       text: this.scene.add.text(0, 0, text, {
-        fontSize: '18px',
+        fontSize: 18,  // Use number for pixel-perfect rendering
         color: '#ffffff',
-        fontStyle: 'bold'
+        fontStyle: 'bold',
+        resolution: 2  // Higher resolution for crisp text
       }),
       
       space: { left: 20, right: 20, top: 10, bottom: 10 }
