@@ -14,7 +14,9 @@ This document tracks major enhancements, fixes, and new features needed to evolv
 ### Core System Stability
 - [ ] **Value tuning across all systems** - physics parameters, scoring, timing windows all need balancing
 - [ ] Configuration values were set during development and haven't been properly tuned for gameplay
-- [ ] **Biome reset bug** - biomes don't reset properly on game restart, sometimes requires multiple resets. See `progress-logs/2025-08-04-BIOME_RESET_BUG.md` for investigation details.
+- [x] **Biome reset bug** - biomes don't reset properly on game restart, sometimes requires multiple resets. See `progress-logs/2025-08-04-BIOME_RESET_BUG.md` for investigation details. **RESOLVED** - Fixed in scene lifecycle improvements.
+- [ ] **OneWayPlatform Reset Warning (Minor)** - `'OneWayPlatform: Platform group children property is undefined during add operation'` warning appears during platform reset. Non-critical timing issue, doesn't break functionality. See `progress-logs/2025-01-07-SCENE_LIFECYCLE_FIXES.md` for context.
+- [ ] **Camera Reference Silent Failures (Monitoring)** - BackgroundColorManager defensive fixes may have made camera reference errors fail silently. Monitor for background color update issues. See `progress-logs/2025-01-07-SCENE_LIFECYCLE_FIXES.md` for technical details.
 
 ## 🟡 Major Feature Gaps
 
