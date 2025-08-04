@@ -31,6 +31,7 @@ export class PlatformManager {
     // Checkpoint tracking
     private checkpoints: PlatformData[] = [];
     private readonly CHECKPOINT_INTERVAL = 100; // Every 100 platforms
+    private readonly PRE_CHECKPOINT_DIFFICULTY_ZONE = 10; // Last 10 platforms before checkpoint get harder
     
     // Generation parameters
     private readonly GENERATION_DISTANCE = 1500; // Generate platforms this far ahead of camera
@@ -240,9 +241,17 @@ export class PlatformManager {
         // Check if this should be a checkpoint platform
         const isCheckpoint = this.platformCount % this.CHECKPOINT_INTERVAL === 0;
         
+        // Calculate distance to next checkpoint for difficulty scaling
+        const platformsUntilCheckpoint = this.CHECKPOINT_INTERVAL - (this.platformCount % this.CHECKPOINT_INTERVAL);
+        const isInDifficultyZone = platformsUntilCheckpoint <= this.PRE_CHECKPOINT_DIFFICULTY_ZONE && platformsUntilCheckpoint > 0;
+        
         if (isCheckpoint) {
-            // Checkpoint platforms are single wall-to-wall platforms
+            // Checkpoint platforms are single wall-to-wall platforms (safe haven)
             this.generateSinglePlatform(this.scene.scale.width, this.scene.scale.width / 2, true);
+            console.log(`🏁 Generated checkpoint platform #${this.platformCount}`);
+        } else if (isInDifficultyZone) {
+            // Pre-checkpoint difficulty spike: smaller platforms, occasional gaps
+            this.generatePreCheckpointPlatform(platformsUntilCheckpoint);
         } else {
             // Regular platforms - generate a single platform with varying width
             this.generateSingleRegularPlatform();
@@ -251,6 +260,71 @@ export class PlatformManager {
         // Update next platform position for the next level
         this.highestGeneratedY = this.nextPlatformY;
         this.nextPlatformY -= this.generateVerticalSpacing();
+    }
+
+    private generatePreCheckpointPlatform(platformsUntilCheckpoint: number): void {
+        // Difficulty scaling based on proximity to checkpoint
+        // Closer to checkpoint = harder (lower platformsUntilCheckpoint = higher difficulty)
+        const difficultyPercent = 1 - (platformsUntilCheckpoint / this.PRE_CHECKPOINT_DIFFICULTY_ZONE); // 0.0 to 1.0
+        
+        // Chance to skip platform entirely (create a gap)
+        const gapChance = difficultyPercent * 0.3; // Up to 30% chance at maximum difficulty
+        const shouldSkip = Math.random() < gapChance;
+        
+        if (shouldSkip) {
+            console.log(`💀 Skipped platform #${this.platformCount} (gap challenge), ${platformsUntilCheckpoint} until checkpoint`);
+            // Don't create a platform, but still track the empty space
+            EventBus.emit('platform-skipped', {
+                platformNumber: this.platformCount,
+                y: this.nextPlatformY,
+                platformsUntilCheckpoint,
+                difficultyPercent
+            });
+            return;
+        }
+        
+        // Create smaller platforms based on difficulty
+        const tileWidth = 64;
+        const baseMinTiles = 3;
+        const baseMaxTiles = 7;
+        
+        // Scale down platform size as we get closer to checkpoint
+        const sizeReduction = Math.floor(difficultyPercent * 3); // Up to 3 tiles smaller
+        const minTiles = Math.max(1, baseMinTiles - sizeReduction); // Never smaller than 1 tile
+        const maxTiles = Math.max(minTiles, baseMaxTiles - sizeReduction);
+        
+        const numTiles = Phaser.Math.Between(minTiles, maxTiles);
+        const platformWidth = numTiles * tileWidth;
+        
+        // Generate random X position ensuring platform stays within screen bounds
+        const screenWidth = this.scene.scale.width;
+        const wallBuffer = 100; // Stay away from walls
+        const platformHalfWidth = platformWidth / 2;
+        
+        const minX = wallBuffer + platformHalfWidth;
+        const maxX = screenWidth - wallBuffer - platformHalfWidth;
+        const platformX = Phaser.Math.Between(minX, maxX);
+        
+        // Create the platform
+        const result = this.createPlatform(platformX, this.nextPlatformY, platformWidth);
+        this.trackPlatform(result.group, result.platformId, this.nextPlatformY, platformWidth, false);
+        
+        console.log(`⚠️ Generated pre-checkpoint platform #${this.platformCount}: ${numTiles} tiles, ${platformsUntilCheckpoint} until checkpoint`);
+        
+        // Emit event for the platform
+        if (result.group) {
+            EventBus.emit('platform-generated', {
+                id: result.platformId,
+                x: platformX,
+                y: this.nextPlatformY,
+                width: platformWidth,
+                group: result.group,
+                tiles: numTiles,
+                isPreCheckpoint: true,
+                difficultyPercent,
+                platformsUntilCheckpoint
+            });
+        }
     }
 
     private generateSingleRegularPlatform(): void {
