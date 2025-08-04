@@ -47,9 +47,9 @@ export class AudioManager {
   constructor(scene: Scene) {
     this.scene = scene;
     
-    // Default audio settings
+    // Default audio settings - master volume set to 0 until better sounds are found
     this.settings = {
-      masterVolume: 0.7,
+      masterVolume: 0.0, // Muted by default
       sfxVolume: 0.8,
       musicVolume: 0.6,
       enabled: true
