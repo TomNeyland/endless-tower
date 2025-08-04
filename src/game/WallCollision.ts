@@ -445,10 +445,10 @@ export class WallCollision {
     
     if (this.lastBounceSide !== null && inGracePeriod) {
       const gracePeriodProgress = timeSinceLastBounce / oppositeWallGracePeriod;
-      this.gracePeriodIndicator.setVisible(true);
-      this.gracePeriodIndicator.setPosition(this.scene.scale.width / 2, 50);
-      this.gracePeriodIndicator.setFillStyle(0x00ff00, 0.7 * (1 - gracePeriodProgress));
-      this.gracePeriodIndicator.setSize(200 * (1 - gracePeriodProgress), 20);
+      // this.gracePeriodIndicator.setVisible(true); // Commented out - debug graphics disabled
+      // this.gracePeriodIndicator.setPosition(this.scene.scale.width / 2, 50);
+      // this.gracePeriodIndicator.setFillStyle(0x00ff00, 0.7 * (1 - gracePeriodProgress));
+      // this.gracePeriodIndicator.setSize(200 * (1 - gracePeriodProgress), 20);
       
       // Highlight the wall that can be passed through
       const wallX = this.lastBounceSide === 'left' ? this.scene.scale.width : 0;

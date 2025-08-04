@@ -72,9 +72,9 @@ export class WallBounceEffects {
     if (this.wallContactEmitter) {
       try {
         // Additional safety check for particle emitter internal state
-        if (this.wallContactEmitter.active && this.wallContactEmitter.explode) {
+        if (this.wallContactEmitter.active) {
           this.wallContactEmitter.setPosition(data.playerPosition.x, data.playerPosition.y);
-          this.wallContactEmitter.explode(8);
+          // this.wallContactEmitter.explode(8); // Commented out - debug graphics disabled
         } else {
           console.warn('WallBounceEffects: Wall contact emitter not ready or corrupted, reinitializing...');
           this.initializeParticleEmitters();
@@ -99,7 +99,7 @@ export class WallBounceEffects {
     // Success particles
     if (this.successEmitter) {
       try {
-        if (this.successEmitter.active && this.successEmitter.explode) {
+        if (this.successEmitter.active) {
           let particleColor = 0x00ff00; // Green for normal efficiency
           
           if (efficiency > 1.0) {
@@ -112,7 +112,7 @@ export class WallBounceEffects {
 
           this.successEmitter.setConfig({ tint: particleColor });
           this.successEmitter.setPosition(data.position.x, data.position.y);
-          this.successEmitter.explode(15);
+          // this.successEmitter.explode(15); // Commented out - debug graphics disabled
         } else {
           console.warn('WallBounceEffects: Success emitter not ready or corrupted, reinitializing...');
           this.initializeParticleEmitters();

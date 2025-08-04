@@ -179,8 +179,8 @@ export class GameUI {
       const bestHeight = Math.round(this.currentScore.highestHeight);
       this.bestText.setText(`🥇 ${bestHeight}m`);
       
-      // Update multiplier with dynamic color
-      const multiplier = this.currentScore.multiplier;
+      // Update multiplier with dynamic color - use ComboSystem multiplier instead of ScoreSystem
+      const multiplier = this.comboSystem.getCurrentMultiplier();
       this.multiplierText.setText(`⚡ ${multiplier.toFixed(1)}x`);
       
       // Dynamic multiplier color based on value

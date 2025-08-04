@@ -66,6 +66,7 @@ This document tracks major enhancements, fixes, and new features needed to evolv
 - [ ] **Error handling** - graceful handling of edge cases and errors
 - [ ] **Save system** - persistent settings and progress storage
 - [ ] **Scale-agnostic player scaling system** - current scaling system has hardcoded offsets tuned for 0.7 scale only; changing scale factor breaks sprite/hitbox alignment and requires manual re-tuning. See `progress-logs/2025-08-04-PLAYER_SCALING_SYSTEM.md` for detailed analysis and potential solutions.
+- [ ] **Remove redundant ScoreSystem combo logic** - ScoreSystem contains old combo/multiplier code that duplicates ComboSystem functionality. See `progress-logs/2025-08-04-UI_MULTIPLIER_FIX.md` for context.
 
 ### Platform Generation Intelligence
 - [ ] **Procedural difficulty curves** - smart algorithms for platform placement based on height
