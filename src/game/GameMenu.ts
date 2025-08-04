@@ -119,7 +119,8 @@ export class GameMenu {
     const title = this.scene.rexUI.add.label({
       background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 10, 0x333333, 0.9),
       text: this.scene.add.text(0, 0, '⏸️ GAME PAUSED', {
-        fontSize: '32px',
+        fontSize: 32,  // Use number for pixel-perfect rendering
+        resolution: 2,  // Higher resolution for crisp text
         color: '#ffffff',
         fontStyle: 'bold'
       }),
@@ -207,7 +208,8 @@ export class GameMenu {
 
     // Title
     const title = this.scene.add.text(0, 0, '🔊 Audio Settings', {
-      fontSize: '28px',
+      fontSize: 28,  // Use number for pixel-perfect rendering
+      resolution: 2,  // Higher resolution for crisp text
       color: '#ffaa00',
       fontStyle: 'bold'
     });
@@ -227,7 +229,8 @@ export class GameMenu {
 
     // Sound event mappings
     const eventsTitle = this.scene.add.text(0, 0, '🎵 Sound Event Assignments', {
-      fontSize: '22px',
+      fontSize: 22,  // Use number for pixel-perfect rendering
+      resolution: 2,  // Higher resolution for crisp text
       color: '#ffffff',
       fontStyle: 'bold'
     });
@@ -253,7 +256,8 @@ export class GameMenu {
       space: { item: 10 }
     })
     .add(this.scene.add.text(0, 0, label, {
-      fontSize: '16px',
+      fontSize: 16,  // Use number for pixel-perfect rendering
+      resolution: 2,  // Higher resolution for crisp text
       color: '#ffffff'
     }), { proportion: 0, align: 'center-left' })
     .add(this.scene.rexUI.add.slider({

@@ -59,12 +59,13 @@ export class GameUI {
     
     // Current height display (primary metric - largest)
     this.heightText = this.scene.add.text(0, 0, '🏔️ 0m', {
-      fontSize: '28px',
+      fontSize: 28,  // Use number for pixel-perfect rendering
       color: '#00FFFF', // Bright cyan for current height
       fontStyle: 'bold',
       fontFamily: 'monospace', // Pixel-like font
       stroke: '#003366',
-      strokeThickness: 2
+      strokeThickness: 2,
+      resolution: 2  // Higher resolution for crisp text
     });
     
     // Total score display (secondary metric)

@@ -41,7 +41,7 @@ const config: Types.Core.GameConfig = {
     render: {
         pixelArt: false,
         antialias: true,
-        roundPixels: false  // Smoother sub-pixel movement
+        roundPixels: true  // Fix blurry text by snapping to pixel boundaries
     },
     scene: [
         MenuScene,  // MenuScene loads first (initial scene)

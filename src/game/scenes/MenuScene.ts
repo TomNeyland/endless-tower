@@ -269,10 +269,11 @@ export class MenuScene extends Scene {
         // Game title
         this.titleText = this.add.text(this.scale.width / 2, 120, 'ENDLESS TOWER', {
             fontFamily: 'Arial, sans-serif',
-            fontSize: '72px',
+            fontSize: 72,  // Use number for pixel-perfect rendering
             color: '#FFFFFF',
             stroke: '#000000',
-            strokeThickness: 4
+            strokeThickness: 4,
+            resolution: 2  // Higher resolution for crisp text
         });
         this.titleText.setOrigin(0.5);
         this.menuUI.add(this.titleText);
@@ -281,10 +282,11 @@ export class MenuScene extends Scene {
         // Instructions
         this.instructionText = this.add.text(this.scale.width / 2, this.scale.height - 100, 'PRESS ANY KEY TO START', {
             fontFamily: 'Arial, sans-serif',
-            fontSize: '28px',
+            fontSize: 28,  // Use number for pixel-perfect rendering
             color: '#FFFF00',
             stroke: '#000000',
-            strokeThickness: 3
+            strokeThickness: 3,
+            resolution: 2  // Higher resolution for crisp text
         });
         this.instructionText.setOrigin(0.5);
         this.menuUI.add(this.instructionText);
@@ -292,10 +294,11 @@ export class MenuScene extends Scene {
         // Controls hint
         const controlsText = this.add.text(this.scale.width / 2, this.scale.height - 60, 'ARROW KEYS / WASD TO MOVE • SPACE / UP TO JUMP', {
             fontFamily: 'Arial, sans-serif',
-            fontSize: '16px',
+            fontSize: 16,  // Use number instead of string for pixel-perfect rendering
             color: '#AAAAAA',
             stroke: '#000000',
-            strokeThickness: 2
+            strokeThickness: 2,
+            resolution: 2  // Higher resolution for crisp text
         });
         controlsText.setOrigin(0.5);
         this.menuUI.add(controlsText);
@@ -303,10 +306,11 @@ export class MenuScene extends Scene {
         // AI behavior indicator
         this.currentBehaviorText = this.add.text(20, 20, 'AI Mode: SAFE CLIMBING', {
             fontFamily: 'Arial, sans-serif',
-            fontSize: '14px',
+            fontSize: 14,  // Use number for pixel-perfect rendering
             color: '#00FF00',
             stroke: '#000000',
-            strokeThickness: 2
+            strokeThickness: 2,
+            resolution: 2  // Higher resolution for crisp text
         });
         this.currentBehaviorText.setOrigin(0, 0);
         this.menuUI.add(this.currentBehaviorText);
