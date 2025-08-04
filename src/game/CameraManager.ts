@@ -14,6 +14,7 @@ export class CameraManager {
   private highestPlayerY: number = 0;
   private cameraTargetY: number = 0;
   private initialCameraY: number = 0;
+  private minCameraY: number = 0; // Minimum Y the camera can scroll to
   // Removed custom control variables - using pure Phaser implementation
 
   constructor(scene: Scene, player: Player, gameConfig: GameConfiguration, gameStateManager: GameStateManager) {
@@ -33,6 +34,10 @@ export class CameraManager {
     this.highestPlayerY = this.player.y;
     this.cameraTargetY = this.initialCameraY;
     
+    // Calculate minimum camera Y (floor at bottom of screen)
+    const floorY = this.scene.scale.height - 32; // Floor position
+    this.minCameraY = floorY - this.scene.scale.height; // Camera Y when floor is at screen bottom
+    
     // Set camera bounds (no horizontal bounds, but track vertical movement)
     this.camera.setBounds(0, -Infinity, this.scene.scale.width, Infinity);
     
@@ -42,8 +47,9 @@ export class CameraManager {
     // Set camera deadzone for comfortable player movement
     this.camera.setDeadzone(this.scene.scale.width * 0.3, this.scene.scale.height * 0.2);
     
-    // Camera should follow player with player near top of screen
-    this.camera.setFollowOffset(0, this.scene.scale.height * 0.1);
+    // Camera should follow player with player positioned higher on screen
+    // This keeps more world visible below the player
+    this.camera.setFollowOffset(0, -this.scene.scale.height * 0.2);
     
     // Camera setup complete - using pure Phaser following
   }
@@ -58,6 +64,11 @@ export class CameraManager {
     // Don't update camera movement if game state doesn't allow it (with null safety)
     if (this.gameStateManager && !this.gameStateManager.allowsCameraMovement()) {
       return;
+    }
+
+    // Enforce minimum camera Y constraint
+    if (this.camera.scrollY > this.minCameraY) {
+      this.camera.setScroll(this.camera.scrollX, this.minCameraY);
     }
 
     this.trackPlayerHeight();

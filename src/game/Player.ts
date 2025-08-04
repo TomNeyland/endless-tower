@@ -28,6 +28,10 @@ export class Player extends Physics.Arcade.Sprite {
         this.setupEventListeners();
         
         this.setTexture('character', 'character_beige_idle');
+        
+        // Apply visual scale to match physics body
+        const playerConfig = this.gameConfig.player;
+        this.setScale(playerConfig.scale);
     }
 
     private setupPhysics(): void {
@@ -37,8 +41,18 @@ export class Player extends Physics.Arcade.Sprite {
         body.setCollideWorldBounds(true);
         body.world.setBounds(0, -1000000, this.scene.scale.width, 2000000); // Truly infinite vertical space (1 million units each direction)
         
-        body.setSize(80, 100);
-        body.setOffset(24, 28);
+        // Apply player scale to body size and offset
+        const playerConfig = this.gameConfig.player;
+        const scaledWidth = playerConfig.baseBodyWidth * playerConfig.scale;
+        const scaledHeight = playerConfig.baseBodyHeight * playerConfig.scale;
+        
+        // When sprite is scaled, we need to adjust the offset to center the hitbox properly
+        // The offset needs to account for how the scaled sprite texture is positioned
+        const offsetX = playerConfig.baseOffsetX + (playerConfig.baseBodyWidth * (1 - playerConfig.scale)) / 2;
+        const offsetY = playerConfig.baseOffsetY + (playerConfig.baseBodyHeight * (1 - playerConfig.scale)) / 2;
+        
+        body.setSize(scaledWidth, scaledHeight);
+        body.setOffset(offsetX, offsetY);
     }
 
     private setupMovementController(): void {
@@ -211,6 +225,22 @@ export class Player extends Physics.Arcade.Sprite {
     updateConfiguration(newConfig: GameConfiguration): void {
         this.gameConfig = newConfig;
         this.movementController.updateConfiguration(newConfig);
+        
+        // Update player scale if it changed
+        const playerConfig = newConfig.player;
+        this.setScale(playerConfig.scale);
+        
+        // Update physics body size and offset
+        const body = this.body as Physics.Arcade.Body;
+        const scaledWidth = playerConfig.baseBodyWidth * playerConfig.scale;
+        const scaledHeight = playerConfig.baseBodyHeight * playerConfig.scale;
+        
+        // When sprite is scaled, we need to adjust the offset to center the hitbox properly
+        const offsetX = playerConfig.baseOffsetX + (playerConfig.baseBodyWidth * (1 - playerConfig.scale)) / 2;
+        const offsetY = playerConfig.baseOffsetY + (playerConfig.baseBodyHeight * (1 - playerConfig.scale)) / 2;
+        
+        body.setSize(scaledWidth, scaledHeight);
+        body.setOffset(offsetX, offsetY);
     }
 
     getMovementController(): MovementController {

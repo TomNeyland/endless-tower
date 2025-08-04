@@ -52,6 +52,14 @@ export interface WallConfig {
   cleanupDistance: number;
 }
 
+export interface PlayerConfig {
+  scale: number;                 // Player scale factor (1.0 = normal, 0.7 = 30% smaller)
+  baseBodyWidth: number;         // Base body width before scaling
+  baseBodyHeight: number;        // Base body height before scaling
+  baseOffsetX: number;           // Base offset X before scaling  
+  baseOffsetY: number;           // Base offset Y before scaling
+}
+
 export interface GameConfig {
   physics: PhysicsConfig;
   platforms: PlatformConfig;
@@ -59,6 +67,7 @@ export interface GameConfig {
   camera: CameraConfig;
   deathLine: DeathLineConfig;
   walls: WallConfig;
+  player: PlayerConfig;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -114,6 +123,14 @@ export const DEFAULT_CONFIG: GameConfig = {
     tileHeight: 64,
     generateDistance: 3000,
     cleanupDistance: 1500
+  },
+  
+  player: {
+    scale: 0.7,                  // 30% smaller for bigger arena feel  
+    baseBodyWidth: 108,          // Tuned for good fit
+    baseBodyHeight: 128,         // Tuned for good fit
+    baseOffsetX: 10,             // Tuned for 0.7 scale (will scale proportionally)
+    baseOffsetY: 14              // Tuned for 0.7 scale (will scale proportionally)
   }
 };
 
@@ -209,6 +226,10 @@ export class GameConfiguration {
     return { ...this.config.walls };
   }
   
+  get player(): PlayerConfig {
+    return { ...this.config.player };
+  }
+  
   updatePhysics(updates: Partial<PhysicsConfig>): void {
     this.config.physics = { ...this.config.physics, ...updates };
   }
@@ -227,6 +248,10 @@ export class GameConfiguration {
   
   updateWalls(updates: Partial<WallConfig>): void {
     this.config.walls = { ...this.config.walls, ...updates };
+  }
+  
+  updatePlayer(updates: Partial<PlayerConfig>): void {
+    this.config.player = { ...this.config.player, ...updates };
   }
   
   calculateJumpMetrics(horizontalSpeed: number): {
@@ -301,7 +326,8 @@ export class GameConfiguration {
       combos: { ...base.combos, ...custom.combos },
       camera: { ...base.camera, ...custom.camera },
       deathLine: { ...base.deathLine, ...custom.deathLine },
-      walls: { ...base.walls, ...custom.walls }
+      walls: { ...base.walls, ...custom.walls },
+      player: { ...base.player, ...custom.player }
     };
   }
 }

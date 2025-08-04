@@ -65,6 +65,7 @@ This document tracks major enhancements, fixes, and new features needed to evolv
 - [ ] **Loading screens** - proper asset loading with progress indication
 - [ ] **Error handling** - graceful handling of edge cases and errors
 - [ ] **Save system** - persistent settings and progress storage
+- [ ] **Scale-agnostic player scaling system** - current scaling system has hardcoded offsets tuned for 0.7 scale only; changing scale factor breaks sprite/hitbox alignment and requires manual re-tuning. See `progress-logs/2025-08-04-PLAYER_SCALING_SYSTEM.md` for detailed analysis and potential solutions.
 
 ### Platform Generation Intelligence
 - [ ] **Procedural difficulty curves** - smart algorithms for platform placement based on height

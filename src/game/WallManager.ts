@@ -43,11 +43,65 @@ export class WallManager {
 
   private setupEventListeners(): void {
     EventBus.on('biome-changed', this.onBiomeChanged.bind(this));
+    EventBus.on('platform-cleaned-up', this.onPlatformCleanedUp.bind(this));
   }
 
   private onBiomeChanged(biomeData: any): void {
     this.currentBiome = biomeData.currentBiome;
     console.log(`🧱 WallManager: Biome changed to ${this.currentBiome?.name}`);
+  }
+
+  private onPlatformCleanedUp(data: { id: string, y: number, group: any }): void {
+    // When checkpoint platforms are cleaned up, clean up walls below that level
+    // This is safe because players can't fall below checkpoint platforms
+    this.cleanupWallsBelowY(data.y);
+  }
+
+  private enforceWallCountLimit(): void {
+    const MAX_WALLS = 100;
+    
+    if (this.wallSegments.size > MAX_WALLS) {
+      // Find oldest wall segments (highest bottomY = lowest on screen = oldest)
+      const sortedSegments = Array.from(this.wallSegments.entries())
+        .sort(([, a], [, b]) => b.bottomY - a.bottomY); // Sort by bottomY descending (oldest first)
+      
+      const wallsToRemove = sortedSegments.slice(0, this.wallSegments.size - MAX_WALLS);
+      
+      console.log(`🧹 WallManager: Wall count limit exceeded (${this.wallSegments.size}), removing ${wallsToRemove.length} oldest segments`);
+      
+      wallsToRemove.forEach(([id]) => {
+        this.removeWallSegment(id);
+      });
+      
+      console.log(`📊 Wall count after cleanup: ${this.wallSegments.size}`);
+      EventBus.emit('walls-updated');
+    }
+  }
+
+  private cleanupWallsBelowY(checkpointY: number): void {
+    const wallsToRemove: string[] = [];
+    const totalWallsBefore = this.wallSegments.size;
+    
+    // Find all wall segments below the checkpoint level
+    this.wallSegments.forEach((segment, id) => {
+      if (segment.bottomY > checkpointY) { // In Phaser, higher Y = lower on screen
+        wallsToRemove.push(id);
+      }
+    });
+    
+    if (wallsToRemove.length > 0) {
+      console.log(`🧹 WallManager: Cleaning up ${wallsToRemove.length} wall segments below checkpoint at Y=${checkpointY.toFixed(0)}`);
+      console.log(`📊 Wall count before cleanup: ${totalWallsBefore}`);
+      
+      wallsToRemove.forEach(id => {
+        this.removeWallSegment(id);
+      });
+      
+      console.log(`📊 Wall count after cleanup: ${this.wallSegments.size}`);
+      EventBus.emit('walls-updated');
+    } else {
+      console.log(`🧹 WallManager: No walls to cleanup below Y=${checkpointY.toFixed(0)} (Total walls: ${totalWallsBefore})`);
+    }
   }
 
   private getCurrentWallTextures(): { top: string, middle: string, bottom: string } {
@@ -66,7 +120,7 @@ export class WallManager {
 
   private generateInitialWalls(): void {
     const screenHeight = this.scene.scale.height;
-    const startY = screenHeight;
+    const startY = screenHeight - 32; // Start walls at same Y as floor platform
     const endY = -this.config.generateDistance;
     
     console.log(`🏗️ Generating initial walls from Y=${startY} to Y=${endY}`);
@@ -144,16 +198,12 @@ export class WallManager {
   update(cameraY: number): void {
     if (Math.abs(cameraY - this.lastCameraY) < 50) return; // Only update when camera moves significantly
     
-    // Bidirectional wall generation - generate both above and below camera
+    // Only generate walls upward - no more bidirectional complexity
     const wallsGeneratedAbove = this.generateWallsAbove(cameraY);
-    const wallsGeneratedBelow = this.generateWallsBelow(cameraY);
-    const wallsRemoved = this.removeWallsOutOfRange(cameraY);
-    
-    const hadWallChanges = wallsGeneratedAbove || wallsGeneratedBelow || wallsRemoved;
     
     // Notify collision system if walls changed
-    if (hadWallChanges) {
-      console.log('🔄 WallManager: Walls changed, updating collision system');
+    if (wallsGeneratedAbove) {
+      console.log('🔄 WallManager: Walls generated above, updating collision system');
       EventBus.emit('walls-updated');
     }
     
@@ -163,6 +213,7 @@ export class WallManager {
   private generateWallsAbove(cameraY: number): boolean {
     let wallsGenerated = false;
     const generateThreshold = cameraY - this.config.generateDistance;
+    const totalWallsBefore = this.wallSegments.size;
     
     // Find the highest wall segment for each side
     const leftHighest = this.getHighestWallSegment('left');
@@ -181,55 +232,16 @@ export class WallManager {
       wallsGenerated = true;
     }
     
-    return wallsGenerated;
-  }
-
-  private generateWallsBelow(cameraY: number): boolean {
-    let wallsGenerated = false;
-    const generateThreshold = cameraY + this.config.generateDistance;
-    
-    // Find the lowest wall segment for each side
-    const leftLowest = this.getLowestWallSegment('left');
-    const rightLowest = this.getLowestWallSegment('right');
-    
-    // Generate new segments below if needed
-    if (!leftLowest || leftLowest.bottomY < generateThreshold) {
-      const startY = leftLowest ? leftLowest.bottomY : cameraY;
-      this.generateWallSegments('left', 0, startY, generateThreshold);
-      wallsGenerated = true;
-    }
-    
-    if (!rightLowest || rightLowest.bottomY < generateThreshold) {
-      const startY = rightLowest ? rightLowest.bottomY : cameraY;
-      this.generateWallSegments('right', this.scene.scale.width - this.TILE_WIDTH, startY, generateThreshold);
-      wallsGenerated = true;
+    if (wallsGenerated) {
+      console.log(`🏗️ WallManager: Generated walls above camera. Total walls: ${totalWallsBefore} → ${this.wallSegments.size}`);
+      
+      // Simple wall count management - cleanup oldest when over 100
+      this.enforceWallCountLimit();
     }
     
     return wallsGenerated;
   }
 
-  private removeWallsOutOfRange(cameraY: number): boolean {
-    let wallsRemoved = false;
-    const cleanupDistance = this.config.cleanupDistance;
-    const upperCleanupThreshold = cameraY - cleanupDistance; // Remove walls too far above
-    const lowerCleanupThreshold = cameraY + cleanupDistance; // Remove walls too far below
-    
-    const segmentsToRemove: string[] = [];
-    
-    this.wallSegments.forEach((segment, id) => {
-      // Remove segments that are too far above (topY < upperThreshold) or too far below (bottomY > lowerThreshold)
-      if (segment.topY < upperCleanupThreshold || segment.bottomY > lowerCleanupThreshold) {
-        segmentsToRemove.push(id);
-      }
-    });
-    
-    segmentsToRemove.forEach(id => {
-      this.removeWallSegment(id);
-      wallsRemoved = true;
-    });
-    
-    return wallsRemoved;
-  }
 
   private getHighestWallSegment(side: 'left' | 'right'): WallSegment | null {
     let highest: WallSegment | null = null;
@@ -245,19 +257,6 @@ export class WallManager {
     return highest;
   }
 
-  private getLowestWallSegment(side: 'left' | 'right'): WallSegment | null {
-    let lowest: WallSegment | null = null;
-    
-    this.wallSegments.forEach(segment => {
-      if (segment.side === side) {
-        if (!lowest || segment.bottomY > lowest.bottomY) {
-          lowest = segment;
-        }
-      }
-    });
-    
-    return lowest;
-  }
 
   private removeWallSegment(id: string): void {
     const segment = this.wallSegments.get(id);
@@ -342,6 +341,7 @@ export class WallManager {
 
   destroy(): void {
     EventBus.off('biome-changed', this.onBiomeChanged.bind(this));
+    EventBus.off('platform-cleaned-up', this.onPlatformCleanedUp.bind(this));
     this.clear();
   }
 }

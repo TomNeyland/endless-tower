@@ -138,7 +138,7 @@ export class PlatformManager {
     }
 
     createGroundPlatform(): { group: Physics.Arcade.StaticGroup, platformId: string } {
-        const groundY = this.scene.scale.height - 100;
+        const groundY = this.scene.scale.height - 32; // Position flush with bottom (32px is half tile height)
         const groundWidth = this.scene.scale.width; // Wall-to-wall solid platform
         const groundX = this.scene.scale.width / 2;
         
