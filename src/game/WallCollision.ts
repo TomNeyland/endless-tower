@@ -463,13 +463,13 @@ export class WallCollision {
     // TODO: Re-enable once we figure out sprite depth issues
     
     // Draw player collision bounds in world coordinates
-    this.debugGraphics.lineStyle(2, 0x00ffff, 0.8); // More opaque
-    this.debugGraphics.strokeRect(
-      playerBody.x, 
-      playerBody.y,
-      playerBody.width, 
-      playerBody.height
-    );
+    // this.debugGraphics.lineStyle(2, 0x00ffff, 0.8); // More opaque - commented out for clean visuals
+    // this.debugGraphics.strokeRect(
+    //   playerBody.x, 
+    //   playerBody.y,
+    //   playerBody.width, 
+    //   playerBody.height
+    // );
     
   }
 

@@ -20,7 +20,7 @@ export class GameUI {
   // UI Elements - RexUI components
   private mainHUD: any; // RexUI Sizer - Unified main display
   private heightText: any; // Current height display
-  private bestText: any; // Best height display  
+  private scoreText: any; // Total score display  
   private multiplierText: any; // Current multiplier display
   private comboToast: any; // Dynamic combo celebration
   private comboProgressBar: any; // RexUI Progress bar
@@ -67,10 +67,10 @@ export class GameUI {
       strokeThickness: 2
     });
     
-    // Best height display (secondary metric)
-    this.bestText = this.scene.add.text(0, 0, '🥇 0m', {
+    // Total score display (secondary metric)
+    this.scoreText = this.scene.add.text(0, 0, '💰 0pts', {
       fontSize: '20px',
-      color: '#FFD700', // Gold for best achievement
+      color: '#FFD700', // Gold for score
       fontStyle: 'bold',
       fontFamily: 'monospace',
       stroke: '#664400',
@@ -107,7 +107,7 @@ export class GameUI {
       }
     })
     .add(this.heightText, { align: 'left' })
-    .add(this.bestText, { align: 'left' })
+    .add(this.scoreText, { align: 'left' })
     .add(this.multiplierText, { align: 'left' })
     .setDepth(1100)
     .setScrollFactor(0)
@@ -163,7 +163,7 @@ export class GameUI {
 
   private updateDisplay(): void {
     // Add null safety checks for score system and new HUD elements
-    if (!this.scoreSystem || !this.mainHUD || !this.heightText || !this.bestText || !this.multiplierText) {
+    if (!this.scoreSystem || !this.mainHUD || !this.heightText || !this.scoreText || !this.multiplierText) {
       return;
     }
 
@@ -171,13 +171,16 @@ export class GameUI {
     try {
       this.currentScore = this.scoreSystem.getScoreData();
     
-      // Update current height (primary metric)
-      const currentHeight = Math.round(this.currentScore.currentHeight);
-      this.heightText.setText(`🏔️ ${currentHeight}m`);
+      // Update current height (primary metric) - convert pixels to meters
+      // Player is 89.6 pixels tall (128 * 0.7 scale) = 6 feet = 1.83 meters
+      // So 1 meter = 49 pixels (89.6 pixels ÷ 1.83 meters)
+      const pixelsPerMeter = 49;
+      const currentHeightMeters = Math.round(this.currentScore.currentHeight / pixelsPerMeter);
+      this.heightText.setText(`🏔️ ${currentHeightMeters}m`);
       
-      // Update best height
-      const bestHeight = Math.round(this.currentScore.highestHeight);
-      this.bestText.setText(`🥇 ${bestHeight}m`);
+      // Update total score
+      const totalScore = this.currentScore.totalScore;
+      this.scoreText.setText(`💰 ${totalScore.toLocaleString()}pts`);
       
       // Update multiplier with dynamic color - use ComboSystem multiplier instead of ScoreSystem
       const multiplier = this.comboSystem.getCurrentMultiplier();
@@ -523,7 +526,7 @@ export class GameUI {
     // Clean up new UI elements
     this.mainHUD?.destroy();
     this.heightText?.destroy();
-    this.bestText?.destroy();
+    this.scoreText?.destroy();
     this.multiplierText?.destroy();
     this.comboToast?.destroy();
     this.comboProgressBar?.destroy();

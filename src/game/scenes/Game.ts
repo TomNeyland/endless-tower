@@ -469,6 +469,28 @@ export class Game extends Scene
     private reinitializeGameSystems(): void {
         console.log('🔄 Reinitializing game systems...');
         
+        // Recreate BiomeManager if it was destroyed (BEFORE emitting reset event)
+        if (!this.biomeManager) {
+            this.setupBiomeManager();
+            console.log('🌍 BiomeManager recreated during reset');
+        } else {
+            // If BiomeManager exists, manually reset it to ensure clean state
+            console.log('🌍 BiomeManager exists, manually resetting state');
+            this.biomeManager.setPlatformCount(0); // Force reset to 0 platforms
+        }
+        
+        // Recreate BackgroundColorManager if it was destroyed (BEFORE emitting reset event)
+        if (!this.backgroundColorManager) {
+            this.setupBackgroundColorManager();
+            console.log('🎨 BackgroundColorManager recreated during reset');
+        }
+        
+        // Emit reset complete event AFTER managers are ready
+        EventBus.emit('game-fully-reset', {
+            timestamp: Date.now(),
+            playerPosition: this.player ? { x: this.player.x, y: this.player.y } : null
+        });
+        
         // Ensure collision systems are properly reconnected
         if (this.oneWayPlatforms && this.platformManager) {
             // Platform collision system should be ready
@@ -482,12 +504,6 @@ export class Game extends Scene
         if (this.cameraManager && this.player) {
             this.cameraManager.focusOnPlayer();
         }
-        
-        // Emit reset complete event for any systems that need to know
-        EventBus.emit('game-fully-reset', {
-            timestamp: Date.now(),
-            playerPosition: this.player ? { x: this.player.x, y: this.player.y } : null
-        });
     }
 
     destroy(): void

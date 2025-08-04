@@ -33,7 +33,7 @@ const config: Types.Core.GameConfig = {
         default: 'arcade',
         arcade: {
             gravity: { y: 800, x: 0 },
-            debug: false
+            debug: false // Set to true to show physics debug hitboxes (player, platforms, walls)
             // Remove fixed physics FPS - let it sync with render
         }
     },

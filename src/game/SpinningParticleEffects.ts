@@ -98,9 +98,24 @@ export class SpinningParticleEffects {
       particleColor = 0x88ddff; // Light blue for very low speed
     }
     
-    // Create particles along the trail (interpolate between positions like the mouse example)
-    // Scale proportionally: 3 particles on low end, up to 6 on high end (2x scaling, much more reasonable)
-    const particlesToEmit = Math.ceil(this.PARTICLES_PER_FRAME * (1 + intensity));
+    // Create particles along the trail with smooth scaling from trickle to flood
+    // Use probability-based emission for very low intensities, then scale up smoothly
+    let particlesToEmit = 0;
+    
+    if (intensity <= 0.15) {
+      // Very low intensity: very sparse trickle (0-7.5% chance of 1 particle)
+      const trickleChance = intensity * 0.5; // Much lower chance: 0-7.5% based on intensity
+      if (Math.random() < trickleChance) {
+        particlesToEmit = 1;
+      }
+    } else {
+      // Higher intensity: smooth curve from 1 to max particles
+      const minParticles = 1;
+      const maxParticles = this.PARTICLES_PER_FRAME * 2.5;  // Up to ~7-8 particles
+      const normalizedIntensity = (intensity - 0.15) / 0.85; // Normalize 0.15-1.0 to 0-1
+      const curve = Math.pow(normalizedIntensity, 0.6);  // Smooth curve
+      particlesToEmit = Math.ceil(minParticles + curve * (maxParticles - minParticles));
+    }
     
     for (let i = 0; i < particlesToEmit; i++) {
       // Get next particle from pool (wrap around)
@@ -114,11 +129,11 @@ export class SpinningParticleEffects {
       const t = i / particlesToEmit;
       const pos = Phaser.Math.LinearXY(from, to, t);
       
-      // Spawn particles anywhere within the player's bounding box (roughly 80x100 based on Player.ts physics setup)
-      const playerWidth = 80;
-      const playerHeight = 100;
-      pos.x += (Math.random() - 0.5) * playerWidth;   // Random within player width
-      pos.y += (Math.random() - 0.5) * playerHeight;  // Random within player height
+      // Spawn particles from a tighter area around player center (reduced from full 80x100 bounding box)
+      const spawnAreaWidth = 30;   // Tighter horizontal spawn area
+      const spawnAreaHeight = 40;  // Tighter vertical spawn area
+      pos.x += (Math.random() - 0.5) * spawnAreaWidth;   // Random within tighter width
+      pos.y += (Math.random() - 0.5) * spawnAreaHeight;  // Random within tighter height
       
       // RESET particle properties completely (no inheritance)
       particle.setPosition(pos.x, pos.y);

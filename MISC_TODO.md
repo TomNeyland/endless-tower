@@ -14,6 +14,7 @@ This document tracks major enhancements, fixes, and new features needed to evolv
 ### Core System Stability
 - [ ] **Value tuning across all systems** - physics parameters, scoring, timing windows all need balancing
 - [ ] Configuration values were set during development and haven't been properly tuned for gameplay
+- [ ] **Biome reset bug** - biomes don't reset properly on game restart, sometimes requires multiple resets. See `progress-logs/2025-08-04-BIOME_RESET_BUG.md` for investigation details.
 
 ## 🟡 Major Feature Gaps
 
