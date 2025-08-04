@@ -353,6 +353,13 @@ export class MenuScene extends Scene {
         this.input.keyboard?.removeAllListeners();
         this.input.removeAllListeners();
         
+        // CRITICAL: Immediately destroy BackgroundColorManager to stop camera update spam
+        if (this.backgroundColorManager) {
+            console.log('🎨 MenuScene: Destroying BackgroundColorManager during transition');
+            this.backgroundColorManager.destroy();
+            this.backgroundColorManager = null as any;
+        }
+        
         // Create fade out effect
         const fadeOverlay = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0);
         fadeOverlay.setOrigin(0, 0);

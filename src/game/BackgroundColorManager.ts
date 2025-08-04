@@ -66,6 +66,18 @@ export class BackgroundColorManager {
   }
 
   private onCameraStateUpdated(cameraState: any): void {
+    // CRITICAL: Stop processing if scene is no longer active (prevents stale MenuScene updates)
+    if (!this.scene || !this.scene.scene?.isActive()) {
+      console.warn('🎨 BackgroundColorManager: Scene not active, ignoring camera update');
+      return;
+    }
+
+    // Additional safety check: ensure camera is available before processing
+    if (!this.scene.cameras?.main) {
+      console.warn('🎨 BackgroundColorManager: Camera not available during update, ignoring');
+      return;
+    }
+
     // Throttle target color updates but always smooth the current color
     const heightDiff = Math.abs(cameraState.playerHeight - this.lastUpdateHeight);
     if (heightDiff >= this.UPDATE_THRESHOLD) {
@@ -73,7 +85,7 @@ export class BackgroundColorManager {
       this.updateTargetColor();
     }
     
-    // Always smooth toward target color
+    // Always smooth toward target color (with camera safety check already done)
     this.smoothBackgroundColor();
   }
 
@@ -94,9 +106,15 @@ export class BackgroundColorManager {
       return;
     }
 
+    // Safety check: ensure scene is still active (FIRST CHECK)
+    if (!this.scene || !this.scene.scene?.isActive()) {
+      // Don't log here since onCameraStateUpdated already logs it
+      return;
+    }
+
     // Safety check: ensure camera exists before trying to update it
     if (!this.scene.cameras?.main) {
-      console.warn('🎨 BackgroundColorManager: Camera not available, skipping color update');
+      // Don't log here since onCameraStateUpdated already logs it
       return;
     }
 
@@ -242,11 +260,17 @@ export class BackgroundColorManager {
   }
 
   destroy(): void {
+    console.log('🎨 BackgroundColorManager destroy() called - removing EventBus listeners');
+    
     // Properly remove EventBus listeners using stored bound function references
     EventBus.off('biome-changed', this.boundOnBiomeChanged);
     EventBus.off('camera-state-updated', this.boundOnCameraStateUpdated);
     EventBus.off('game-fully-reset', this.boundOnGameReset);
     
-    console.log('🎨 BackgroundColorManager destroyed and EventBus listeners removed');
+    // Clear scene reference to prevent any further updates
+    this.scene = null as any;
+    this.biomeManager = null as any;
+    
+    console.log('✅ BackgroundColorManager destroyed and EventBus listeners removed');
   }
 }

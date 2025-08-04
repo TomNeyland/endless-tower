@@ -175,6 +175,22 @@ export class PlatformManager {
     clear(): void {
         this.platforms.clear(true, true);
         this.generatedPlatforms.clear();
+        
+        // CRITICAL: Reset all internal state counters to prevent double generation
+        this.highestGeneratedY = 0;
+        this.nextPlatformY = 0;
+        this.platformIdCounter = 0;
+        this.platformCount = 0;
+        this.checkpoints = [];
+        
+        console.log('🔄 PlatformManager: Cleared platforms and reset all internal state');
+    }
+
+    reset(): void {
+        // Complete reset method for explicit resets (like R key)
+        console.log('🔄 PlatformManager: Full reset initiated');
+        this.clear();
+        console.log('✅ PlatformManager: Reset complete');
     }
 
 

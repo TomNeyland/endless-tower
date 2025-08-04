@@ -372,6 +372,11 @@ export class Game extends Scene
             
             console.log('✅ Custom game reset complete');
             
+            // Phase 4: Log final state for debugging
+            if (this.platformManager) {
+                console.log(`🔍 Platform count after reset: ${this.platformManager.getPlatformCount()}`);
+            }
+            
         } catch (error) {
             console.error('❌ Error during custom reset, falling back to scene restart:', error);
             // Fallback to scene restart if custom reset fails
@@ -438,10 +443,10 @@ export class Game extends Scene
     private resetWorldState(): void {
         console.log('🔄 Resetting world state...');
         
-        // Clear and regenerate platforms
+        // Reset and regenerate platforms
         if (this.platformManager) {
-            // Clear existing platforms
-            this.platformManager.clear();
+            // Use the proper reset method which clears state counters
+            this.platformManager.reset();
             
             // Recreate ground platform
             this.platformManager.createGroundPlatform();
@@ -483,13 +488,14 @@ export class Game extends Scene
     private reinitializeGameSystems(): void {
         console.log('🔄 Reinitializing game systems...');
         
-        // Recreate BiomeManager if it was destroyed (BEFORE emitting reset event)
+        // Reset BiomeManager BEFORE emitting reset event to prevent conflicts
         if (!this.biomeManager) {
             this.setupBiomeManager();
             console.log('🌍 BiomeManager recreated during reset');
         } else {
             // If BiomeManager exists, manually reset it to ensure clean state
             console.log('🌍 BiomeManager exists, manually resetting state');
+            // CRITICAL: Reset BiomeManager AFTER PlatformManager to avoid interference
             this.biomeManager.setPlatformCount(0); // Force reset to 0 platforms
         }
         
