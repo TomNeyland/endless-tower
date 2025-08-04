@@ -1,12 +1,14 @@
 import { Scene, Physics } from 'phaser';
 import { Player } from './Player';
 import { WallManager } from './WallManager';
+import { GameConfiguration } from './GameConfiguration';
 import { EventBus } from './EventBus';
 
 export class WallCollision {
   private scene: Scene;
   private player: Player;
   private wallManager: WallManager;
+  private gameConfig: GameConfiguration;
   
   private leftWallCollider: Physics.Arcade.Collider | null = null;
   private rightWallCollider: Physics.Arcade.Collider | null = null;
@@ -24,10 +26,11 @@ export class WallCollision {
   private velocityArrow: Phaser.GameObjects.Graphics | null = null;
   private debugEnabled: boolean = true;
 
-  constructor(scene: Scene, player: Player, wallManager: WallManager) {
+  constructor(scene: Scene, player: Player, wallManager: WallManager, gameConfig: GameConfiguration) {
     this.scene = scene;
     this.player = player;
     this.wallManager = wallManager;
+    this.gameConfig = gameConfig;
     
     this.setupWallCollision();
     this.setupEventListeners();
@@ -37,8 +40,9 @@ export class WallCollision {
   private setupEventListeners(): void {
     EventBus.on('walls-updated', this.onWallsUpdated.bind(this));
     
-    // Add debug toggle key
+    // Add debug toggle key (only if debug enabled)
     this.scene.input.keyboard?.on('keydown-V', () => {
+      if (!this.gameConfig.debug.enabled) return;
       this.debugEnabled = !this.debugEnabled;
       console.log(`🔧 Wall bounce visual debugging: ${this.debugEnabled ? 'ENABLED' : 'DISABLED'}`);
       

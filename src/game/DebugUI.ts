@@ -163,27 +163,79 @@ export class DebugUI {
   private setupControls(): void {
     const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE,FOUR,D,COMMA');
     
-    (keys as any).D.on('down', () => this.toggleDebugUI());
-    (keys as any).C.on('down', () => this.toggleConfigPanel());
-    (keys as any).COMMA.on('down', () => this.togglePlatforms());
-    (keys as any).ONE.on('down', () => this.setPreset('beginner'));
-    (keys as any).TWO.on('down', () => this.setPreset('classic'));
-    (keys as any).THREE.on('down', () => this.setPreset('expert'));
-    (keys as any).FOUR.on('down', () => this.setPreset('speedrun'));
+    // All debug key handlers check if debug is enabled
+    (keys as any).D.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.toggleDebugUI();
+    });
+    (keys as any).C.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.toggleConfigPanel();
+    });
+    (keys as any).COMMA.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.togglePlatforms();
+    });
+    (keys as any).ONE.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.setPreset('beginner');
+    });
+    (keys as any).TWO.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.setPreset('classic');
+    });
+    (keys as any).THREE.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.setPreset('expert');
+    });
+    (keys as any).FOUR.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.setPreset('speedrun');
+    });
     
-    // Keyboard shortcuts for common adjustments
-    (keys as any).Q.on('down', () => this.adjustConfig('momentumCouplingFactor', -0.05, 0.1, 0.8));
-    (keys as any).W.on('down', () => this.adjustConfig('momentumCouplingFactor', 0.05, 0.1, 0.8));
-    (keys as any).A.on('down', () => this.adjustConfig('baseJumpSpeed', -25, 200, 600));
-    (keys as any).S.on('down', () => this.adjustConfig('baseJumpSpeed', 25, 200, 600));
-    (keys as any).E.on('down', () => this.adjustConfig('maxHorizontalSpeed', -50, 300, 1000));
-    (keys as any).R.on('down', () => this.adjustConfig('maxHorizontalSpeed', 50, 300, 1000));
+    // Keyboard shortcuts for common adjustments (CRITICAL: These conflict with WASD movement!)
+    (keys as any).Q.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustConfig('momentumCouplingFactor', -0.05, 0.1, 0.8);
+    });
+    (keys as any).W.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustConfig('momentumCouplingFactor', 0.05, 0.1, 0.8);
+    });
+    (keys as any).A.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustConfig('baseJumpSpeed', -25, 200, 600);
+    });
+    (keys as any).S.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustConfig('baseJumpSpeed', 25, 200, 600);
+    });
+    (keys as any).E.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustConfig('maxHorizontalSpeed', -50, 300, 1000);
+    });
+    (keys as any).R.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustConfig('maxHorizontalSpeed', 50, 300, 1000);
+    });
     
     // Wall bounce controls
-    (keys as any).T.on('down', () => this.adjustWallConfig('baseBounceEfficiency', -0.05, 0.5, 1.0));
-    (keys as any).Y.on('down', () => this.adjustWallConfig('baseBounceEfficiency', 0.05, 0.5, 1.0));
-    (keys as any).U.on('down', () => this.adjustWallConfig('maxBounceEfficiency', -0.05, 0.8, 1.5));
-    (keys as any).I.on('down', () => this.adjustWallConfig('maxBounceEfficiency', 0.05, 0.8, 1.5));
+    (keys as any).T.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustWallConfig('baseBounceEfficiency', -0.05, 0.5, 1.0);
+    });
+    (keys as any).Y.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustWallConfig('baseBounceEfficiency', 0.05, 0.5, 1.0);
+    });
+    (keys as any).U.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustWallConfig('maxBounceEfficiency', -0.05, 0.8, 1.5);
+    });
+    (keys as any).I.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.adjustWallConfig('maxBounceEfficiency', 0.05, 0.8, 1.5);
+    });
   }
 
   private initializeConfigValues(): void {

@@ -219,7 +219,7 @@ export class Game extends Scene
         });
         
         // Set up wall collision
-        this.wallCollision = new WallCollision(this, this.player, this.wallManager);
+        this.wallCollision = new WallCollision(this, this.player, this.wallManager, this.gameConfig);
     }
 
     private setupCamera(): void
@@ -320,8 +320,9 @@ export class Game extends Scene
 
     private onKeyDown(event: KeyboardEvent): void
     {
-        // R key for restart - works anytime for debugging
+        // R key for restart - works anytime for debugging (only if debug enabled)
         if (event.code === 'KeyR') {
+            if (!this.gameConfig.debug.enabled) return;
             console.log('🔧 Debug restart triggered by R key');
             this.restartGame();
             return;

@@ -204,7 +204,7 @@ export class MenuScene extends Scene {
             this.oneWayPlatforms.addPlatformGroup(groundPlatforms);
         });
         
-        this.wallCollision = new WallCollision(this, this.player, this.wallManager);
+        this.wallCollision = new WallCollision(this, this.player, this.wallManager, this.gameConfig);
     }
 
     private setupCamera(): void {

@@ -60,6 +60,10 @@ export interface PlayerConfig {
   baseOffsetY: number;           // Base offset Y before scaling
 }
 
+export interface DebugConfig {
+  enabled: boolean;
+}
+
 export interface GameConfig {
   physics: PhysicsConfig;
   platforms: PlatformConfig;
@@ -68,6 +72,7 @@ export interface GameConfig {
   deathLine: DeathLineConfig;
   walls: WallConfig;
   player: PlayerConfig;
+  debug: DebugConfig;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -131,6 +136,10 @@ export const DEFAULT_CONFIG: GameConfig = {
     baseBodyHeight: 128,         // Tuned for good fit
     baseOffsetX: 10,             // Tuned for 0.7 scale (will scale proportionally)
     baseOffsetY: 14              // Tuned for 0.7 scale (will scale proportionally)
+  },
+  
+  debug: {
+    enabled: false               // Debug key bindings disabled by default
   }
 };
 
@@ -230,6 +239,10 @@ export class GameConfiguration {
     return { ...this.config.player };
   }
   
+  get debug(): DebugConfig {
+    return { ...this.config.debug };
+  }
+  
   updatePhysics(updates: Partial<PhysicsConfig>): void {
     this.config.physics = { ...this.config.physics, ...updates };
   }
@@ -252,6 +265,10 @@ export class GameConfiguration {
   
   updatePlayer(updates: Partial<PlayerConfig>): void {
     this.config.player = { ...this.config.player, ...updates };
+  }
+  
+  updateDebug(updates: Partial<DebugConfig>): void {
+    this.config.debug = { ...this.config.debug, ...updates };
   }
   
   calculateJumpMetrics(horizontalSpeed: number): {
@@ -327,7 +344,8 @@ export class GameConfiguration {
       camera: { ...base.camera, ...custom.camera },
       deathLine: { ...base.deathLine, ...custom.deathLine },
       walls: { ...base.walls, ...custom.walls },
-      player: { ...base.player, ...custom.player }
+      player: { ...base.player, ...custom.player },
+      debug: { ...base.debug, ...custom.debug }
     };
   }
 }
