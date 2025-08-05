@@ -27,9 +27,21 @@ jobs:
       - name: Build project
         run: npm run build-nolog
 
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-temp
+
+      - name: Preserve PR directories
+        run: |
+          if [ -d "gh-pages-temp/pr" ]; then
+            cp -r gh-pages-temp/pr ./dist/endless-tower/browser/
+          fi
+
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist/endless-tower/browser
-          keep_files: true
+          keep_files: false
