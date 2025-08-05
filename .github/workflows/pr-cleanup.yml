@@ -8,6 +8,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: gh-pages-deployment
+  cancel-in-progress: false
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
