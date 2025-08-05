@@ -30,6 +30,9 @@ const config: Types.Core.GameConfig = {
         min: 30,
         forceSetTimeOut: false  // Let browser handle timing
     },
+    input: {
+        activePointers: 4  // Enable multi-touch support: mouse + 3 touch pointers
+    },
     physics: {
         default: 'arcade',
         arcade: {
