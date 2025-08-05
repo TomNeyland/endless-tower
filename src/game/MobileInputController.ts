@@ -11,7 +11,7 @@ export interface MobileInputState {
 export interface TouchZone {
   bounds: Phaser.Geom.Rectangle;
   active: boolean;
-  pointer?: Phaser.Input.Pointer;
+  pointers: Set<number>; // Track multiple pointer IDs for true multi-touch
 }
 
 export class MobileInputController {
@@ -26,10 +26,11 @@ export class MobileInputController {
   private movementDirection: 'left' | 'right' | 'none' = 'none';
   private jumpActive: boolean = false;
   
-  // Visual feedback for debug mode
+  // Visual feedback - always show on mobile, extra details in debug mode
   private leftZoneGraphics?: Phaser.GameObjects.Graphics;
   private rightZoneGraphics?: Phaser.GameObjects.Graphics;
-  private debugMode: boolean = false;
+  private mobileUIEnabled: boolean = true;  // Always show mobile UI
+  private debugMode: boolean = false;       // Extra debug details
 
   constructor(scene: Scene, config: GameConfiguration) {
     this.scene = scene;
@@ -43,7 +44,7 @@ export class MobileInputController {
     
     this.setupTouchZones();
     this.setupInputHandlers();
-    this.createDebugVisuals();
+    this.createMobileUI();
   }
 
   static isMobileDevice(): boolean {
@@ -65,14 +66,16 @@ export class MobileInputController {
     const leftZoneWidth = gameWidth * this.config.leftZonePercent;
     this.leftZone = {
       bounds: new Phaser.Geom.Rectangle(0, 0, leftZoneWidth, gameHeight),
-      active: false
+      active: false,
+      pointers: new Set<number>()
     };
     
     // Right zone: 40% of screen width for jumping
     const rightZoneWidth = gameWidth * this.config.rightZonePercent;
     this.rightZone = {
       bounds: new Phaser.Geom.Rectangle(leftZoneWidth, 0, rightZoneWidth, gameHeight),
-      active: false
+      active: false,
+      pointers: new Set<number>()
     };
     
     console.log(`🎮 Mobile touch zones setup: Left(${leftZoneWidth}x${gameHeight}), Right(${rightZoneWidth}x${gameHeight})`);
@@ -111,7 +114,7 @@ export class MobileInputController {
     }
     
     this.updateInputState();
-    this.updateDebugVisuals();
+    this.updateMobileUI();
     
     EventBus.emit('mobile-touch-start', { 
       zone: this.getTouchZone(touchPoint), 
@@ -129,11 +132,31 @@ export class MobileInputController {
     if (this.leftZone.bounds.contains(touchPoint.x, touchPoint.y)) {
       this.handleLeftZoneTouch(pointer, 'move');
     } else if (this.rightZone.bounds.contains(touchPoint.x, touchPoint.y)) {
-      // If finger moved from left to right zone, stop movement
-      if (this.leftZone.pointer?.id === pointer.id) {
-        this.leftZone.active = false;
-        this.leftZone.pointer = undefined;
-        this.movementDirection = 'none';
+      // If finger moved from left to right zone, remove it from left zone
+      if (this.leftZone.pointers.has(pointer.id)) {
+        this.leftZone.pointers.delete(pointer.id);
+        this.leftZone.active = this.leftZone.pointers.size > 0;
+        
+        // If no more pointers in left zone, stop movement
+        if (!this.leftZone.active) {
+          this.movementDirection = 'none';
+        }
+      }
+    } else {
+      // Pointer moved outside both zones - remove from both
+      if (this.leftZone.pointers.has(pointer.id)) {
+        this.leftZone.pointers.delete(pointer.id);
+        this.leftZone.active = this.leftZone.pointers.size > 0;
+        if (!this.leftZone.active) {
+          this.movementDirection = 'none';
+        }
+      }
+      if (this.rightZone.pointers.has(pointer.id)) {
+        this.rightZone.pointers.delete(pointer.id);
+        this.rightZone.active = this.rightZone.pointers.size > 0;
+        if (!this.rightZone.active) {
+          this.jumpActive = false;
+        }
       }
     }
     
@@ -143,22 +166,30 @@ export class MobileInputController {
   private onTouchEnd(pointer: Phaser.Input.Pointer): void {
     this.activeTouches.delete(pointer.id);
     
-    // Clear left zone if this pointer was controlling it
-    if (this.leftZone.pointer?.id === pointer.id) {
-      this.leftZone.active = false;
-      this.leftZone.pointer = undefined;
-      this.movementDirection = 'none';
+    // Remove pointer from left zone
+    if (this.leftZone.pointers.has(pointer.id)) {
+      this.leftZone.pointers.delete(pointer.id);
+      this.leftZone.active = this.leftZone.pointers.size > 0;
+      
+      // If no more pointers in left zone, stop movement
+      if (!this.leftZone.active) {
+        this.movementDirection = 'none';
+      }
     }
     
-    // Clear right zone if this pointer was controlling it
-    if (this.rightZone.pointer?.id === pointer.id) {
-      this.rightZone.active = false;
-      this.rightZone.pointer = undefined;
-      this.jumpActive = false;
+    // Remove pointer from right zone
+    if (this.rightZone.pointers.has(pointer.id)) {
+      this.rightZone.pointers.delete(pointer.id);
+      this.rightZone.active = this.rightZone.pointers.size > 0;
+      
+      // If no more pointers in right zone, stop jumping
+      if (!this.rightZone.active) {
+        this.jumpActive = false;
+      }
     }
     
     this.updateInputState();
-    this.updateDebugVisuals();
+    this.updateMobileUI();
     
     EventBus.emit('mobile-touch-end', { 
       zone: this.getTouchZone({ x: pointer.x, y: pointer.y }), 
@@ -167,36 +198,34 @@ export class MobileInputController {
   }
 
   private handleLeftZoneTouch(pointer: Phaser.Input.Pointer, action: 'start' | 'move'): void {
-    if (!this.leftZone.active || this.leftZone.pointer?.id === pointer.id) {
-      this.leftZone.active = true;
-      this.leftZone.pointer = pointer;
-      
-      // Determine movement direction based on touch position relative to zone center
-      const zoneCenter = this.leftZone.bounds.centerX;
-      const touchX = pointer.x;
-      
-      if (touchX < zoneCenter - this.config.deadZoneRadius) {
-        this.movementDirection = 'left';
-      } else if (touchX > zoneCenter + this.config.deadZoneRadius) {
-        this.movementDirection = 'right';
-      } else {
-        this.movementDirection = 'none'; // Dead zone in center
-      }
-      
-      if (action === 'start') {
-        console.log(`👈 Left zone touch: ${this.movementDirection} at (${touchX.toFixed(0)}, center: ${zoneCenter.toFixed(0)})`);
-      }
+    // Add pointer to left zone tracking
+    this.leftZone.pointers.add(pointer.id);
+    this.leftZone.active = this.leftZone.pointers.size > 0;
+    
+    // Determine movement direction based on touch position relative to zone center
+    const zoneCenter = this.leftZone.bounds.centerX;
+    const touchX = pointer.x;
+    
+    if (touchX < zoneCenter - this.config.deadZoneRadius) {
+      this.movementDirection = 'left';
+    } else if (touchX > zoneCenter + this.config.deadZoneRadius) {
+      this.movementDirection = 'right';
+    } else {
+      this.movementDirection = 'none'; // Dead zone in center
+    }
+    
+    if (action === 'start') {
+      console.log(`👈 Left zone touch: ${this.movementDirection} at (${touchX.toFixed(0)}, center: ${zoneCenter.toFixed(0)}) [${this.leftZone.pointers.size} pointers]`);
     }
   }
 
   private handleRightZoneTouch(pointer: Phaser.Input.Pointer, action: 'start'): void {
-    if (!this.rightZone.active || this.rightZone.pointer?.id === pointer.id) {
-      this.rightZone.active = true;
-      this.rightZone.pointer = pointer;
-      this.jumpActive = true;
-      
-      console.log(`👆 Right zone touch: jump activated`);
-    }
+    // Add pointer to right zone tracking - enables true multi-touch
+    this.rightZone.pointers.add(pointer.id);
+    this.rightZone.active = this.rightZone.pointers.size > 0;
+    this.jumpActive = true;
+    
+    console.log(`👆 Right zone touch: jump activated [${this.rightZone.pointers.size} pointers]`);
   }
 
   private updateInputState(): void {
@@ -215,52 +244,148 @@ export class MobileInputController {
     return 'none';
   }
 
-  private createDebugVisuals(): void {
-    if (!this.debugMode) return;
+  private createMobileUI(): void {
+    if (!this.mobileUIEnabled) return;
     
-    // Create debug graphics for touch zones
+    // Create graphics for touch zones (always visible on mobile)
     this.leftZoneGraphics = this.scene.add.graphics();
     this.rightZoneGraphics = this.scene.add.graphics();
     
-    // Make debug visuals stay on screen
+    // Make mobile UI stay on screen and be visible but not intrusive
     this.leftZoneGraphics.setScrollFactor(0);
     this.rightZoneGraphics.setScrollFactor(0);
-    this.leftZoneGraphics.setDepth(1000);
-    this.rightZoneGraphics.setDepth(1000);
+    this.leftZoneGraphics.setDepth(999);  // Below debug UI (1000) but above game
+    this.rightZoneGraphics.setDepth(999);
     
-    this.updateDebugVisuals();
+    this.updateMobileUI();
   }
 
-  private updateDebugVisuals(): void {
-    if (!this.debugMode || !this.leftZoneGraphics || !this.rightZoneGraphics) return;
+  private updateMobileUI(): void {
+    if (!this.mobileUIEnabled || !this.leftZoneGraphics || !this.rightZoneGraphics) return;
     
     // Clear previous graphics
     this.leftZoneGraphics.clear();
     this.rightZoneGraphics.clear();
     
-    // Draw left zone
-    const leftAlpha = this.leftZone.active ? 0.3 : 0.1;
-    const leftColor = this.movementDirection === 'left' ? 0x00ff00 : 
-                     this.movementDirection === 'right' ? 0x0000ff : 0x888888;
+    // Mobile UI: Subtle but visible touch zones
+    const baseAlpha = 0.08;  // Very subtle background
+    const activeAlpha = 0.2;  // More visible when touched
+    
+    // Draw left zone (movement)
+    const leftAlpha = this.leftZone.active ? activeAlpha : baseAlpha;
+    const leftColor = this.movementDirection === 'left' ? 0x4CAF50 :   // Green for left
+                     this.movementDirection === 'right' ? 0x2196F3 :  // Blue for right  
+                     0x9E9E9E;  // Gray for neutral
     
     this.leftZoneGraphics.fillStyle(leftColor, leftAlpha);
     this.leftZoneGraphics.fillRectShape(this.leftZone.bounds);
     
-    // Draw right zone
-    const rightAlpha = this.rightZone.active ? 0.3 : 0.1;
-    const rightColor = this.jumpActive ? 0xff0000 : 0x888888;
+    // Add subtle border for left zone
+    this.leftZoneGraphics.lineStyle(1, leftColor, 0.3);
+    this.leftZoneGraphics.strokeRectShape(this.leftZone.bounds);
+    
+    // Draw right zone (jump)
+    const rightAlpha = this.rightZone.active ? activeAlpha : baseAlpha;
+    const rightColor = this.jumpActive ? 0xFF5722 : 0x9E9E9E;  // Orange for jump, gray for neutral
     
     this.rightZoneGraphics.fillStyle(rightColor, rightAlpha);
     this.rightZoneGraphics.fillRectShape(this.rightZone.bounds);
     
-    // Draw center dead zone indicator
-    if (this.leftZone.active) {
-      const centerX = this.leftZone.bounds.centerX;
-      const centerY = this.leftZone.bounds.centerY;
-      const deadZone = this.config.deadZoneRadius;
+    // Add subtle border for right zone
+    this.rightZoneGraphics.lineStyle(1, rightColor, 0.3);
+    this.rightZoneGraphics.strokeRectShape(this.rightZone.bounds);
+    
+    // Add center indicators for touch zones
+    const leftCenterX = this.leftZone.bounds.centerX;
+    const leftCenterY = this.leftZone.bounds.bottom - 60;
+    const rightCenterX = this.rightZone.bounds.centerX;
+    const rightCenterY = this.rightZone.bounds.bottom - 60;
+    
+    // Left zone: Movement arrows (subtle)
+    this.leftZoneGraphics.fillStyle(0xFFFFFF, 0.4);
+    // Left arrow
+    this.leftZoneGraphics.fillTriangle(
+      leftCenterX - 30, leftCenterY,
+      leftCenterX - 10, leftCenterY - 10,
+      leftCenterX - 10, leftCenterY + 10
+    );
+    // Right arrow
+    this.leftZoneGraphics.fillTriangle(
+      leftCenterX + 30, leftCenterY,
+      leftCenterX + 10, leftCenterY - 10,
+      leftCenterX + 10, leftCenterY + 10
+    );
+    
+    // Right zone: Jump indicator (subtle)
+    this.rightZoneGraphics.fillStyle(0xFFFFFF, 0.4);
+    // Up arrow for jump
+    this.rightZoneGraphics.fillTriangle(
+      rightCenterX, rightCenterY - 15,
+      rightCenterX - 12, rightCenterY + 5,
+      rightCenterX + 12, rightCenterY + 5
+    );
+    
+    // In debug mode, add extra details
+    if (this.debugMode) {
+      this.addDebugDetails();
+    }
+  }
+  
+  private addDebugDetails(): void {
+    if (!this.leftZoneGraphics || !this.rightZoneGraphics) return;
+    
+    // Draw center dead zone indicator (debug only)
+    const centerX = this.leftZone.bounds.centerX;
+    const centerY = this.leftZone.bounds.centerY;
+    const deadZone = this.config.deadZoneRadius;
+    
+    this.leftZoneGraphics.lineStyle(2, 0xffffff, 0.5);
+    this.leftZoneGraphics.strokeCircle(centerX, centerY, deadZone);
+    
+    // Add touch point indicators for active touches (debug only)
+    this.activeTouches.forEach((pointer, id) => {
+      const inLeftZone = this.leftZone.bounds.contains(pointer.x, pointer.y);
+      const inRightZone = this.rightZone.bounds.contains(pointer.x, pointer.y);
       
-      this.leftZoneGraphics.lineStyle(2, 0xffffff, 0.5);
-      this.leftZoneGraphics.strokeCircle(centerX, centerY, deadZone);
+      let graphics = this.leftZoneGraphics;
+      let color = 0xffff00; // Default yellow
+      
+      if (inLeftZone) {
+        graphics = this.leftZoneGraphics;
+        color = 0x00ff00; // Green for left zone
+      } else if (inRightZone) {
+        graphics = this.rightZoneGraphics;
+        color = 0xff0000; // Red for right zone
+      }
+      
+      graphics!.fillStyle(color, 0.8);
+      graphics!.fillCircle(pointer.x, pointer.y, 12);
+      
+      // Add pointer ID indicator
+      graphics!.lineStyle(2, 0x000000, 1);
+      graphics!.strokeCircle(pointer.x, pointer.y, 12);
+      
+      // Add small text indicator showing pointer ID
+      graphics!.fillStyle(0x000000, 1);
+      graphics!.fillCircle(pointer.x, pointer.y, 6);
+    });
+    
+    // Show pointer count in each zone (debug only)
+    const leftCount = this.leftZone.pointers.size;
+    const rightCount = this.rightZone.pointers.size;
+    
+    if (leftCount > 0) {
+      this.leftZoneGraphics.fillStyle(0xffffff, 0.8);
+      this.leftZoneGraphics.fillRect(10, 10, 80, 20);
+      this.leftZoneGraphics.fillStyle(0x000000, 1);
+      // Note: In a real implementation, you'd add text here
+    }
+    
+    if (rightCount > 0) {
+      this.rightZoneGraphics.fillStyle(0xffffff, 0.8);
+      this.rightZoneGraphics.fillRect(this.rightZone.bounds.right - 90, 10, 80, 20);
+      this.rightZoneGraphics.fillStyle(0x000000, 1);
+      // Note: In a real implementation, you'd add text here
     }
   }
 
@@ -271,9 +396,15 @@ export class MobileInputController {
 
   setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
+    // Mobile UI is always shown - debug mode just adds extra details
+    this.updateMobileUI();
+  }
+  
+  setMobileUIEnabled(enabled: boolean): void {
+    this.mobileUIEnabled = enabled;
     
     if (enabled && !this.leftZoneGraphics) {
-      this.createDebugVisuals();
+      this.createMobileUI();
     } else if (!enabled && this.leftZoneGraphics) {
       this.leftZoneGraphics.destroy();
       this.rightZoneGraphics?.destroy();
@@ -285,7 +416,7 @@ export class MobileInputController {
   updateConfiguration(newConfig: GameConfiguration): void {
     this.config = newConfig.mobile;
     this.setupTouchZones();
-    this.updateDebugVisuals();
+    this.updateMobileUI();
   }
 
   destroy(): void {
@@ -299,8 +430,10 @@ export class MobileInputController {
     this.leftZoneGraphics?.destroy();
     this.rightZoneGraphics?.destroy();
     
-    // Clear active touches
+    // Clear active touches and pointer sets
     this.activeTouches.clear();
+    this.leftZone.pointers.clear();
+    this.rightZone.pointers.clear();
     
     console.log('🎮 MobileInputController destroyed');
   }
