@@ -130,9 +130,17 @@ export class MobileInputController {
     
     // Handle movement in left zone
     if (this.leftZone.bounds.contains(touchPoint.x, touchPoint.y)) {
+      // Remove from right zone if it was there
+      if (this.rightZone.pointers.has(pointer.id)) {
+        this.rightZone.pointers.delete(pointer.id);
+        this.rightZone.active = this.rightZone.pointers.size > 0;
+        if (!this.rightZone.active) {
+          this.jumpActive = false;
+        }
+      }
       this.handleLeftZoneTouch(pointer, 'move');
     } else if (this.rightZone.bounds.contains(touchPoint.x, touchPoint.y)) {
-      // If finger moved from left to right zone, remove it from left zone
+      // Remove from left zone if it was there
       if (this.leftZone.pointers.has(pointer.id)) {
         this.leftZone.pointers.delete(pointer.id);
         this.leftZone.active = this.leftZone.pointers.size > 0;
@@ -142,6 +150,8 @@ export class MobileInputController {
           this.movementDirection = 'none';
         }
       }
+      // Add to right zone and activate jump
+      this.handleRightZoneTouch(pointer, 'start');
     } else {
       // Pointer moved outside both zones - remove from both
       if (this.leftZone.pointers.has(pointer.id)) {
