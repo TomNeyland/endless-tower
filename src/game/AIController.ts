@@ -50,6 +50,9 @@ export class AIController {
   private readonly MAX_PLATFORM_SEARCH_DISTANCE = 300;
   private readonly STUCK_THRESHOLD = 2000; // Consider stuck after 2 seconds
   private readonly WALL_BOUNCE_PROXIMITY = 30; // Precise timing window for perfect wall bounces
+  private readonly MIN_VELOCITY_FOR_WALL_BOUNCE = 100; // Minimum velocity needed for wall bounce attempt
+  private readonly DEFAULT_PLATFORM_WIDTH = 100; // Fallback width when platform.width is missing
+  private readonly DEATH_LINE_OFFSET_ESTIMATE = 400; // Rough estimate of death line position below player
 
   constructor(scene: Scene, player: Player, platformManager: PlatformManager, wallManager: WallManager, gameConfig: GameConfiguration) {
     this.scene = scene;
@@ -102,17 +105,38 @@ export class AIController {
 
   private analyzeGameState(): AIDecisionContext {
     const movementState = this.player.getMovementState();
+    
+    // Validate movement state data
+    if (!movementState || typeof movementState.horizontalSpeed !== 'number' || typeof movementState.verticalSpeed !== 'number') {
+      console.warn('🤖 AI: Invalid movement state, using default values');
+      const defaultMovementState = { horizontalSpeed: 0, verticalSpeed: 0, isGrounded: false };
+      const movementStateToUse = movementState || defaultMovementState;
+      
+      return {
+        playerX: this.player.x,
+        playerY: this.player.y,
+        playerVelocityX: movementStateToUse.horizontalSpeed || 0,
+        playerVelocityY: movementStateToUse.verticalSpeed || 0,
+        isGrounded: movementStateToUse.isGrounded || false,
+        nearestPlatforms: [],
+        wallLeft: 0,
+        wallRight: this.scene.scale.width - 64,
+        deathLineY: this.player.y + this.DEATH_LINE_OFFSET_ESTIMATE,
+        targetDirection: this.player.x < this.scene.scale.width / 2 ? 1 : -1
+      };
+    }
+    
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     
     // Get nearby platforms
     const nearbyPlatforms = this.findNearbyPlatforms(this.player.x, this.player.y);
     
-    // Get wall boundaries (approximate)
-    const wallLeft = 0;
-    const wallRight = this.scene.scale.width;
+    // Get actual wall boundaries from wall manager
+    const wallLeft = 0; // Left wall is at scene edge
+    const wallRight = this.scene.scale.width - 64; // Right wall accounts for tile width (64px)
     
     // Get death line position (approximate)
-    const deathLineY = this.player.y + 400; // Rough estimate, death line is usually below player
+    const deathLineY = this.player.y + this.DEATH_LINE_OFFSET_ESTIMATE; // Rough estimate, death line is usually below player
     
     return {
       playerX: this.player.x,
@@ -141,7 +165,7 @@ export class AIController {
         platforms.push({
           x: platform.x,
           y: platform.y,
-          width: platform.width || 100, // Default width if not available
+          width: platform.width || this.DEFAULT_PLATFORM_WIDTH, // Default width if not available
           distance
         });
       }
@@ -209,12 +233,12 @@ export class AIController {
     const distanceToRightWall = context.wallRight - context.playerX;
     
     // Check for perfect wall bounce timing window (30px for 110% momentum + boost)
-    if (distanceToLeftWall <= this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX < -100) {
+    if (distanceToLeftWall <= this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX < -this.MIN_VELOCITY_FOR_WALL_BOUNCE) {
       console.log('🎯 AI attempting perfect left wall bounce');
       return { left: true, right: false, jump: true };
     }
     
-    if (distanceToRightWall <= this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX > 100) {
+    if (distanceToRightWall <= this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX > this.MIN_VELOCITY_FOR_WALL_BOUNCE) {
       console.log('🎯 AI attempting perfect right wall bounce');
       return { left: false, right: true, jump: true };
     }
@@ -232,6 +256,13 @@ export class AIController {
       
       // Use game's physics to verify jump feasibility
       const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
+      
+      // Add validation for jump metrics
+      if (!jumpMetrics || typeof jumpMetrics.horizontalRange !== 'number' || typeof jumpMetrics.maxHeight !== 'number') {
+        console.warn('🤖 AI: Invalid jump metrics returned, skipping platform');
+        return false;
+      }
+      
       return jumpMetrics.horizontalRange >= horizontalDistance && jumpMetrics.maxHeight >= verticalDistance;
     });
     
@@ -325,9 +356,12 @@ export class AIController {
     if (verticalDistance < -20 && context.isGrounded) {
       const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
       
-      if (jumpMetrics.horizontalRange >= Math.abs(horizontalDistance) && 
-          jumpMetrics.maxHeight >= Math.abs(verticalDistance)) {
-        return { left: false, right: false, jump: true };
+      // Validate jump metrics before using
+      if (jumpMetrics && typeof jumpMetrics.horizontalRange === 'number' && typeof jumpMetrics.maxHeight === 'number') {
+        if (jumpMetrics.horizontalRange >= Math.abs(horizontalDistance) && 
+            jumpMetrics.maxHeight >= Math.abs(verticalDistance)) {
+          return { left: false, right: false, jump: true };
+        }
       }
     }
     
@@ -353,6 +387,13 @@ export class AIController {
       
       // Use game's physics to check if jump is possible
       const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
+      
+      // Validate jump metrics
+      if (!jumpMetrics || typeof jumpMetrics.horizontalRange !== 'number' || typeof jumpMetrics.maxHeight !== 'number') {
+        console.warn('🤖 AI: Invalid jump metrics in findBestPlatformToClimb, skipping platform');
+        return false;
+      }
+      
       const canReachHorizontally = jumpMetrics.horizontalRange >= horizontalDistance;
       const canReachVertically = jumpMetrics.maxHeight >= verticalDistance;
       
@@ -378,7 +419,22 @@ export class AIController {
     console.log('🤖 AI reset - unified intelligent strategy active');
   }
 
-  // Behavior mode methods removed - using unified intelligent strategy
+  // Method for UI display compatibility - replaces removed getCurrentBehavior
+  getCurrentStrategy(): string {
+    const currentSpeed = Math.abs(this.player.getMovementState()?.horizontalSpeed || 0);
+    const movementState = this.player.getMovementState();
+    
+    if (!movementState) return 'INITIALIZING';
+    
+    // Determine current strategy based on AI decision logic
+    if (currentSpeed >= this.MIN_SPEED_FOR_JUMP_HOLDING) {
+      return 'MOMENTUM_JUMPING';
+    } else if (currentSpeed < this.TARGET_SPEED && movementState.isGrounded) {
+      return 'SPEED_BUILDING';
+    } else {
+      return 'STRATEGIC_CLIMBING';
+    }
+  }
 
   destroy(): void {
     EventBus.off('player-landed', this.onPlayerLanded.bind(this));
