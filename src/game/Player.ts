@@ -145,6 +145,8 @@ export class Player extends Physics.Arcade.Sprite {
         let leftPressed: boolean;
         let rightPressed: boolean;
         let jumpPressed: boolean;
+        let usingAccelerometer: boolean = false;
+        let accelerometerTilt: number = 0;
         
         if (this.demoMode && this.aiController) {
             // Use AI input in demo mode
@@ -153,11 +155,24 @@ export class Player extends Physics.Arcade.Sprite {
             rightPressed = aiInput.right;
             jumpPressed = aiInput.jump;
         } else if (this.isMobileDevice && this.mobileInputController) {
-            // Use mobile touch input
+            // Use mobile input (touch or accelerometer)
             const mobileInput = this.mobileInputController.getInputState();
-            leftPressed = mobileInput.leftPressed;
-            rightPressed = mobileInput.rightPressed;
-            jumpPressed = mobileInput.jumpPressed;
+            
+            if (mobileInput.controlMode === 'accelerometer' && mobileInput.accelerometerState) {
+                // Use accelerometer input
+                usingAccelerometer = true;
+                accelerometerTilt = mobileInput.accelerometerState.horizontalAcceleration;
+                jumpPressed = mobileInput.accelerometerState.shouldAutoJump;
+                
+                // For compatibility, still set left/right based on tilt
+                leftPressed = accelerometerTilt < -0.2;
+                rightPressed = accelerometerTilt > 0.2;
+            } else {
+                // Use touch input
+                leftPressed = mobileInput.leftPressed;
+                rightPressed = mobileInput.rightPressed;
+                jumpPressed = mobileInput.jumpPressed;
+            }
         } else {
             // Use keyboard input for desktop
             leftPressed = this.cursors.left?.isDown || this.wasd.A.isDown;
@@ -165,14 +180,22 @@ export class Player extends Physics.Arcade.Sprite {
             jumpPressed = this.cursors.up?.isDown || this.wasd.W.isDown || this.wasd.SPACE.isDown;
         }
 
-        if (leftPressed) {
-            this.movementController.moveLeft();
-        } else if (rightPressed) {
-            this.movementController.moveRight();
+        // Handle movement based on input type
+        if (usingAccelerometer) {
+            // Use continuous accelerometer input for smoother movement
+            this.movementController.moveWithAccelerometer(accelerometerTilt);
         } else {
-            this.movementController.stopHorizontalMovement();
+            // Use discrete digital input
+            if (leftPressed) {
+                this.movementController.moveLeft();
+            } else if (rightPressed) {
+                this.movementController.moveRight();
+            } else {
+                this.movementController.stopHorizontalMovement();
+            }
         }
 
+        // Handle jumping
         if (jumpPressed) {
             this.movementController.requestJump();
         }

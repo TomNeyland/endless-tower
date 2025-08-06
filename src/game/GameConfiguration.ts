@@ -69,6 +69,21 @@ export interface MobileConfig {
   extendedCoyoteTime: number;     // Extended coyote time for mobile (ms)
   extendedJumpBuffer: number;     // Extended jump buffer for mobile (ms)
   collisionTolerance: number;     // Extended collision tolerance for touch imprecision (pixels)
+  controlMode: 'touch' | 'accelerometer';  // Control mode for mobile
+  accelerometer: AccelerometerConfig;       // Accelerometer-specific settings
+}
+
+export interface AccelerometerConfig {
+  enabled: boolean;
+  sensitivity: number;            // Multiplier for acceleration values (0.1 - 3.0)
+  deadZone: number;               // Minimum tilt to register (0.0 - 0.5)
+  maxTiltAngle: number;           // Maximum tilt angle in degrees (15 - 45)
+  shakeThreshold: number;         // Minimum acceleration change to register shake (2.0 - 8.0)
+  shakeTimeWindow: number;        // Time window for shake detection in ms (100 - 500)
+  autoJumpEnabled: boolean;       // Enable auto-jump system
+  autoJumpMomentumThreshold: number;  // Minimum horizontal speed for auto-jump (100 - 300)
+  autoJumpCooldown: number;       // Cooldown between auto-jumps in ms (200 - 800)
+  adaptiveSensitivity: boolean;   // Adapt sensitivity based on usage patterns
 }
 
 export interface DebugConfig {
@@ -158,7 +173,20 @@ export const DEFAULT_CONFIG: GameConfig = {
     hapticFeedback: true,        // Enable haptic feedback by default
     extendedCoyoteTime: 200,     // 200ms coyote time for mobile (vs 100ms desktop)
     extendedJumpBuffer: 150,     // 150ms jump buffer for mobile (vs 100ms desktop)
-    collisionTolerance: 5        // 5px extra collision tolerance for touch imprecision
+    collisionTolerance: 5,       // 5px extra collision tolerance for touch imprecision
+    controlMode: 'touch',        // Default to touch controls
+    accelerometer: {
+      enabled: true,
+      sensitivity: 1.2,          // Slightly amplified for responsiveness
+      deadZone: 0.15,            // Small dead zone to prevent drift
+      maxTiltAngle: 30,          // 30 degree max tilt feels natural
+      shakeThreshold: 3.0,       // Moderate shake threshold
+      shakeTimeWindow: 300,      // 300ms window for shake detection
+      autoJumpEnabled: true,     // Enable auto-jump by default
+      autoJumpMomentumThreshold: 150, // Auto-jump at moderate speeds
+      autoJumpCooldown: 400,     // 400ms cooldown between auto-jumps
+      adaptiveSensitivity: true  // Adapt sensitivity based on usage
+    }
   },
   
   debug: {

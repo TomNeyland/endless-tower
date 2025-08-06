@@ -24,10 +24,12 @@ export class GameUI {
   private multiplierText: any; // Current multiplier display
   private comboToast: any; // Dynamic combo celebration
   private comboProgressBar: any; // RexUI Progress bar
+  private controlModeIndicator: any; // Mobile control mode indicator
   
   // UI State
   private currentScore: ScoreData;
   private comboVisible: boolean = false;
+  private currentControlMode: 'touch' | 'accelerometer' = 'touch';
   private comboFadeOut: Phaser.Tweens.Tween | null = null;
 
   constructor(scene: Scene, scoreSystem: ScoreSystem, comboSystem: ComboSystem) {
@@ -132,6 +134,9 @@ export class GameUI {
     
     // Camera updates for score recalculation
     EventBus.on('camera-state-updated', this.onCameraUpdate.bind(this));
+    
+    // Mobile control mode updates
+    EventBus.on('mobile-control-mode-changed', this.onControlModeChanged.bind(this));
   }
 
   private onScoreUpdate(): void {
@@ -512,6 +517,45 @@ export class GameUI {
     .showMessage();
   }
 
+  private onControlModeChanged(data: { mode: 'touch' | 'accelerometer', accelerometerAvailable: boolean }): void {
+    this.currentControlMode = data.mode;
+    this.updateControlModeIndicator(data.accelerometerAvailable);
+  }
+
+  private updateControlModeIndicator(accelerometerAvailable: boolean): void {
+    if (!this.controlModeIndicator) {
+      // Create control mode indicator if it doesn't exist
+      this.controlModeIndicator = this.scene.add.text(0, 0, '', {
+        fontSize: '14px',
+        color: '#FFFFFF',
+        fontStyle: 'bold',
+        fontFamily: 'monospace',
+        stroke: '#333333',
+        strokeThickness: 1
+      });
+      this.controlModeIndicator.setScrollFactor(0).setDepth(1000);
+    }
+    
+    // Only show on mobile devices when accelerometer is available
+    const shouldShow = accelerometerAvailable;
+    this.controlModeIndicator.setVisible(shouldShow);
+    
+    if (shouldShow) {
+      const modeText = this.currentControlMode === 'accelerometer' ? '📱 Tilt Mode' : '👆 Touch Mode';
+      const color = this.currentControlMode === 'accelerometer' ? '#4CAF50' : '#2196F3';
+      
+      this.controlModeIndicator.setText(modeText);
+      this.controlModeIndicator.setColor(color);
+      
+      // Position in bottom-right corner
+      const padding = 10;
+      this.controlModeIndicator.setPosition(
+        this.scene.scale.width - this.controlModeIndicator.width - padding,
+        this.scene.scale.height - this.controlModeIndicator.height - padding
+      );
+    }
+  }
+
   update(deltaTime: number): void {
     // Always update combo display to show current state
     this.updateComboDisplay();
@@ -524,6 +568,7 @@ export class GameUI {
     EventBus.off('combo-completed', this.onComboCompleted.bind(this));
     EventBus.off('combo-broken', this.onComboBroken.bind(this));
     EventBus.off('camera-state-updated', this.onCameraUpdate.bind(this));
+    EventBus.off('mobile-control-mode-changed', this.onControlModeChanged.bind(this));
     
     if (this.comboFadeOut) {
       this.comboFadeOut.destroy();
@@ -536,5 +581,6 @@ export class GameUI {
     this.multiplierText?.destroy();
     this.comboToast?.destroy();
     this.comboProgressBar?.destroy();
+    this.controlModeIndicator?.destroy();
   }
 }

@@ -84,6 +84,29 @@ export class MovementController {
     EventBus.emit('player-movement-input', { direction: 'stop', facingDirection: this.facingDirection });
   }
 
+  // Accelerometer-based movement (continuous tilt input)
+  moveWithAccelerometer(tiltInput: number): void {
+    // tiltInput ranges from -1 (left) to +1 (right)
+    
+    // Apply tilt-based acceleration (smoother and more responsive than discrete keys)
+    const maxAccel = this.config.horizontalAcceleration;
+    const accel = tiltInput * maxAccel;
+    
+    this.body.setAccelerationX(accel);
+    
+    // Update facing direction based on tilt
+    if (Math.abs(tiltInput) > 0.1) { // Small deadzone for facing direction
+      this.facingDirection = tiltInput > 0 ? 1 : -1;
+    }
+    
+    // Emit movement input event with tilt intensity
+    EventBus.emit('player-movement-input', { 
+      direction: Math.abs(tiltInput) > 0.1 ? (tiltInput > 0 ? 'right' : 'left') : 'stop',
+      facingDirection: this.facingDirection,
+      tiltIntensity: Math.abs(tiltInput)
+    });
+  }
+
   requestJump(): void {
     // Only set jump buffer if we're not already trying to jump
     if (this.jumpBuffer <= 0) {
