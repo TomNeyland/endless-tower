@@ -1,5 +1,6 @@
 import { Scene, GameObjects } from 'phaser';
 import { EventBus } from './EventBus';
+import { MobileInputController } from './MobileInputController';
 
 interface GameOverStats {
   finalHeight: number;
@@ -40,6 +41,7 @@ export class GameOverScreen {
     this.loadHighScores();
     this.createUI();
     this.setupEventListeners();
+    this.setupMobileInput();
   }
 
   private createUI(): void {
@@ -86,11 +88,15 @@ export class GameOverScreen {
     this.highScoreContainer = this.scene.add.container(this.scene.scale.width / 2, 450);
     this.container.add(this.highScoreContainer);
 
-    // Restart instruction
+    // Restart instruction - update text based on device type
+    const restartInstructions = MobileInputController.isMobileDevice() 
+      ? 'Tap anywhere to play again'
+      : 'Press any movement key to play again';
+      
     this.restartText = this.scene.add.text(
       this.scene.scale.width / 2,
       this.scene.scale.height - 80,
-      'Press any movement key to play again',
+      restartInstructions,
       {
         fontSize: '24px',
         color: '#ffffff',
@@ -118,6 +124,26 @@ export class GameOverScreen {
     EventBus.on('game-stats-collected', this.onGameStatsCollected.bind(this));
     EventBus.on('game-reset-starting', this.onGameReset.bind(this));
     EventBus.on('game-state-changed', this.onGameStateChanged.bind(this));
+  }
+
+  private setupMobileInput(): void {
+    // Only enable touch restart on mobile devices
+    if (MobileInputController.isMobileDevice()) {
+      // Add pointer event listeners to the background for touch restart
+      this.scene.input.on('pointerdown', this.onTouchRestart.bind(this));
+    }
+  }
+
+  private onTouchRestart(pointer: Phaser.Input.Pointer): void {
+    // Only handle touch restart when game over screen is showing
+    if (!this.isVisible) {
+      return;
+    }
+
+    console.log('📱 Touch restart triggered on game over screen');
+    
+    // Emit the same restart event that keyboard restart uses
+    EventBus.emit('request-game-restart');
   }
 
   private onGameOver(gameOverData: any): void {
@@ -500,6 +526,11 @@ export class GameOverScreen {
     EventBus.off('game-stats-collected', this.onGameStatsCollected.bind(this));
     EventBus.off('game-reset-starting', this.onGameReset.bind(this));
     EventBus.off('game-state-changed', this.onGameStateChanged.bind(this));
+    
+    // Clean up mobile input event listeners
+    if (MobileInputController.isMobileDevice()) {
+      this.scene.input.off('pointerdown', this.onTouchRestart.bind(this));
+    }
     
     if (this.container) {
       this.container.destroy();
