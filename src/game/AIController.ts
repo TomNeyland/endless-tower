@@ -188,13 +188,16 @@ export class AIController {
     const targetSpeed = 400; // Target high speed for optimal jumping
     const maxSpeed = 600; // Speed at which we can make incredible jumps
     
-    // ALWAYS hold jump to maintain momentum and enable bouncing
-    let jumpInput = true;
-    
     // Check for wall bounce opportunities first (highest priority)
     const wallBounceDecision = this.checkWallBounceOpportunity(context);
     if (wallBounceDecision) {
       return wallBounceDecision;
+    }
+    
+    // Check if we should land and run to build speed
+    const landAndRunDecision = this.checkLandAndRunOpportunity(context, currentSpeed);
+    if (landAndRunDecision) {
+      return landAndRunDecision;
     }
     
     // Check for platform jump opportunities
@@ -203,8 +206,44 @@ export class AIController {
       return platformJumpDecision;
     }
     
-    // Speed building and momentum maintenance
+    // Speed building and momentum maintenance with smart jump logic
     return this.buildAndMaintainMomentum(context, currentSpeed, targetSpeed);
+  }
+
+  private checkLandAndRunOpportunity(context: AIDecisionContext, currentSpeed: number): AIInput | null {
+    // Check if we should land and run on a platform to build speed
+    
+    // Only consider landing if we're not fast enough yet
+    const speedThreshold = 300; // Below this speed, consider landing to run
+    if (currentSpeed >= speedThreshold) {
+      return null; // Fast enough, keep momentum behaviors
+    }
+    
+    // Only land if we're grounded or very close to a platform
+    if (!context.isGrounded && context.playerVelocityY < -50) {
+      return null; // In air and moving up, don't try to land yet
+    }
+    
+    // Find current platform we might be on or landing on
+    const currentPlatform = this.findCurrentOrLandingPlatform(context);
+    if (!currentPlatform) {
+      return null; // No suitable platform to run on
+    }
+    
+    // Check if platform is wide enough to make running worthwhile
+    const minPlatformWidth = 120; // Minimum width to justify running
+    if (currentPlatform.width < minPlatformWidth) {
+      return null; // Platform too small, better to keep jumping
+    }
+    
+    // We should land and run to build speed
+    const direction = this.chooseBestDirectionForRunning(context, currentPlatform);
+    
+    return {
+      left: direction === -1,
+      right: direction === 1,
+      jump: false // Key difference: don't hold jump, let us land and run
+    };
   }
 
   private checkWallBounceOpportunity(context: AIDecisionContext): AIInput | null {
@@ -275,6 +314,9 @@ export class AIController {
   private buildAndMaintainMomentum(context: AIDecisionContext, currentSpeed: number, targetSpeed: number): AIInput {
     // Intelligent speed building and momentum maintenance
     
+    // Determine if we should hold jump based on speed and situation
+    const shouldHoldJump = this.shouldHoldJumpForMomentum(context, currentSpeed);
+    
     // If we don't have enough speed, focus on building it
     if (currentSpeed < targetSpeed) {
       // Choose direction based on available space and obstacles
@@ -283,7 +325,7 @@ export class AIController {
       return {
         left: direction === -1,
         right: direction === 1,
-        jump: true // Always hold jump for momentum maintenance
+        jump: shouldHoldJump
       };
     }
     
@@ -300,7 +342,7 @@ export class AIController {
       return {
         left: continueSameDirection === 1,
         right: continueSameDirection === -1, 
-        jump: true
+        jump: shouldHoldJump
       };
     }
     
@@ -308,8 +350,82 @@ export class AIController {
     return {
       left: continueSameDirection === -1,
       right: continueSameDirection === 1,
-      jump: true
+      jump: shouldHoldJump
     };
+  }
+
+  private shouldHoldJumpForMomentum(context: AIDecisionContext, currentSpeed: number): boolean {
+    // Determine if we should hold jump based on speed and situation
+    
+    // If we're moving fast enough, hold jump to maintain momentum
+    const momentumThreshold = 250;
+    if (currentSpeed >= momentumThreshold) {
+      return true;
+    }
+    
+    // If we're in the air and have some speed, keep jump to maintain air time
+    if (!context.isGrounded && currentSpeed > 150) {
+      return true;
+    }
+    
+    // If we're very close to a wall and have decent speed, hold jump for potential bounce
+    const wallDistance = Math.min(
+      context.playerX - context.wallLeft,
+      context.wallRight - context.playerX
+    );
+    if (wallDistance < 80 && currentSpeed > 180) {
+      return true;
+    }
+    
+    // Otherwise, don't hold jump so we can land and run to build speed
+    return false;
+  }
+
+  private findCurrentOrLandingPlatform(context: AIDecisionContext): { x: number; y: number; width: number; distance: number; } | null {
+    // Find platform we're currently on or about to land on
+    const platformsBelow = context.nearestPlatforms.filter(p => {
+      const verticalDistance = p.y - context.playerY;
+      const horizontalDistance = Math.abs(p.x - context.playerX);
+      
+      // Platform should be below us (or level with us) and horizontally close
+      return verticalDistance >= -20 && verticalDistance <= 100 && horizontalDistance <= p.width / 2 + 50;
+    });
+    
+    if (platformsBelow.length === 0) {
+      return null;
+    }
+    
+    // Return the closest platform below us
+    platformsBelow.sort((a, b) => a.distance - b.distance);
+    return platformsBelow[0];
+  }
+
+  private chooseBestDirectionForRunning(context: AIDecisionContext, platform: { x: number; y: number; width: number; distance: number; }): 1 | -1 {
+    // Choose direction to run on platform for maximum speed building
+    
+    const platformLeft = platform.x - platform.width / 2;
+    const platformRight = platform.x + platform.width / 2;
+    const playerX = context.playerX;
+    
+    // If we're near the left edge, go right
+    if (playerX - platformLeft < 40) {
+      return 1;
+    }
+    
+    // If we're near the right edge, go left  
+    if (platformRight - playerX < 40) {
+      return -1;
+    }
+    
+    // Otherwise, continue in current direction or choose based on more space
+    if (context.playerVelocityX !== 0) {
+      return context.playerVelocityX > 0 ? 1 : -1;
+    }
+    
+    // Default: go toward the side with more space
+    const spaceLeft = playerX - platformLeft;
+    const spaceRight = platformRight - playerX;
+    return spaceRight > spaceLeft ? 1 : -1;
   }
 
   private chooseBestDirection(context: AIDecisionContext): 1 | -1 {
