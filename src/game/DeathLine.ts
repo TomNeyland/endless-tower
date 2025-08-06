@@ -250,75 +250,119 @@ export class DeathLine {
     const screenWidth = this.scene.scale.width;
     const screenHeight = this.scene.scale.height;
     const screenBottom = camera.scrollY + screenHeight;
+    const screenTop = camera.scrollY;
     
-    // Calculate distance from player to death line for proximity effects
-    const distanceToPlayer = this.deathLineY - this.player.y;
-    const proximityFactor = Math.max(0, Math.min(1, (1000 - distanceToPlayer) / 1000)); // 0-1 based on closeness
+    // Use consistent distance calculation (from player bottom to firewall)
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const playerBottom = this.player.y + body.height + body.offset.y;
+    const distanceToPlayer = this.deathLineY - playerBottom;
+    const proximityFactor = Math.max(0, Math.min(1, (1000 - distanceToPlayer) / 1000));
     
-    // Fire wall height based on proximity - taller when closer
-    const fireWallHeight = 80 + (proximityFactor * 120); // 80px base, up to 200px when close
+    // Always render firewall extending to bottom of screen when visible
+    let fireWallTop: number;
+    let fireWallHeight: number;
     
-    // Calculate render position - always render at bottom of screen when close
-    let renderY: number;
-    if (distanceToPlayer < 300) {
-      // When close, render at bottom of screen for maximum visibility
-      renderY = screenBottom - fireWallHeight;
+    if (this.deathLineY > screenTop && this.deathLineY < screenBottom + 200) {
+      // Firewall is on or near screen - render at actual position extending down
+      fireWallTop = Math.max(screenTop, this.deathLineY);
+      fireWallHeight = screenBottom - fireWallTop;
+    } else if (this.deathLineY <= screenTop) {
+      // Firewall has passed above screen - fill entire screen with fire
+      fireWallTop = screenTop;
+      fireWallHeight = screenHeight;
     } else {
-      // When far, render at actual world position
-      renderY = Math.max(screenBottom - fireWallHeight, this.deathLineY - fireWallHeight);
+      // Firewall is below screen - don't render
+      return;
     }
     
-    // Base fire colors that get more intense with proximity
-    const baseRed = Math.floor(200 + (proximityFactor * 55)); // 200-255
-    const baseGreen = Math.floor(50 + (proximityFactor * 50)); // 50-100  
-    const baseBlue = 0;
+    // Ensure minimum height for visibility
+    if (fireWallHeight < 50) {
+      fireWallHeight = 50;
+      fireWallTop = screenBottom - fireWallHeight;
+    }
+    
+    // Enhanced fire colors with better intensity scaling
+    const baseRed = Math.floor(180 + (proximityFactor * 75)); // 180-255
+    const baseGreen = Math.floor(20 + (proximityFactor * 80)); // 20-100  
+    const baseBlue = Math.floor(0 + (proximityFactor * 20)); // 0-20
     const baseColor = (baseRed << 16) | (baseGreen << 8) | baseBlue;
     
-    // Pulsing effect for the fire intensity
-    const pulseAlpha = 0.7 + (Math.sin(this.pulseIntensity * 1.5) * 0.3) + (proximityFactor * 0.3);
+    // Dynamic pulsing based on proximity and time
+    const pulseSpeed = 1.5 + (proximityFactor * 2); // Faster pulse when close
+    const pulseAlpha = 0.6 + (Math.sin(this.pulseIntensity * pulseSpeed) * 0.2) + (proximityFactor * 0.2);
     
-    // Draw main fire wall base
+    // Draw main fire wall base extending to screen bottom
     this.deathLineGraphics.fillStyle(baseColor, pulseAlpha);
-    this.deathLineGraphics.fillRect(0, renderY, screenWidth, fireWallHeight);
+    this.deathLineGraphics.fillRect(0, fireWallTop, screenWidth, fireWallHeight);
+    
+    // Add gradient effect - darker at bottom
+    const gradientSteps = Math.min(10, Math.floor(fireWallHeight / 20));
+    for (let i = 0; i < gradientSteps; i++) {
+      const stepHeight = fireWallHeight / gradientSteps;
+      const stepY = fireWallTop + (i * stepHeight);
+      const darkerFactor = 0.8 - (i * 0.1); // Get darker towards bottom
+      const stepAlpha = pulseAlpha * darkerFactor;
+      
+      this.deathLineGraphics.fillStyle(baseColor, stepAlpha);
+      this.deathLineGraphics.fillRect(0, stepY, screenWidth, stepHeight);
+    }
     
     // Draw animated flame tongues at the top
-    this.drawFireFlames(renderY, screenWidth, proximityFactor);
+    this.drawFireFlames(fireWallTop, screenWidth, proximityFactor);
     
     // Draw fire border/edge effect
-    this.drawFireBorder(renderY, screenWidth, proximityFactor);
+    this.drawFireBorder(fireWallTop, screenWidth, proximityFactor);
     
     // Update particle systems based on proximity
-    this.updateParticleEffects(renderY, proximityFactor);
+    this.updateParticleEffects(fireWallTop, proximityFactor);
   }
 
   private drawFireFlames(fireTop: number, screenWidth: number, intensity: number): void {
-    const flameCount = Math.floor(screenWidth / 25); // Flame every 25px
-    const maxFlameHeight = 30 + (intensity * 40); // Taller flames when closer
+    const flameCount = Math.floor(screenWidth / 15); // More flames, denser effect
+    const maxFlameHeight = 40 + (intensity * 80); // Much taller flames when close
     
-    this.deathLineGraphics.lineStyle(3, 0xff6600, 0.8 + (intensity * 0.2));
+    // Multiple flame layers for richer effect
+    this.drawFlameLayer(fireTop, screenWidth, flameCount, maxFlameHeight, intensity, 0xff3300, 3, 0); // Base red layer
+    this.drawFlameLayer(fireTop, screenWidth, flameCount * 0.7, maxFlameHeight * 0.8, intensity, 0xff6600, 2, 0.3); // Orange layer
+    this.drawFlameLayer(fireTop, screenWidth, flameCount * 0.5, maxFlameHeight * 0.6, intensity, 0xffaa00, 1, 0.6); // Yellow layer
+    
+    // Add white-hot core flames when very intense
+    if (intensity > 0.6) {
+      this.drawFlameLayer(fireTop, screenWidth, flameCount * 0.3, maxFlameHeight * 0.4, intensity, 0xffffff, 1, 0.9); // White core
+    }
+  }
+
+  private drawFlameLayer(fireTop: number, screenWidth: number, flameCount: number, maxFlameHeight: number, intensity: number, color: number, lineWidth: number, timeOffset: number): void {
+    this.deathLineGraphics.lineStyle(lineWidth, color, 0.6 + (intensity * 0.4));
     
     for (let i = 0; i < flameCount; i++) {
-      const x = (i * 25) + (Math.sin(this.pulseIntensity + i) * 3); // Slight horizontal movement
-      const flameHeight = (maxFlameHeight * 0.5) + Math.sin(this.pulseIntensity * 2 + i * 0.5) * (maxFlameHeight * 0.5);
+      const spacing = screenWidth / flameCount;
+      const x = (i * spacing) + (Math.sin(this.pulseIntensity + i + timeOffset) * 5); // More horizontal movement
+      const flameHeight = (maxFlameHeight * 0.3) + Math.sin(this.pulseIntensity * 3 + i * 0.3 + timeOffset) * (maxFlameHeight * 0.7);
       
-      // Draw flame shape
+      // More organic flame shape with curves
       this.deathLineGraphics.beginPath();
       this.deathLineGraphics.moveTo(x, fireTop);
-      this.deathLineGraphics.lineTo(x + 8, fireTop - flameHeight * 0.7);
-      this.deathLineGraphics.lineTo(x + 12, fireTop - flameHeight);
-      this.deathLineGraphics.lineTo(x + 16, fireTop - flameHeight * 0.8);
-      this.deathLineGraphics.lineTo(x + 20, fireTop);
-      this.deathLineGraphics.strokePath();
       
-      // Add flame core (brighter color)
-      if (intensity > 0.3) {
-        this.deathLineGraphics.lineStyle(1, 0xffff00, intensity);
-        this.deathLineGraphics.beginPath();
-        this.deathLineGraphics.moveTo(x + 4, fireTop);
-        this.deathLineGraphics.lineTo(x + 10, fireTop - flameHeight * 0.8);
-        this.deathLineGraphics.lineTo(x + 16, fireTop);
-        this.deathLineGraphics.strokePath();
+      // Create curved flame shape
+      const segments = 6;
+      for (let s = 1; s <= segments; s++) {
+        const progress = s / segments;
+        const segmentX = x + (Math.sin(progress * Math.PI + this.pulseIntensity + timeOffset) * 8);
+        const segmentY = fireTop - (flameHeight * progress) + (Math.sin(progress * Math.PI * 3 + this.pulseIntensity * 2 + timeOffset) * 3);
+        
+        if (s === 1) {
+          this.deathLineGraphics.lineTo(segmentX, segmentY);
+        } else {
+          // Use quadratic curves for smoother flames
+          const prevProgress = (s - 1) / segments;
+          const controlX = x + (Math.sin(prevProgress * Math.PI + this.pulseIntensity + timeOffset) * 4);
+          const controlY = fireTop - (flameHeight * (prevProgress + progress) / 2);
+          this.deathLineGraphics.quadraticCurveTo(controlX, controlY, segmentX, segmentY);
+        }
       }
+      
+      this.deathLineGraphics.strokePath();
     }
   }
 
@@ -365,40 +409,49 @@ export class DeathLine {
   private updateEmberParticles(intensity: number): void {
     if (!this.emberParticles) return;
     
-    // More embers when closer
-    const frequency = Math.max(50, 200 - (intensity * 150)); // 200ms down to 50ms
-    const quantity = Math.floor(1 + (intensity * 3)); // 1-4 particles per emit
+    // Much more dramatic ember effects
+    const frequency = Math.max(20, 150 - (intensity * 130)); // 150ms down to 20ms (much faster)
+    const quantity = Math.floor(2 + (intensity * 8)); // 2-10 particles per emit (much more)
     
     this.emberParticles.setFrequency(frequency);
     this.emberParticles.setQuantity(quantity);
+    
+    // Adjust ember properties based on intensity
+    this.emberParticles.setSpeedX({ min: -40 * (1 + intensity), max: 40 * (1 + intensity) });
+    this.emberParticles.setSpeedY({ min: -100 * (1 + intensity), max: -180 * (1 + intensity) });
+    this.emberParticles.setScale({ start: 0.3 + (intensity * 0.5), end: 0.05 });
   }
 
   private updateSparkParticles(intensity: number): void {
     if (!this.sparkParticles) return;
     
-    // More frequent sparks when very close
-    if (intensity > 0.5) {
-      const frequency = Math.max(80, 300 - (intensity * 220)); // More frequent when close
-      const quantity = Math.floor(1 + (intensity * 2)); // 1-3 particles
-      
-      this.sparkParticles.setFrequency(frequency);
-      this.sparkParticles.setQuantity(quantity);
-    } else {
-      // Reduce sparks when not very close
-      this.sparkParticles.setFrequency(400);
-      this.sparkParticles.setQuantity(1);
-    }
+    // More explosive sparks with high intensity
+    const frequency = Math.max(30, 200 - (intensity * 170)); // Much more frequent
+    const quantity = Math.floor(1 + (intensity * 5)); // 1-6 particles (more dramatic)
+    
+    this.sparkParticles.setFrequency(frequency);
+    this.sparkParticles.setQuantity(quantity);
+    
+    // More explosive spark behavior when intense
+    this.sparkParticles.setSpeedX({ min: -100 * (1 + intensity), max: 100 * (1 + intensity) });
+    this.sparkParticles.setSpeedY({ min: -250 * (1 + intensity), max: -400 * (1 + intensity) });
+    this.sparkParticles.setScale({ start: 0.8 + (intensity * 0.5), end: 0 });
   }
 
   private updateSmokeParticles(intensity: number): void {
     if (!this.smokeParticles) return;
     
-    // Smoke becomes denser when closer
-    const frequency = Math.max(100, 250 - (intensity * 100)); // Denser smoke when close
-    const quantity = Math.floor(1 + (intensity * 2)); // 1-3 particles
+    // Much denser, more dramatic smoke
+    const frequency = Math.max(40, 180 - (intensity * 140)); // Denser smoke when close
+    const quantity = Math.floor(2 + (intensity * 6)); // 2-8 particles (much denser)
     
     this.smokeParticles.setFrequency(frequency);
     this.smokeParticles.setQuantity(quantity);
+    
+    // More dramatic smoke behavior
+    this.smokeParticles.setSpeedX({ min: -20 * (1 + intensity), max: 20 * (1 + intensity) });
+    this.smokeParticles.setSpeedY({ min: -40 * (1 + intensity), max: -80 * (1 + intensity) });
+    this.smokeParticles.setScale({ start: 0.2 + (intensity * 0.3), end: 1.0 + (intensity * 0.5) });
   }
 
   private drawWarningEffects(camera: Phaser.Cameras.Scene2D.Camera): void {
@@ -462,18 +515,31 @@ export class DeathLine {
   private checkPlayerCollision(): void {
     if (this.isGameOver) return;
     
-    const playerBottom = this.player.y + (this.player.body as any).height;
+    // Use proper Arcade Physics body for accurate collision detection
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const playerBottom = this.player.y + body.height + body.offset.y;
     
-    if (playerBottom >= this.deathLineY) {
+    // Add small buffer to prevent jittery collision detection
+    const collisionBuffer = 5;
+    
+    if (playerBottom >= (this.deathLineY - collisionBuffer)) {
       this.triggerGameOver();
     }
   }
 
   private updateWarningSystem(): void {
-    const distanceToDeathLine = this.deathLineY - this.player.y;
-    const proximityFactor = Math.max(0, Math.min(1, (1000 - distanceToDeathLine) / 1000));
+    // Use same collision detection logic as checkPlayerCollision for consistency
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const playerBottom = this.player.y + body.height + body.offset.y;
+    const distanceToDeathLine = this.deathLineY - playerBottom;
     
-    // Define threat levels based on distance (now less sensitive)
+    // Show firewall distance indicator when it's far away
+    if (distanceToDeathLine > 400) {
+      this.showDistanceIndicator(Math.floor(distanceToDeathLine));
+      return;
+    }
+    
+    // Define threat levels based on distance from player bottom to firewall
     let threatLevel: 'safe' | 'aware' | 'caution' | 'danger' | 'critical';
     let warningText: string;
     let warningColor: string;
@@ -484,19 +550,19 @@ export class DeathLine {
       return;
     } else if (distanceToDeathLine > 150) {
       threatLevel = 'aware';
-      warningText = `Fire Approaching - ${Math.floor(distanceToDeathLine)}px below`;
+      warningText = `🔥 Fire Rising - ${Math.floor(distanceToDeathLine)}px below`;
       warningColor = '#ffaa00';
     } else if (distanceToDeathLine > 100) {
       threatLevel = 'caution';
-      warningText = 'CAUTION - Fire Close!';
+      warningText = '🔥 CAUTION - Fire Close!';
       warningColor = '#ff7700';
     } else if (distanceToDeathLine > 50) {
       threatLevel = 'danger';
-      warningText = 'DANGER - CLIMB NOW!';
+      warningText = '🔥 DANGER - CLIMB NOW!';
       warningColor = '#ff3300';
     } else {
       threatLevel = 'critical';
-      warningText = '🔥 CRITICAL - ESCAPE! 🔥';
+      warningText = '🔥🔥 CRITICAL - ESCAPE! 🔥🔥';
       warningColor = '#ff0000';
     }
     
@@ -529,7 +595,7 @@ export class DeathLine {
       EventBus.emit('death-line-warning', {
         distance: distanceToDeathLine,
         threatLevel,
-        proximityFactor,
+        proximityFactor: Math.max(0, Math.min(1, (400 - distanceToDeathLine) / 400)),
         playerPosition: { x: this.player.x, y: this.player.y }
       });
     }
@@ -538,6 +604,15 @@ export class DeathLine {
     if (threatLevel === 'critical' && now - this.lastWarningTime > 1000) {
       EventBus.emit('camera-shake', { intensity: 2, duration: 200 });
     }
+  }
+
+  private showDistanceIndicator(distance: number): void {
+    // Show a subtle distance indicator when firewall is far away
+    this.warningText.setVisible(true);
+    this.warningText.setText(`Fire Wall: ${distance}px below`);
+    this.warningText.setColor('#888888');
+    this.warningText.setAlpha(0.7);
+    this.warningText.setScale(0.8);
   }
 
   private triggerGameOver(): void {
@@ -571,7 +646,10 @@ export class DeathLine {
   }
 
   getPlayerDistanceFromDeathLine(): number {
-    return Math.max(0, this.deathLineY - this.player.y);
+    // Use consistent collision detection logic
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const playerBottom = this.player.y + body.height + body.offset.y;
+    return Math.max(0, this.deathLineY - playerBottom);
   }
 
   isPlayerInDanger(): boolean {
