@@ -25,13 +25,7 @@ export interface AIDecisionContext {
   targetDirection: 1 | -1;
 }
 
-export enum AIBehaviorMode {
-  SAFE_CLIMBING = 'safe_climbing',
-  COMBO_SEEKER = 'combo_seeker', 
-  WALL_BOUNCER = 'wall_bouncer',
-  SPEED_DEMON = 'speed_demon',
-  SHOWOFF = 'showoff'
-}
+// Removed behavior mode enum - using unified intelligent strategy
 
 export class AIController {
   private scene: Scene;
@@ -40,24 +34,25 @@ export class AIController {
   private wallManager: WallManager;
   private gameConfig: GameConfiguration;
   
-  private behaviorMode: AIBehaviorMode = AIBehaviorMode.SAFE_CLIMBING;
   private currentInput: AIInput = { left: false, right: false, jump: false };
   private lastDecisionTime: number = 0;
-  private decisionCooldown: number = 100; // Minimum time between decisions (ms)
+  private decisionCooldown: number = 50; // Faster decisions for high-speed play
   
   // AI state tracking
   private targetPlatform: { x: number; y: number; width: number; } | null = null;
   private stuckTimer: number = 0;
   private lastPlayerY: number = 0;
-  private behaviorTimer: number = 0;
-  private consecutiveWallBounces: number = 0;
   
-  // Behavior parameters
-  private readonly MIN_PLATFORM_GAP = 50;
+  // Intelligent AI parameters
+  private readonly MIN_SPEED_FOR_JUMP_HOLDING = 300; // Speed threshold to start holding jump (spinning speed)
+  private readonly LONG_PLATFORM_THRESHOLD = 150; // Width threshold for "long" platforms good for running
+  private readonly TARGET_SPEED = 400; // Target speed for optimal momentum-coupled jumps
   private readonly MAX_PLATFORM_SEARCH_DISTANCE = 300;
   private readonly STUCK_THRESHOLD = 2000; // Consider stuck after 2 seconds
-  private readonly BEHAVIOR_SWITCH_TIME = 5000; // Switch behavior every 5 seconds
-  private readonly WALL_BOUNCE_PROXIMITY = 100; // Distance from wall to attempt bouncing
+  private readonly WALL_BOUNCE_PROXIMITY = 30; // Precise timing window for perfect wall bounces
+  private readonly MIN_VELOCITY_FOR_WALL_BOUNCE = 100; // Minimum velocity needed for wall bounce attempt
+  private readonly DEFAULT_PLATFORM_WIDTH = 100; // Fallback width when platform.width is missing
+  private readonly DEATH_LINE_OFFSET_ESTIMATE = 400; // Rough estimate of death line position below player
 
   constructor(scene: Scene, player: Player, platformManager: PlatformManager, wallManager: WallManager, gameConfig: GameConfiguration) {
     this.scene = scene;
@@ -67,7 +62,6 @@ export class AIController {
     this.gameConfig = gameConfig;
     
     this.setupEventListeners();
-    this.switchBehaviorMode();
   }
 
   private setupEventListeners(): void {
@@ -82,23 +76,12 @@ export class AIController {
   }
 
   private onWallBounce(): void {
-    this.consecutiveWallBounces++;
-    // After successful wall bounce, might want to continue or switch strategy
-    if (this.consecutiveWallBounces >= 3) {
-      this.behaviorMode = AIBehaviorMode.COMBO_SEEKER;
-      this.consecutiveWallBounces = 0;
-    }
+    // Wall bounce successful - continue momentum-based strategy
+    console.log('🎯 AI executed successful wall bounce');
   }
 
   update(deltaTime: number): AIInput {
     const now = Date.now();
-    
-    // Update behavior timer and potentially switch modes
-    this.behaviorTimer += deltaTime;
-    if (this.behaviorTimer >= this.BEHAVIOR_SWITCH_TIME) {
-      this.switchBehaviorMode();
-      this.behaviorTimer = 0;
-    }
     
     // Enforce decision cooldown to prevent jittery behavior
     if (now - this.lastDecisionTime < this.decisionCooldown) {
@@ -111,8 +94,8 @@ export class AIController {
     // Update stuck detection
     this.updateStuckDetection(context, deltaTime);
     
-    // Make decision based on current behavior mode
-    const newInput = this.makeDecision(context);
+    // Make intelligent decision using unified strategy
+    const newInput = this.makeIntelligentDecision(context);
     
     this.currentInput = newInput;
     this.lastDecisionTime = now;
@@ -122,17 +105,38 @@ export class AIController {
 
   private analyzeGameState(): AIDecisionContext {
     const movementState = this.player.getMovementState();
+    
+    // Validate movement state data
+    if (!movementState || typeof movementState.horizontalSpeed !== 'number' || typeof movementState.verticalSpeed !== 'number') {
+      console.warn('🤖 AI: Invalid movement state, using default values');
+      const defaultMovementState = { horizontalSpeed: 0, verticalSpeed: 0, isGrounded: false };
+      const movementStateToUse = movementState || defaultMovementState;
+      
+      return {
+        playerX: this.player.x,
+        playerY: this.player.y,
+        playerVelocityX: movementStateToUse.horizontalSpeed || 0,
+        playerVelocityY: movementStateToUse.verticalSpeed || 0,
+        isGrounded: movementStateToUse.isGrounded || false,
+        nearestPlatforms: [],
+        wallLeft: 0,
+        wallRight: this.scene.scale.width - 64,
+        deathLineY: this.player.y + this.DEATH_LINE_OFFSET_ESTIMATE,
+        targetDirection: this.player.x < this.scene.scale.width / 2 ? 1 : -1
+      };
+    }
+    
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     
     // Get nearby platforms
     const nearbyPlatforms = this.findNearbyPlatforms(this.player.x, this.player.y);
     
-    // Get wall boundaries (approximate)
-    const wallLeft = 0;
-    const wallRight = this.scene.scale.width;
+    // Get actual wall boundaries from wall manager
+    const wallLeft = 0; // Left wall is at scene edge
+    const wallRight = this.scene.scale.width - 64; // Right wall accounts for tile width (64px)
     
     // Get death line position (approximate)
-    const deathLineY = this.player.y + 400; // Rough estimate, death line is usually below player
+    const deathLineY = this.player.y + this.DEATH_LINE_OFFSET_ESTIMATE; // Rough estimate, death line is usually below player
     
     return {
       playerX: this.player.x,
@@ -161,7 +165,7 @@ export class AIController {
         platforms.push({
           x: platform.x,
           y: platform.y,
-          width: platform.width || 100, // Default width if not available
+          width: platform.width || this.DEFAULT_PLATFORM_WIDTH, // Default width if not available
           distance
         });
       }
@@ -187,49 +191,177 @@ export class AIController {
     
     this.lastPlayerY = context.playerY;
     
-    // If stuck too long, switch to more aggressive behavior
+    // If stuck too long, reset target to reassess situation
     if (this.stuckTimer >= this.STUCK_THRESHOLD) {
-      this.behaviorMode = AIBehaviorMode.WALL_BOUNCER;
+      this.targetPlatform = null;
       this.stuckTimer = 0;
+      console.log('🤖 AI detected stuck situation, reassessing strategy');
     }
   }
 
-  private makeDecision(context: AIDecisionContext): AIInput {
-    switch (this.behaviorMode) {
-      case AIBehaviorMode.SAFE_CLIMBING:
-        return this.safeCimbingBehavior(context);
-      case AIBehaviorMode.COMBO_SEEKER:
-        return this.comboSeekerBehavior(context);
-      case AIBehaviorMode.WALL_BOUNCER:
-        return this.wallBouncerBehavior(context);
-      case AIBehaviorMode.SPEED_DEMON:
-        return this.speedDemonBehavior(context);
-      case AIBehaviorMode.SHOWOFF:
-        return this.showoffBehavior(context);
-      default:
-        return this.safeCimbingBehavior(context);
+  private makeIntelligentDecision(context: AIDecisionContext): AIInput {
+    const currentSpeed = Math.abs(context.playerVelocityX);
+    
+    // Priority 1: Perfect wall bounce timing (highest priority)
+    const wallBounceInput = this.checkWallBounceOpportunity(context);
+    if (wallBounceInput) {
+      return wallBounceInput;
     }
+    
+    // Priority 2: Platform jumping when we have good speed and targets
+    if (currentSpeed >= this.MIN_SPEED_FOR_JUMP_HOLDING) {
+      const platformJumpInput = this.checkPlatformJumpOpportunity(context);
+      if (platformJumpInput) {
+        return platformJumpInput;
+      }
+    }
+    
+    // Priority 3: Speed building - land on long platforms when speed is low
+    if (currentSpeed < this.TARGET_SPEED && context.isGrounded) {
+      const speedBuildingInput = this.buildSpeed(context);
+      if (speedBuildingInput) {
+        return speedBuildingInput;
+      }
+    }
+    
+    // Priority 4: Strategic platform selection for climbing
+    return this.selectStrategicPlatform(context);
   }
 
-  private safeCimbingBehavior(context: AIDecisionContext): AIInput {
-    // Conservative strategy: find nearest climbable platform and go for it
+  private checkWallBounceOpportunity(context: AIDecisionContext): AIInput | null {
+    const distanceToLeftWall = context.playerX - context.wallLeft;
+    const distanceToRightWall = context.wallRight - context.playerX;
+    
+    // Check for perfect wall bounce timing window (30px for 110% momentum + boost)
+    if (distanceToLeftWall <= this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX < -this.MIN_VELOCITY_FOR_WALL_BOUNCE) {
+      console.log('🎯 AI attempting perfect left wall bounce');
+      return { left: true, right: false, jump: true };
+    }
+    
+    if (distanceToRightWall <= this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX > this.MIN_VELOCITY_FOR_WALL_BOUNCE) {
+      console.log('🎯 AI attempting perfect right wall bounce');
+      return { left: false, right: true, jump: true };
+    }
+    
+    return null;
+  }
+
+  private checkPlatformJumpOpportunity(context: AIDecisionContext): AIInput | null {
+    // Find physics-verified reachable platforms above us
+    const reachablePlatforms = context.nearestPlatforms.filter(platform => {
+      const horizontalDistance = Math.abs(platform.x - context.playerX);
+      const verticalDistance = context.playerY - platform.y; // Positive means platform is above
+      
+      if (verticalDistance <= 20) return false; // Platform must be meaningfully above us
+      
+      // Use game's physics to verify jump feasibility
+      const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
+      
+      // Add validation for jump metrics
+      if (!jumpMetrics || typeof jumpMetrics.horizontalRange !== 'number' || typeof jumpMetrics.maxHeight !== 'number') {
+        console.warn('🤖 AI: Invalid jump metrics returned, skipping platform');
+        return false;
+      }
+      
+      return jumpMetrics.horizontalRange >= horizontalDistance && jumpMetrics.maxHeight >= verticalDistance;
+    });
+    
+    if (reachablePlatforms.length > 0 && context.isGrounded) {
+      // Sort by strategic value: height gain minus horizontal effort
+      reachablePlatforms.sort((a, b) => {
+        const scoreA = (context.playerY - a.y) - 0.3 * Math.abs(a.x - context.playerX);
+        const scoreB = (context.playerY - b.y) - 0.3 * Math.abs(b.x - context.playerX);
+        return scoreB - scoreA; // Higher scores first
+      });
+      
+      const targetPlatform = reachablePlatforms[0];
+      const horizontalDistance = targetPlatform.x - context.playerX;
+      
+      console.log(`🚀 AI jumping to platform at (${targetPlatform.x}, ${targetPlatform.y}) with speed ${Math.abs(context.playerVelocityX).toFixed(1)}`);
+      
+      // Slight directional adjustment if needed, then jump
+      if (Math.abs(horizontalDistance) > 20) {
+        return {
+          left: horizontalDistance < 0,
+          right: horizontalDistance > 0,
+          jump: true
+        };
+      } else {
+        return { left: false, right: false, jump: true };
+      }
+    }
+    
+    return null;
+  }
+
+  private buildSpeed(context: AIDecisionContext): AIInput | null {
+    // Look for long platforms to run on for acceleration
+    const nearbyLongPlatforms = context.nearestPlatforms.filter(platform => {
+      const verticalDistance = context.playerY - platform.y;
+      const horizontalDistance = Math.abs(platform.x - context.playerX);
+      
+      // Platform should be at roughly the same level or slightly below, and be long
+      return verticalDistance >= -30 && verticalDistance <= 30 && 
+             platform.width >= this.LONG_PLATFORM_THRESHOLD && 
+             horizontalDistance <= 200;
+    });
+    
+    if (nearbyLongPlatforms.length > 0) {
+      // Find the closest long platform
+      nearbyLongPlatforms.sort((a, b) => a.distance - b.distance);
+      const targetPlatform = nearbyLongPlatforms[0];
+      const horizontalDistance = targetPlatform.x - context.playerX;
+      
+      console.log(`🏃 AI targeting long platform (width: ${targetPlatform.width}) for speed building`);
+      
+      // Move toward the long platform, don't jump yet
+      return {
+        left: horizontalDistance < -20,
+        right: horizontalDistance > 20,
+        jump: false // Critical: don't jump, need to run on the platform
+      };
+    }
+    
+    // No long platforms found, build speed in open direction
+    const centerX = this.scene.scale.width / 2;
+    const preferRight = context.playerX < centerX;
+    
+    return {
+      left: !preferRight,
+      right: preferRight,
+      jump: false // Stay grounded to build horizontal speed
+    };
+  }
+
+  private selectStrategicPlatform(context: AIDecisionContext): AIInput {
+    // Final fallback: basic platform climbing when no other strategies apply
     const targetPlatform = this.findBestPlatformToClimb(context);
     
     if (!targetPlatform) {
-      // No good platform found, try to build horizontal momentum
-      return { left: context.targetDirection === -1, right: context.targetDirection === 1, jump: false };
+      // No suitable platform found, continue building momentum
+      const centerX = this.scene.scale.width / 2;
+      const preferRight = context.playerX < centerX;
+      
+      return {
+        left: !preferRight,
+        right: preferRight,
+        jump: false
+      };
     }
     
     const horizontalDistance = targetPlatform.x - context.playerX;
     const verticalDistance = targetPlatform.y - context.playerY;
     
-    // If platform is above us, consider jumping
+    // If we're grounded and platform is above us, consider jumping
     if (verticalDistance < -20 && context.isGrounded) {
-      const requiredSpeed = Math.abs(horizontalDistance) / 0.5; // Rough estimate
+      const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
       
-      if (Math.abs(context.playerVelocityX) >= requiredSpeed * 0.8) {
-        // We have enough horizontal speed, jump!
-        return { left: false, right: false, jump: true };
+      // Validate jump metrics before using
+      if (jumpMetrics && typeof jumpMetrics.horizontalRange === 'number' && typeof jumpMetrics.maxHeight === 'number') {
+        if (jumpMetrics.horizontalRange >= Math.abs(horizontalDistance) && 
+            jumpMetrics.maxHeight >= Math.abs(verticalDistance)) {
+          return { left: false, right: false, jump: true };
+        }
       }
     }
     
@@ -241,131 +373,6 @@ export class AIController {
     };
   }
 
-  private comboSeekerBehavior(context: AIDecisionContext): AIInput {
-    // Look for opportunities to chain multiple platforms or wall bounces
-    const platforms = context.nearestPlatforms.filter(p => p.y < context.playerY - 50);
-    
-    if (platforms.length >= 2) {
-      // Multiple platforms available, try to chain them
-      const targetPlatform = platforms[0];
-      const horizontalDistance = targetPlatform.x - context.playerX;
-      
-      // Build MORE horizontal speed for spectacular jumps and particle effects
-      if (Math.abs(context.playerVelocityX) < 300 && context.isGrounded) {
-        return {
-          left: horizontalDistance < 0,
-          right: horizontalDistance > 0,
-          jump: false
-        };
-      }
-      
-      // When ready, make the jump
-      if (context.isGrounded && Math.abs(horizontalDistance) < 150) {
-        return { left: false, right: false, jump: true };
-      }
-    }
-    
-    // Fall back to safe climbing if no combo opportunity
-    return this.safeCimbingBehavior(context);
-  }
-
-  private wallBouncerBehavior(context: AIDecisionContext): AIInput {
-    // Actively seek wall bounces for momentum and style points
-    const distanceToLeftWall = context.playerX - context.wallLeft;
-    const distanceToRightWall = context.wallRight - context.playerX;
-    
-    // If close to a wall and have horizontal momentum, try to time a wall bounce
-    if (distanceToLeftWall < this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX < -50) {
-      // Approaching left wall with leftward momentum - perfect for bounce
-      return { left: true, right: false, jump: !context.isGrounded };
-    }
-    
-    if (distanceToRightWall < this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX > 50) {
-      // Approaching right wall with rightward momentum - perfect for bounce
-      return { left: false, right: true, jump: !context.isGrounded };
-    }
-    
-    // Build momentum toward nearest wall
-    if (distanceToLeftWall < distanceToRightWall) {
-      return { left: true, right: false, jump: context.isGrounded };
-    } else {
-      return { left: false, right: true, jump: context.isGrounded };
-    }
-  }
-
-  private speedDemonBehavior(context: AIDecisionContext): AIInput {
-    // DEDICATED mode for building maximum horizontal speed to trigger particle effects
-    const currentSpeed = Math.abs(context.playerVelocityX);
-    const SPEED_TARGET = 450; // Very high target speed for particles
-    
-    // If we have high speed and are airborne, continue in same direction
-    if (!context.isGrounded && currentSpeed > 200) {
-      const continueSameDirection = context.playerVelocityX > 0 ? 1 : -1;
-      return {
-        left: continueSameDirection === -1,
-        right: continueSameDirection === 1,
-        jump: false // Don't interfere with current trajectory
-      };
-    }
-    
-    // If grounded and don't have enough speed, build it aggressively
-    if (context.isGrounded && currentSpeed < SPEED_TARGET) {
-      // Build speed in whatever direction has more room
-      const centerX = this.scene.scale.width / 2;
-      const preferRight = context.playerX < centerX;
-      
-      return {
-        left: !preferRight,
-        right: preferRight,
-        jump: false // Stay grounded to build horizontal speed
-      };
-    }
-    
-    // If we have good speed, make strategic jumps to maintain momentum
-    if (currentSpeed >= 250) {
-      // Look for platforms we can reach to continue momentum
-      const platforms = context.nearestPlatforms.filter(p => p.y < context.playerY - 30);
-      if (platforms.length > 0 && context.isGrounded) {
-        return { left: false, right: false, jump: true };
-      }
-    }
-    
-    // Default: continue building speed
-    return {
-      left: context.targetDirection === -1,
-      right: context.targetDirection === 1,
-      jump: false
-    };
-  }
-
-  private showoffBehavior(context: AIDecisionContext): AIInput {
-    // Combination of aggressive moves - try to show multiple game mechanics
-    const random = Math.random();
-    
-    if (random < 0.2) {
-      return this.wallBouncerBehavior(context);
-    } else if (random < 0.4) {
-      return this.comboSeekerBehavior(context);
-    } else if (random < 0.7) {
-      return this.speedDemonBehavior(context); // Include speed demon for particles
-    } else {
-      // High-speed moves to trigger particle effects
-      // Build extreme horizontal speed when grounded
-      if (context.isGrounded && Math.abs(context.playerVelocityX) < 400) {
-        return {
-          left: context.targetDirection === -1,
-          right: context.targetDirection === 1,
-          jump: false
-        };
-      }
-      
-      return {
-        left: context.targetDirection === -1,
-        right: context.targetDirection === 1,
-        jump: Math.random() < 0.6 // Higher jump probability for more aerial action
-      };
-    }
-  }
 
   private findBestPlatformToClimb(context: AIDecisionContext): { x: number; y: number; width: number; } | null {
     // Find the best platform to aim for based on reachability and height gain
@@ -380,6 +387,13 @@ export class AIController {
       
       // Use game's physics to check if jump is possible
       const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
+      
+      // Validate jump metrics
+      if (!jumpMetrics || typeof jumpMetrics.horizontalRange !== 'number' || typeof jumpMetrics.maxHeight !== 'number') {
+        console.warn('🤖 AI: Invalid jump metrics in findBestPlatformToClimb, skipping platform');
+        return false;
+      }
+      
       const canReachHorizontally = jumpMetrics.horizontalRange >= horizontalDistance;
       const canReachVertically = jumpMetrics.maxHeight >= verticalDistance;
       
@@ -396,36 +410,30 @@ export class AIController {
     return reachablePlatforms[0];
   }
 
-  private switchBehaviorMode(): void {
-    const modes = Object.values(AIBehaviorMode);
-    const currentIndex = modes.indexOf(this.behaviorMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    
-    this.behaviorMode = modes[nextIndex];
-    console.log(`🤖 AI switching to behavior: ${this.behaviorMode}`);
-    
-    // Reset behavior-specific state
-    this.targetPlatform = null;
-    this.consecutiveWallBounces = 0;
-  }
 
   reset(): void {
     this.currentInput = { left: false, right: false, jump: false };
     this.targetPlatform = null;
     this.stuckTimer = 0;
     this.lastPlayerY = 0;
-    this.behaviorTimer = 0;
-    this.consecutiveWallBounces = 0;
-    this.behaviorMode = AIBehaviorMode.SAFE_CLIMBING;
+    console.log('🤖 AI reset - unified intelligent strategy active');
   }
 
-  setBehaviorMode(mode: AIBehaviorMode): void {
-    this.behaviorMode = mode;
-    this.behaviorTimer = 0;
-  }
-
-  getCurrentBehavior(): AIBehaviorMode {
-    return this.behaviorMode;
+  // Method for UI display compatibility - replaces removed getCurrentBehavior
+  getCurrentStrategy(): string {
+    const currentSpeed = Math.abs(this.player.getMovementState()?.horizontalSpeed || 0);
+    const movementState = this.player.getMovementState();
+    
+    if (!movementState) return 'INITIALIZING';
+    
+    // Determine current strategy based on AI decision logic
+    if (currentSpeed >= this.MIN_SPEED_FOR_JUMP_HOLDING) {
+      return 'MOMENTUM_JUMPING';
+    } else if (currentSpeed < this.TARGET_SPEED && movementState.isGrounded) {
+      return 'SPEED_BUILDING';
+    } else {
+      return 'STRATEGIC_CLIMBING';
+    }
   }
 
   destroy(): void {

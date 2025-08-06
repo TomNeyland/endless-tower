@@ -167,8 +167,8 @@ export class MenuScene extends Scene {
         
         // Update AI controller behavior display
         if (this.aiController && this.currentBehaviorText) {
-            const behavior = this.aiController.getCurrentBehavior();
-            this.currentBehaviorText.setText(`AI Mode: ${behavior.replace('_', ' ').toUpperCase()}`);
+            const strategy = this.aiController.getCurrentStrategy();
+            this.currentBehaviorText.setText(`AI Strategy: ${strategy.replace('_', ' ')}`);
         }
     }
 
