@@ -358,7 +358,8 @@ export class DeathLine {
           const prevProgress = (s - 1) / segments;
           const controlX = x + (Math.sin(prevProgress * Math.PI + this.pulseIntensity + timeOffset) * 4);
           const controlY = fireTop - (flameHeight * (prevProgress + progress) / 2);
-          this.deathLineGraphics.quadraticCurveTo(controlX, controlY, segmentX, segmentY);
+          // Create quadratic curve using lineTo for now - Graphics.quadraticCurveTo doesn't exist
+          this.deathLineGraphics.lineTo(segmentX, segmentY);
         }
       }
       
@@ -416,10 +417,11 @@ export class DeathLine {
     this.emberParticles.setFrequency(frequency);
     this.emberParticles.setQuantity(quantity);
     
-    // Adjust ember properties based on intensity
-    this.emberParticles.setSpeedX({ min: -40 * (1 + intensity), max: 40 * (1 + intensity) });
-    this.emberParticles.setSpeedY({ min: -100 * (1 + intensity), max: -180 * (1 + intensity) });
-    this.emberParticles.setScale({ start: 0.3 + (intensity * 0.5), end: 0.05 });
+    // Adjust ember properties based on intensity using property assignments
+    this.emberParticles.speedX = { min: -40 * (1 + intensity), max: 40 * (1 + intensity) };
+    this.emberParticles.speedY = { min: -100 * (1 + intensity), max: -180 * (1 + intensity) };
+    this.emberParticles.scaleX = { start: 0.3 + (intensity * 0.5), end: 0.05 };
+    this.emberParticles.scaleY = { start: 0.3 + (intensity * 0.5), end: 0.05 };
   }
 
   private updateSparkParticles(intensity: number): void {
@@ -432,10 +434,11 @@ export class DeathLine {
     this.sparkParticles.setFrequency(frequency);
     this.sparkParticles.setQuantity(quantity);
     
-    // More explosive spark behavior when intense
-    this.sparkParticles.setSpeedX({ min: -100 * (1 + intensity), max: 100 * (1 + intensity) });
-    this.sparkParticles.setSpeedY({ min: -250 * (1 + intensity), max: -400 * (1 + intensity) });
-    this.sparkParticles.setScale({ start: 0.8 + (intensity * 0.5), end: 0 });
+    // More explosive spark behavior when intense using property assignments
+    this.sparkParticles.speedX = { min: -100 * (1 + intensity), max: 100 * (1 + intensity) };
+    this.sparkParticles.speedY = { min: -250 * (1 + intensity), max: -400 * (1 + intensity) };
+    this.sparkParticles.scaleX = { start: 0.8 + (intensity * 0.5), end: 0 };
+    this.sparkParticles.scaleY = { start: 0.8 + (intensity * 0.5), end: 0 };
   }
 
   private updateSmokeParticles(intensity: number): void {
@@ -448,10 +451,11 @@ export class DeathLine {
     this.smokeParticles.setFrequency(frequency);
     this.smokeParticles.setQuantity(quantity);
     
-    // More dramatic smoke behavior
-    this.smokeParticles.setSpeedX({ min: -20 * (1 + intensity), max: 20 * (1 + intensity) });
-    this.smokeParticles.setSpeedY({ min: -40 * (1 + intensity), max: -80 * (1 + intensity) });
-    this.smokeParticles.setScale({ start: 0.2 + (intensity * 0.3), end: 1.0 + (intensity * 0.5) });
+    // More dramatic smoke behavior using property assignments
+    this.smokeParticles.speedX = { min: -20 * (1 + intensity), max: 20 * (1 + intensity) };
+    this.smokeParticles.speedY = { min: -40 * (1 + intensity), max: -80 * (1 + intensity) };
+    this.smokeParticles.scaleX = { start: 0.2 + (intensity * 0.3), end: 1.0 + (intensity * 0.5) };
+    this.smokeParticles.scaleY = { start: 0.2 + (intensity * 0.3), end: 1.0 + (intensity * 0.5) };
   }
 
   private drawWarningEffects(camera: Phaser.Cameras.Scene2D.Camera): void {
