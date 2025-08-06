@@ -27,6 +27,11 @@ export class DeathLine {
   private initialPlayerY: number = 0;
   private demoMode: boolean = false;
   
+  // Catch-up mechanism state
+  private currentRiseSpeed: number = 0;
+  private isCatchingUp: boolean = false;
+  private catchUpStartTime: number = 0;
+  
   // Visual effects
   private pulseIntensity: number = 0;
   private lastWarningTime: number = 0;
@@ -194,15 +199,90 @@ export class DeathLine {
       this.deathLineActive = true;
       // Initialize death line position below the initial player position
       this.deathLineY = this.initialPlayerY + 200; // Start 200px below initial position
+      // Initialize catch-up system
+      this.currentRiseSpeed = this.config.riseSpeed;
+      this.isCatchingUp = false;
       console.log(`💀 Death line activated! Time: ${(timeElapsed/1000).toFixed(1)}s, Height: ${heightClimbed.toFixed(0)}px`);
       EventBus.emit('death-line-activated');
     }
   }
 
   private updateDeathLinePosition(deltaTime: number): void {
-    // Death line rises independently at its own speed
-    const riseAmount = this.config.riseSpeed * (deltaTime / 1000);
+    this.updateCatchUpMechanism(deltaTime);
+    
+    // Apply current rise speed (which may be accelerated due to catch-up)
+    const riseAmount = this.currentRiseSpeed * (deltaTime / 1000);
     this.deathLineY -= riseAmount; // Negative Y = upward movement
+  }
+  
+  private updateCatchUpMechanism(deltaTime: number): void {
+    const playerDistance = this.getPlayerDistanceFromDeathLine();
+    const wasCatchingUp = this.isCatchingUp;
+    
+    // Determine if we should be in catch-up mode
+    if (playerDistance > this.config.catchUpThreshold) {
+      if (!this.isCatchingUp) {
+        this.isCatchingUp = true;
+        this.catchUpStartTime = Date.now();
+        console.log(`🔥 Death line catch-up activated! Player distance: ${playerDistance.toFixed(0)}px`);
+      }
+    } else if (playerDistance < this.config.catchUpThreshold * 0.7) {
+      // Stop catching up when player gets closer (with some hysteresis to prevent oscillation)
+      if (this.isCatchingUp) {
+        this.isCatchingUp = false;
+        console.log(`✅ Death line catch-up deactivated! Player distance: ${playerDistance.toFixed(0)}px`);
+      }
+    }
+    
+    // Update current rise speed based on catch-up state
+    if (this.isCatchingUp) {
+      this.updateCatchUpSpeed(deltaTime, playerDistance);
+    } else {
+      // Gradually return to normal speed when not catching up
+      const targetSpeed = this.config.riseSpeed;
+      const speedDiff = targetSpeed - this.currentRiseSpeed;
+      const returnRate = 50; // How quickly to return to normal speed (pixels/s²)
+      
+      if (Math.abs(speedDiff) > 1) {
+        const adjustment = Math.sign(speedDiff) * returnRate * (deltaTime / 1000);
+        this.currentRiseSpeed += adjustment;
+        this.currentRiseSpeed = Math.max(this.config.riseSpeed, this.currentRiseSpeed); // Don't go below normal speed
+      } else {
+        this.currentRiseSpeed = targetSpeed;
+      }
+    }
+  }
+  
+  private updateCatchUpSpeed(deltaTime: number, playerDistance: number): void {
+    // Calculate how much over the threshold the player is
+    const excessDistance = playerDistance - this.config.catchUpThreshold;
+    const maxExcess = this.config.maxPlayerDistance - this.config.catchUpThreshold;
+    
+    // Calculate target speed based on how far ahead the player is
+    const distanceRatio = Math.min(excessDistance / maxExcess, 1.0);
+    const targetSpeed = this.config.riseSpeed + (this.config.maxCatchUpSpeed - this.config.riseSpeed) * distanceRatio;
+    
+    // Gradually accelerate to target speed
+    const speedDiff = targetSpeed - this.currentRiseSpeed;
+    const acceleration = this.config.catchUpAcceleration * (deltaTime / 1000);
+    
+    if (speedDiff > 0) {
+      // Accelerate towards target
+      this.currentRiseSpeed = Math.min(targetSpeed, this.currentRiseSpeed + acceleration);
+    } else if (speedDiff < 0) {
+      // Decelerate towards target (shouldn't happen often, but just in case)
+      this.currentRiseSpeed = Math.max(targetSpeed, this.currentRiseSpeed - acceleration);
+    }
+    
+    // Ensure we don't exceed maximum catch-up speed
+    this.currentRiseSpeed = Math.min(this.currentRiseSpeed, this.config.maxCatchUpSpeed);
+    
+    // Cap at maximum distance - if player gets too far, teleport catch-up
+    if (playerDistance > this.config.maxPlayerDistance) {
+      const teleportAmount = playerDistance - this.config.maxPlayerDistance * 0.8; // Teleport to 80% of max distance
+      this.deathLineY -= teleportAmount;
+      console.log(`⚡ Death line emergency catch-up! Teleported ${teleportAmount.toFixed(0)}px`);
+    }
   }
 
   private updateVisuals(): void {
@@ -462,16 +542,25 @@ export class DeathLine {
     
     if (distanceToDeathLine > 800) {
       threatLevel = 'safe';
-      this.warningText.setVisible(false);
-      return;
+      // Show catch-up indicator even when safe
+      if (this.isCatchingUp) {
+        warningText = `⚡ FIREWALL ACCELERATING ⚡ - ${Math.floor(distanceToDeathLine)}px below`;
+        warningColor = '#ff9900';
+        this.warningText.setVisible(true);
+      } else {
+        this.warningText.setVisible(false);
+        return;
+      }
     } else if (distanceToDeathLine > 400) {
       threatLevel = 'aware';
-      warningText = `Fire Rising - ${Math.floor(distanceToDeathLine)}px below`;
-      warningColor = '#ffaa00';
+      const speedIndicator = this.isCatchingUp ? '⚡ ACCELERATING ⚡' : 'Rising';
+      warningText = `Fire ${speedIndicator} - ${Math.floor(distanceToDeathLine)}px below`;
+      warningColor = this.isCatchingUp ? '#ff9900' : '#ffaa00';
     } else if (distanceToDeathLine > 200) {
       threatLevel = 'caution';
-      warningText = 'CAUTION - Fire Approaching!';
-      warningColor = '#ff6600';
+      const speedIndicator = this.isCatchingUp ? '⚡ FAST APPROACH! ⚡' : 'Approaching!';
+      warningText = `CAUTION - Fire ${speedIndicator}`;
+      warningColor = this.isCatchingUp ? '#ff6600' : '#ff7700';
     } else if (distanceToDeathLine > 100) {
       threatLevel = 'danger';
       warningText = 'DANGER - CLIMB NOW!';
@@ -563,6 +652,14 @@ export class DeathLine {
   isPlayerDead(): boolean {
     return this.isGameOver;
   }
+  
+  getCatchUpStatus(): { isCatchingUp: boolean; currentSpeed: number; normalSpeed: number } {
+    return {
+      isCatchingUp: this.isCatchingUp,
+      currentSpeed: this.currentRiseSpeed,
+      normalSpeed: this.config.riseSpeed
+    };
+  }
 
   reset(): void {
     console.log('🔄 DeathLine: Resetting death line system');
@@ -583,6 +680,11 @@ export class DeathLine {
     // Reset visual effects
     this.pulseIntensity = 0;
     this.lastWarningTime = 0;
+    
+    // Reset catch-up mechanism
+    this.currentRiseSpeed = this.config.riseSpeed;
+    this.isCatchingUp = false;
+    this.catchUpStartTime = 0;
     
     // Stop and reset particle systems
     if (this.emberParticles && this.emberParticles.emitting) this.emberParticles.stop();
