@@ -417,11 +417,12 @@ export class DeathLine {
     this.emberParticles.setFrequency(frequency);
     this.emberParticles.setQuantity(quantity);
     
-    // Adjust ember properties based on intensity using property assignments
-    this.emberParticles.speedX = { min: -40 * (1 + intensity), max: 40 * (1 + intensity) };
-    this.emberParticles.speedY = { min: -100 * (1 + intensity), max: -180 * (1 + intensity) };
-    this.emberParticles.scaleX = { start: 0.3 + (intensity * 0.5), end: 0.05 };
-    this.emberParticles.scaleY = { start: 0.3 + (intensity * 0.5), end: 0.05 };
+    // Adjust ember properties based on intensity using setConfig for dynamic updates
+    this.emberParticles.setConfig({
+      speedX: { min: -40 * (1 + intensity), max: 40 * (1 + intensity) },
+      speedY: { min: -100 * (1 + intensity), max: -180 * (1 + intensity) },
+      scale: { start: 0.3 + (intensity * 0.5), end: 0.05 }
+    });
   }
 
   private updateSparkParticles(intensity: number): void {
@@ -434,11 +435,12 @@ export class DeathLine {
     this.sparkParticles.setFrequency(frequency);
     this.sparkParticles.setQuantity(quantity);
     
-    // More explosive spark behavior when intense using property assignments
-    this.sparkParticles.speedX = { min: -100 * (1 + intensity), max: 100 * (1 + intensity) };
-    this.sparkParticles.speedY = { min: -250 * (1 + intensity), max: -400 * (1 + intensity) };
-    this.sparkParticles.scaleX = { start: 0.8 + (intensity * 0.5), end: 0 };
-    this.sparkParticles.scaleY = { start: 0.8 + (intensity * 0.5), end: 0 };
+    // More explosive spark behavior when intense using setConfig for dynamic updates
+    this.sparkParticles.setConfig({
+      speedX: { min: -100 * (1 + intensity), max: 100 * (1 + intensity) },
+      speedY: { min: -250 * (1 + intensity), max: -400 * (1 + intensity) },
+      scale: { start: 0.8 + (intensity * 0.5), end: 0 }
+    });
   }
 
   private updateSmokeParticles(intensity: number): void {
@@ -451,11 +453,12 @@ export class DeathLine {
     this.smokeParticles.setFrequency(frequency);
     this.smokeParticles.setQuantity(quantity);
     
-    // More dramatic smoke behavior using property assignments
-    this.smokeParticles.speedX = { min: -20 * (1 + intensity), max: 20 * (1 + intensity) };
-    this.smokeParticles.speedY = { min: -40 * (1 + intensity), max: -80 * (1 + intensity) };
-    this.smokeParticles.scaleX = { start: 0.2 + (intensity * 0.3), end: 1.0 + (intensity * 0.5) };
-    this.smokeParticles.scaleY = { start: 0.2 + (intensity * 0.3), end: 1.0 + (intensity * 0.5) };
+    // More dramatic smoke behavior using setConfig for dynamic updates
+    this.smokeParticles.setConfig({
+      speedX: { min: -20 * (1 + intensity), max: 20 * (1 + intensity) },
+      speedY: { min: -40 * (1 + intensity), max: -80 * (1 + intensity) },
+      scale: { start: 0.2 + (intensity * 0.3), end: 1.0 + (intensity * 0.5) }
+    });
   }
 
   private drawWarningEffects(camera: Phaser.Cameras.Scene2D.Camera): void {
