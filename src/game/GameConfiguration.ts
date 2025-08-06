@@ -37,11 +37,8 @@ export interface DeathLineConfig {
   minHeight: number;            // Minimum height player must reach before death line activates
   warningDistance: number;      // Distance from death line to show warnings
   visualOpacity: number;        // Opacity of the death line block (0.0-1.0)
-  // Catch-up mechanism parameters
-  maxPlayerDistance: number;    // Maximum distance player can get ahead before catch-up triggers
-  catchUpThreshold: number;     // Distance at which catch-up begins (should be < maxPlayerDistance)
-  maxCatchUpSpeed: number;      // Maximum speed during catch-up (pixels per second)
-  catchUpAcceleration: number;  // How quickly catch-up speed increases (pixels per second squared)
+  // Simplified catch-up mechanism - instant teleport only
+  maxPlayerDistance: number;    // Maximum distance player can get ahead before instant catch-up
 }
 
 export interface WallConfig {
@@ -127,16 +124,13 @@ export const DEFAULT_CONFIG: GameConfig = {
   },
   
   deathLine: {
-    riseSpeed: 50,              // Death line rises at 50 pixels per second
+    riseSpeed: 80,              // Death line rises at 80 pixels per second (faster)
     startDelay: 30000,          // 30 seconds before death line starts
     minHeight: 300,             // Must climb at least 300px before death line activates
-    warningDistance: 300,       // Show warnings when within 300px of death line
+    warningDistance: 150,       // Show warnings when within 150px of death line (trigger later)
     visualOpacity: 0.7,         // 70% opacity for the translucent block
-    // Catch-up mechanism configuration
-    maxPlayerDistance: 1200,    // Maximum distance player can get ahead (2 screens at 600px each)
-    catchUpThreshold: 800,      // Start catching up when player is 800px ahead (1.33 screens)
-    maxCatchUpSpeed: 200,       // Maximum catch-up speed (4x normal when fully triggered)
-    catchUpAcceleration: 75     // Gradual acceleration to catch-up speed (pixels/s²)
+    // Simplified catch-up mechanism - instant teleport only
+    maxPlayerDistance: 1200     // Maximum distance player can get ahead before instant catch-up
   },
   
   walls: {
