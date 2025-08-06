@@ -185,8 +185,8 @@ export class AIController {
     // High-speed intelligent AI that synthesizes all strategies
     
     const currentSpeed = Math.abs(context.playerVelocityX);
-    const targetSpeed = 400; // Target high speed for optimal jumping
-    const maxSpeed = 600; // Speed at which we can make incredible jumps
+    const targetSpeed = 450; // Very high target speed for particles (like original speed demon)
+    const maxSpeed = 700; // Speed at which we can make incredible jumps
     
     // Check for wall bounce opportunities first (highest priority)
     const wallBounceDecision = this.checkWallBounceOpportunity(context);
@@ -213,8 +213,8 @@ export class AIController {
   private checkLandAndRunOpportunity(context: AIDecisionContext, currentSpeed: number): AIInput | null {
     // Check if we should land and run on a platform to build speed
     
-    // Only consider landing if we're not fast enough yet
-    const speedThreshold = 250; // Below this speed, consider landing to run
+    // Only consider landing if we're not fast enough yet - be much more aggressive
+    const speedThreshold = 400; // Much higher threshold - only land if really slow
     if (currentSpeed >= speedThreshold) {
       return null; // Fast enough, keep momentum behaviors
     }
@@ -290,8 +290,8 @@ export class AIController {
     const distanceToRightWall = context.wallRight - context.playerX;
     const currentSpeed = Math.abs(context.playerVelocityX);
     
-    // Only attempt wall bounces if we have significant horizontal speed
-    const minSpeedForBounce = 200;
+    // Only attempt wall bounces if we have significant horizontal speed - be more aggressive
+    const minSpeedForBounce = 300; // Higher threshold for wall bounces
     if (currentSpeed < minSpeedForBounce) {
       return null;
     }
@@ -322,9 +322,8 @@ export class AIController {
     
     const currentSpeed = Math.abs(context.playerVelocityX);
     
-    // CRITICAL FIX: Don't attempt jumps if we don't have enough speed
-    // This prevents the AI from getting stuck trying impossible jumps
-    const minimumJumpSpeed = 180; // Need decent speed to make meaningful jumps
+    // Don't attempt jumps if we don't have enough speed - be much more aggressive
+    const minimumJumpSpeed = 300; // Much higher threshold - only jump when fast
     if (currentSpeed < minimumJumpSpeed) {
       return null; // Let speed building logic handle this
     }
@@ -365,43 +364,28 @@ export class AIController {
     // Determine if we should hold jump based on speed and situation
     const shouldHoldJump = this.shouldHoldJumpForMomentum(context, currentSpeed);
     
-    // If we don't have enough speed, focus on building it with smarter edge behavior
+    // If we don't have enough speed, focus on aggressive speed building like original speed demon
     if (currentSpeed < targetSpeed) {
       
-      // CRITICAL FIX: If we're grounded and slow, prioritize getting to platform edge
-      if (context.isGrounded && currentSpeed < 100) {
-        const currentPlatform = this.findCurrentOrLandingPlatform(context);
-        if (currentPlatform) {
-          const platformLeft = currentPlatform.x - currentPlatform.width / 2;
-          const platformRight = currentPlatform.x + currentPlatform.width / 2;
-          const distanceFromLeftEdge = context.playerX - platformLeft;
-          const distanceFromRightEdge = platformRight - context.playerX;
-          
-          // If we're too centered, move to an edge for run-up
-          if (distanceFromLeftEdge > 30 && distanceFromRightEdge > 30) {
-            // Choose the edge that gives better run-up space
-            const wallLeft = context.wallLeft;
-            const wallRight = context.wallRight;
-            const spaceFromLeftEdge = platformLeft - wallLeft;
-            const spaceFromRightEdge = wallRight - platformRight;
-            
-            const targetDirection = spaceFromRightEdge > spaceFromLeftEdge ? 1 : -1;
-            
-            return {
-              left: targetDirection === -1,
-              right: targetDirection === 1,
-              jump: false // Don't hold jump when positioning for run-up
-            };
-          }
-        }
+      // AGGRESSIVE SPEED BUILDING: Stay grounded to build horizontal speed aggressively
+      if (context.isGrounded && currentSpeed < targetSpeed) {
+        // Build speed in whatever direction has more room (like original speed demon)
+        const centerX = this.scene.scale.width / 2;
+        const preferRight = context.playerX < centerX;
+        
+        return {
+          left: !preferRight,
+          right: preferRight,
+          jump: false // Stay grounded to build horizontal speed - key insight from original
+        };
       }
       
-      // Choose direction based on available space and obstacles
-      const direction = this.chooseBestDirection(context);
+      // If in air, maintain current direction but don't hold jump unless really fast
+      const continueSameDirection = context.playerVelocityX > 0 ? 1 : -1;
       
       return {
-        left: direction === -1,
-        right: direction === 1,
+        left: continueSameDirection === -1,
+        right: continueSameDirection === 1,
         jump: shouldHoldJump
       };
     }
@@ -415,7 +399,7 @@ export class AIController {
       (context.playerX - context.wallLeft);
     
     // If we're too close to wall and moving too slowly for bounce, reverse direction
-    if (distanceToWall < 50 && currentSpeed < 200) {
+    if (distanceToWall < 80 && currentSpeed < 300) { // Increased thresholds
       return {
         left: continueSameDirection === 1,
         right: continueSameDirection === -1, 
@@ -434,8 +418,8 @@ export class AIController {
   private shouldHoldJumpForMomentum(context: AIDecisionContext, currentSpeed: number): boolean {
     // Determine if we should hold jump based on speed and situation
     
-    // If we're moving fast enough, hold jump to maintain momentum
-    const momentumThreshold = 250;
+    // If we're moving fast enough, hold jump to maintain momentum - much higher threshold
+    const momentumThreshold = 400; // Only hold jump when really fast
     if (currentSpeed >= momentumThreshold) {
       return true;
     }
