@@ -27,6 +27,10 @@ export class DeathLine {
   private initialPlayerY: number = 0;
   private demoMode: boolean = false;
   
+  // Catch-up system state
+  private currentRiseSpeed: number = 0;
+  private catchUpActive: boolean = false;
+  
   // Visual effects
   private pulseIntensity: number = 0;
   private lastWarningTime: number = 0;
@@ -42,6 +46,7 @@ export class DeathLine {
     this.gameStartTime = Date.now();
     this.initialPlayerY = player.y;
     this.highestPlayerY = player.y;
+    this.currentRiseSpeed = this.config.riseSpeed;
     this.setupVisuals();
     this.setupParticleSystem();
     this.setupEventListeners();
@@ -200,9 +205,76 @@ export class DeathLine {
   }
 
   private updateDeathLinePosition(deltaTime: number): void {
-    // Death line rises independently at its own speed
-    const riseAmount = this.config.riseSpeed * (deltaTime / 1000);
+    // Calculate current base speed with floor-based progression
+    const baseSpeed = this.calculateProgressiveSpeed();
+    
+    // Calculate distance from player to death line
+    const distanceToPlayer = this.deathLineY - this.player.y;
+    
+    // Apply catch-up system
+    this.updateCatchUpSystem(distanceToPlayer, baseSpeed, deltaTime);
+    
+    // Death line rises using current calculated speed
+    const riseAmount = this.currentRiseSpeed * (deltaTime / 1000);
     this.deathLineY -= riseAmount; // Negative Y = upward movement
+  }
+
+  private calculateProgressiveSpeed(): number {
+    // Calculate height climbed to determine floors reached
+    const heightClimbed = Math.max(0, this.initialPlayerY - this.highestPlayerY);
+    const floorsClimbed = Math.floor(heightClimbed / this.config.floorHeight);
+    
+    // Calculate speed increases every N floors
+    const speedIncreaseIntervals = Math.floor(floorsClimbed / this.config.speedIncreaseInterval);
+    const totalSpeedIncrease = speedIncreaseIntervals * this.config.speedIncreasePerFloor * this.config.speedIncreaseInterval;
+    
+    // Apply cap to prevent overwhelming difficulty
+    const progressiveSpeed = Math.min(
+      this.config.riseSpeed + totalSpeedIncrease,
+      this.config.maxBaseSpeed
+    );
+    
+    return progressiveSpeed;
+  }
+
+  private updateCatchUpSystem(distanceToPlayer: number, baseSpeed: number, deltaTime: number): void {
+    const targetSpeed = this.calculateTargetSpeed(distanceToPlayer, baseSpeed);
+    
+    // Smooth acceleration/deceleration to target speed
+    const speedDifference = targetSpeed - this.currentRiseSpeed;
+    const maxSpeedChange = this.config.catchUpAcceleration * (deltaTime / 1000);
+    
+    if (Math.abs(speedDifference) <= maxSpeedChange) {
+      this.currentRiseSpeed = targetSpeed;
+    } else {
+      this.currentRiseSpeed += Math.sign(speedDifference) * maxSpeedChange;
+    }
+    
+    // Update catch-up active status for visual indicators
+    this.catchUpActive = this.currentRiseSpeed > baseSpeed * 1.1; // 10% threshold for catch-up indication
+  }
+
+  private calculateTargetSpeed(distanceToPlayer: number, baseSpeed: number): number {
+    // Emergency catch-up: teleport if player gets too far ahead
+    if (distanceToPlayer > this.config.maxPlayerDistance) {
+      // Teleport death line closer to player
+      this.deathLineY = this.player.y + this.config.catchUpThreshold;
+      return baseSpeed;
+    }
+    
+    // Normal catch-up when player exceeds threshold
+    if (distanceToPlayer > this.config.catchUpThreshold) {
+      // Calculate catch-up intensity (0.0 to 1.0)
+      const excessDistance = distanceToPlayer - this.config.catchUpThreshold;
+      const maxExcess = this.config.maxPlayerDistance - this.config.catchUpThreshold;
+      const catchUpIntensity = Math.min(excessDistance / maxExcess, 1.0);
+      
+      // Interpolate between base speed and max catch-up speed
+      return baseSpeed + (this.config.maxCatchUpSpeed - baseSpeed) * catchUpIntensity;
+    }
+    
+    // Within threshold: use base progressive speed
+    return baseSpeed;
   }
 
   private updateVisuals(): void {
@@ -455,6 +527,11 @@ export class DeathLine {
     const distanceToDeathLine = this.deathLineY - this.player.y;
     const proximityFactor = Math.max(0, Math.min(1, (1000 - distanceToDeathLine) / 1000));
     
+    // Calculate progression info
+    const heightClimbed = Math.max(0, this.initialPlayerY - this.highestPlayerY);
+    const floorsClimbed = Math.floor(heightClimbed / this.config.floorHeight);
+    const currentBaseSpeed = this.calculateProgressiveSpeed();
+    
     // Define threat levels based on distance
     let threatLevel: 'safe' | 'aware' | 'caution' | 'danger' | 'critical';
     let warningText: string;
@@ -466,19 +543,23 @@ export class DeathLine {
       return;
     } else if (distanceToDeathLine > 400) {
       threatLevel = 'aware';
-      warningText = `Fire Rising - ${Math.floor(distanceToDeathLine)}px below`;
+      const speedIndicator = this.catchUpActive ? ' ⚡' : '';
+      warningText = `Fire Rising - Floor ${floorsClimbed} (${Math.floor(currentBaseSpeed)}px/s)${speedIndicator}`;
       warningColor = '#ffaa00';
     } else if (distanceToDeathLine > 200) {
       threatLevel = 'caution';
-      warningText = 'CAUTION - Fire Approaching!';
+      const speedIndicator = this.catchUpActive ? ' ⚡⚡' : '';
+      warningText = `CAUTION - Fire Accelerating!${speedIndicator}`;
       warningColor = '#ff6600';
     } else if (distanceToDeathLine > 100) {
       threatLevel = 'danger';
-      warningText = 'DANGER - CLIMB NOW!';
+      const speedIndicator = this.catchUpActive ? ' ⚡⚡⚡' : '';
+      warningText = `DANGER - CLIMB NOW!${speedIndicator}`;
       warningColor = '#ff3300';
     } else {
       threatLevel = 'critical';
-      warningText = '🔥 CRITICAL - ESCAPE! 🔥';
+      const speedIndicator = this.catchUpActive ? ' ⚡⚡⚡⚡' : '';
+      warningText = `🔥 CRITICAL - ESCAPE!${speedIndicator} 🔥`;
       warningColor = '#ff0000';
     }
     
@@ -579,6 +660,10 @@ export class DeathLine {
     
     // Reset death line position to be well below player (will be set properly when activated)
     this.deathLineY = this.player.y + 500; // Start 500px below player
+    
+    // Reset speed and catch-up system
+    this.currentRiseSpeed = this.config.riseSpeed;
+    this.catchUpActive = false;
     
     // Reset visual effects
     this.pulseIntensity = 0;

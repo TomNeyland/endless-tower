@@ -37,6 +37,16 @@ export interface DeathLineConfig {
   minHeight: number;            // Minimum height player must reach before death line activates
   warningDistance: number;      // Distance from death line to show warnings
   visualOpacity: number;        // Opacity of the death line block (0.0-1.0)
+  // Floor-based progression parameters
+  floorHeight: number;          // Height in pixels that represents one "floor" (for progression calculation)
+  speedIncreasePerFloor: number; // Additional speed per floor climbed (pixels per second)
+  speedIncreaseInterval: number; // Increase speed every N floors
+  maxBaseSpeed: number;         // Maximum base speed to prevent overwhelming difficulty
+  // Catch-up system parameters
+  catchUpThreshold: number;     // Distance ahead when catch-up begins (pixels)
+  maxPlayerDistance: number;    // Maximum distance before emergency catch-up (pixels)
+  maxCatchUpSpeed: number;      // Maximum speed during catch-up (pixels per second)
+  catchUpAcceleration: number;  // Rate of catch-up acceleration (pixels per second squared)
 }
 
 export interface WallConfig {
@@ -126,7 +136,17 @@ export const DEFAULT_CONFIG: GameConfig = {
     startDelay: 30000,          // 30 seconds before death line starts
     minHeight: 300,             // Must climb at least 300px before death line activates
     warningDistance: 300,       // Show warnings when within 300px of death line
-    visualOpacity: 0.7          // 70% opacity for the translucent block
+    visualOpacity: 0.7,         // 70% opacity for the translucent block
+    // Floor-based progression parameters
+    floorHeight: 130,           // Average platform spacing (100-160px)
+    speedIncreasePerFloor: 0.5, // +0.5px/s per floor (5px/s every 10 floors)
+    speedIncreaseInterval: 10,  // Increase speed every 10 floors
+    maxBaseSpeed: 150,          // Cap at 3x original speed (intermediate players can still outpace)
+    // Catch-up system parameters (from previous implementation)
+    catchUpThreshold: 800,      // Start catch-up when 800px ahead (1.33 screens)
+    maxPlayerDistance: 1200,    // Emergency catch-up at 1200px (2 screens)
+    maxCatchUpSpeed: 200,       // 4x normal speed during full catch-up
+    catchUpAcceleration: 75     // Gradual acceleration to catch-up speed
   },
   
   walls: {
