@@ -214,7 +214,7 @@ export class AIController {
     // Check if we should land and run on a platform to build speed
     
     // Only consider landing if we're not fast enough yet
-    const speedThreshold = 300; // Below this speed, consider landing to run
+    const speedThreshold = 250; // Below this speed, consider landing to run
     if (currentSpeed >= speedThreshold) {
       return null; // Fast enough, keep momentum behaviors
     }
@@ -231,19 +231,57 @@ export class AIController {
     }
     
     // Check if platform is wide enough to make running worthwhile
-    const minPlatformWidth = 120; // Minimum width to justify running
+    const minPlatformWidth = 80; // Reduced minimum width for more opportunities
     if (currentPlatform.width < minPlatformWidth) {
       return null; // Platform too small, better to keep jumping
     }
     
-    // We should land and run to build speed
-    const direction = this.chooseBestDirectionForRunning(context, currentPlatform);
+    // CRITICAL FIX: Move to platform edge first if we're not already there
+    const platformLeft = currentPlatform.x - currentPlatform.width / 2;
+    const platformRight = currentPlatform.x + currentPlatform.width / 2;
+    const distanceFromLeftEdge = context.playerX - platformLeft;
+    const distanceFromRightEdge = platformRight - context.playerX;
+    const edgeThreshold = 25; // How close to edge we need to be
     
-    return {
-      left: direction === -1,
-      right: direction === 1,
-      jump: false // Key difference: don't hold jump, let us land and run
-    };
+    // If we're too close to center, move to an edge first
+    const isNearCenter = distanceFromLeftEdge > edgeThreshold && distanceFromRightEdge > edgeThreshold;
+    
+    if (isNearCenter) {
+      // Move to the edge that gives us more run-up room
+      const wallLeft = context.wallLeft;
+      const wallRight = context.wallRight;
+      
+      // Calculate which edge gives better run-up space considering walls
+      const spaceFromLeftEdge = platformLeft - wallLeft;
+      const spaceFromRightEdge = wallRight - platformRight;
+      
+      // Choose edge that provides better run-up opportunity
+      const targetDirection = spaceFromRightEdge > spaceFromLeftEdge ? 1 : -1;
+      
+      return {
+        left: targetDirection === -1,
+        right: targetDirection === 1,
+        jump: false // Don't jump, we're positioning for run-up
+      };
+    }
+    
+    // We're near an edge, now check if we should run or jump
+    const isNearLeftEdge = distanceFromLeftEdge <= edgeThreshold;
+    const isNearRightEdge = distanceFromRightEdge <= edgeThreshold;
+    
+    if ((isNearLeftEdge || isNearRightEdge) && currentSpeed < 150) {
+      // We're at an edge but don't have enough speed yet - start running!
+      // Run toward the center to build speed
+      const runDirection = isNearLeftEdge ? 1 : -1;
+      
+      return {
+        left: runDirection === -1,
+        right: runDirection === 1,
+        jump: false // Don't jump yet, build speed first
+      };
+    }
+    
+    return null; // Let other systems handle if we have speed at edge
   }
 
   private checkWallBounceOpportunity(context: AIDecisionContext): AIInput | null {
@@ -282,6 +320,15 @@ export class AIController {
       return null;
     }
     
+    const currentSpeed = Math.abs(context.playerVelocityX);
+    
+    // CRITICAL FIX: Don't attempt jumps if we don't have enough speed
+    // This prevents the AI from getting stuck trying impossible jumps
+    const minimumJumpSpeed = 180; // Need decent speed to make meaningful jumps
+    if (currentSpeed < minimumJumpSpeed) {
+      return null; // Let speed building logic handle this
+    }
+    
     // Find the best platform to target based on physics
     const bestPlatform = this.findOptimalPlatformTarget(context, platforms);
     if (!bestPlatform) {
@@ -290,15 +337,16 @@ export class AIController {
     
     const horizontalDistance = bestPlatform.x - context.playerX;
     const verticalDistance = context.playerY - bestPlatform.y;
-    const currentSpeed = Math.abs(context.playerVelocityX);
     
     // Use game's physics to check if jump is achievable
     const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
     
-    // If we can reach the platform and we have decent speed, go for it
-    if (jumpMetrics.horizontalRange >= Math.abs(horizontalDistance) && 
-        jumpMetrics.maxHeight >= verticalDistance && 
-        currentSpeed >= 150) {
+    // More conservative jump attempt - ensure we have margin for error
+    const horizontalMargin = 1.2; // Need 20% more range than calculated
+    const verticalMargin = 1.1;   // Need 10% more height than calculated
+    
+    if (jumpMetrics.horizontalRange * horizontalMargin >= Math.abs(horizontalDistance) && 
+        jumpMetrics.maxHeight * verticalMargin >= verticalDistance) {
       
       // Aim toward the platform while jumping
       return {
@@ -317,8 +365,37 @@ export class AIController {
     // Determine if we should hold jump based on speed and situation
     const shouldHoldJump = this.shouldHoldJumpForMomentum(context, currentSpeed);
     
-    // If we don't have enough speed, focus on building it
+    // If we don't have enough speed, focus on building it with smarter edge behavior
     if (currentSpeed < targetSpeed) {
+      
+      // CRITICAL FIX: If we're grounded and slow, prioritize getting to platform edge
+      if (context.isGrounded && currentSpeed < 100) {
+        const currentPlatform = this.findCurrentOrLandingPlatform(context);
+        if (currentPlatform) {
+          const platformLeft = currentPlatform.x - currentPlatform.width / 2;
+          const platformRight = currentPlatform.x + currentPlatform.width / 2;
+          const distanceFromLeftEdge = context.playerX - platformLeft;
+          const distanceFromRightEdge = platformRight - context.playerX;
+          
+          // If we're too centered, move to an edge for run-up
+          if (distanceFromLeftEdge > 30 && distanceFromRightEdge > 30) {
+            // Choose the edge that gives better run-up space
+            const wallLeft = context.wallLeft;
+            const wallRight = context.wallRight;
+            const spaceFromLeftEdge = platformLeft - wallLeft;
+            const spaceFromRightEdge = wallRight - platformRight;
+            
+            const targetDirection = spaceFromRightEdge > spaceFromLeftEdge ? 1 : -1;
+            
+            return {
+              left: targetDirection === -1,
+              right: targetDirection === 1,
+              jump: false // Don't hold jump when positioning for run-up
+            };
+          }
+        }
+      }
+      
       // Choose direction based on available space and obstacles
       const direction = this.chooseBestDirection(context);
       
