@@ -33,6 +33,10 @@ export class ComboSystem {
   private readonly MAX_COMBO_MULTIPLIER = 5.0;
   private readonly MULTIPLIER_INCREMENT = 0.2;
   
+  // Powerup modifiers
+  private comboMultiplierBonus: number = 1.0;
+  private goldenTouchEnabled: boolean = false;
+  
   // Event scoring
   private readonly POINT_VALUES = {
     'wall-bounce': 50,
@@ -56,6 +60,11 @@ export class ComboSystem {
     this.player = player;
     
     this.setupEventListeners();
+    
+    // Emit ready event for powerup system integration
+    EventBus.emit('combo-system-ready', this);
+    
+    console.log('⛓️ ComboSystem initialized');
   }
 
   private setupEventListeners(): void {
@@ -356,6 +365,29 @@ export class ComboSystem {
     this.lastGroundedTime = 0;
     this.lastPlatformLanding = 0;
     this.platformsSkipped = 0;
+    
+    // Reset powerup modifiers
+    this.comboMultiplierBonus = 1.0;
+    this.goldenTouchEnabled = false;
+  }
+  
+  // Powerup modifier methods
+  setComboMultiplierBonus(bonus: number): void {
+    this.comboMultiplierBonus = bonus;
+    console.log(`⛓️ Combo multiplier bonus set to: ${bonus}x`);
+  }
+  
+  setGoldenTouchEnabled(enabled: boolean): void {
+    this.goldenTouchEnabled = enabled;
+    console.log(`💰 Golden touch ${enabled ? 'enabled' : 'disabled'}`);
+  }
+  
+  getComboMultiplierBonus(): number {
+    return this.comboMultiplierBonus;
+  }
+  
+  isGoldenTouchEnabled(): boolean {
+    return this.goldenTouchEnabled;
   }
 
   destroy(): void {

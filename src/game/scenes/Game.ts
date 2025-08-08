@@ -20,6 +20,9 @@ import { AudioManager } from '../AudioManager';
 import { GameMenu } from '../GameMenu';
 import { BiomeManager } from '../BiomeManager';
 import { BackgroundColorManager } from '../BackgroundColorManager';
+import { PowerupManager } from '../powerups/PowerupManager';
+import { PowerupEffectSystem } from '../powerups/PowerupEffectSystem';
+import { PowerupUI } from '../powerups/PowerupUI';
 
 export class Game extends Scene
 {
@@ -43,6 +46,9 @@ export class Game extends Scene
     private gameMenu: GameMenu;
     private biomeManager: BiomeManager;
     private backgroundColorManager: BackgroundColorManager;
+    private powerupManager: PowerupManager;
+    private powerupEffectSystem: PowerupEffectSystem;
+    private powerupUI: PowerupUI;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -76,6 +82,19 @@ export class Game extends Scene
         // Load star texture for spinning particle effects
         this.load.image('star', 'Sprites/Tiles/Default/star.png');
         
+        // Load powerup assets
+        this.load.image('gem_blue', 'Sprites/Tiles/Default/gem_blue.png');
+        this.load.image('gem_green', 'Sprites/Tiles/Default/gem_green.png');
+        this.load.image('gem_red', 'Sprites/Tiles/Default/gem_red.png');
+        this.load.image('gem_yellow', 'Sprites/Tiles/Default/gem_yellow.png');
+        this.load.image('coin_gold', 'Sprites/Tiles/Default/coin_gold.png');
+        this.load.image('coin_silver', 'Sprites/Tiles/Default/coin_silver.png');
+        this.load.image('coin_bronze', 'Sprites/Tiles/Default/coin_bronze.png');
+        this.load.image('heart', 'Sprites/Tiles/Default/heart.png');
+        this.load.image('key_blue', 'Sprites/Tiles/Default/key_blue.png');
+        this.load.image('key_green', 'Sprites/Tiles/Default/key_green.png');
+        this.load.image('key_yellow', 'Sprites/Tiles/Default/key_yellow.png');
+        
         // Load all available Kenney sound effects
         this.load.audio('sfx_jump', 'Sounds/sfx_jump.ogg');
         this.load.audio('sfx_jump-high', 'Sounds/sfx_jump-high.ogg');
@@ -106,6 +125,8 @@ export class Game extends Scene
         console.log('✅ BiomeManager setup complete');
         this.setupBackgroundColorManager();
         console.log('✅ BackgroundColorManager setup complete');
+        this.setupPowerupSystems();
+        console.log('✅ Powerup systems setup complete');
         this.setupCamera();
         console.log('✅ Camera setup complete');
         this.setupGameSystems();
@@ -173,6 +194,18 @@ export class Game extends Scene
             
             if (this.gameUI) {
                 this.gameUI.update(delta);
+            }
+            
+            if (this.powerupManager) {
+                this.powerupManager.update();
+            }
+            
+            if (this.powerupEffectSystem) {
+                this.powerupEffectSystem.update(delta);
+            }
+            
+            if (this.powerupUI) {
+                this.powerupUI.update();
             }
         } catch (error) {
             console.error('🚨 Game update error caught:', error);
@@ -274,6 +307,18 @@ export class Game extends Scene
     private setupBackgroundColorManager(): void
     {
         this.backgroundColorManager = new BackgroundColorManager(this, this.biomeManager);
+    }
+
+    private setupPowerupSystems(): void
+    {
+        // Initialize powerup effect system first
+        this.powerupEffectSystem = new PowerupEffectSystem(this, this.player);
+        
+        // Initialize powerup manager
+        this.powerupManager = new PowerupManager(this, this.player, this.gameConfig);
+        
+        // Initialize powerup UI
+        this.powerupUI = new PowerupUI(this, this.powerupEffectSystem);
     }
 
     private setupEventListeners(): void
@@ -464,6 +509,19 @@ export class Game extends Scene
             this.wallManager.reset();
         }
         
+        // Reset powerup systems
+        if (this.powerupManager) {
+            this.powerupManager.reset();
+        }
+        
+        if (this.powerupEffectSystem) {
+            this.powerupEffectSystem.reset();
+        }
+        
+        if (this.powerupUI) {
+            this.powerupUI.reset();
+        }
+        
         // Reset wall collision cooldowns
         if (this.wallCollision) {
             this.wallCollision.reset();
@@ -633,6 +691,21 @@ export class Game extends Scene
         if (this.backgroundColorManager) {
             this.backgroundColorManager.destroy();
             this.backgroundColorManager = null as any;
+        }
+        
+        if (this.powerupManager) {
+            this.powerupManager.destroy();
+            this.powerupManager = null as any;
+        }
+        
+        if (this.powerupEffectSystem) {
+            this.powerupEffectSystem.destroy();
+            this.powerupEffectSystem = null as any;
+        }
+        
+        if (this.powerupUI) {
+            this.powerupUI.destroy();
+            this.powerupUI = null as any;
         }
         
         // Reset flags
