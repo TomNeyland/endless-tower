@@ -143,7 +143,14 @@ export class PlatformManager {
             console.error('PlatformManager: Error adding platform to main group:', error);
         }
         
-        EventBus.emit('platform-created', platformGroup, actualWidth, tileWidth);
+        // Emit platform-created event with position data for powerup spawning
+        EventBus.emit('platform-created', {
+            group: platformGroup,
+            x: x,
+            y: y,
+            width: actualWidth,
+            tileWidth: tileWidth
+        });
         
         return { group: platformGroup, platformId: `platform_${Date.now()}` };
     }
