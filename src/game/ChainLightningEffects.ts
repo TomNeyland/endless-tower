@@ -204,7 +204,10 @@ export class ChainLightningEffects {
       tint: this.getLightningColor(intensity),
       blendMode: Phaser.BlendModes.ADD,
       alpha: { start: 0.8, end: 0 },
-      emitZone: new Phaser.Geom.Line(points[0].x, points[0].y, points[points.length - 1].x, points[points.length - 1].y)
+      emitZone: {
+        type: 'random',
+        source: new Phaser.Geom.Line(points[0].x, points[0].y, points[points.length - 1].x, points[points.length - 1].y)
+      }
     });
     
     particles.setDepth(101);
