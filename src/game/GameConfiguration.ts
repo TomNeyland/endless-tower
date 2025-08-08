@@ -18,6 +18,13 @@ export interface PlatformConfig {
     min: number;
     max: number;
   };
+  // New platform generation system
+  generation: {
+    modeSwitchInterval: number;     // How often to switch generation modes (platforms)
+    heightDifficultyScaling: number; // Multiplier for height-based difficulty (higher = more difficult)
+    deletionStartHeight: number;    // Height at which platform deletion begins
+    maxDeletionChance: number;      // Maximum chance of platform deletion (0.0-1.0)
+  };
 }
 
 export interface ComboConfig {
@@ -107,6 +114,12 @@ export const DEFAULT_CONFIG: GameConfig = {
     verticalSpacing: {
       min: 100,
       max: 160
+    },
+    generation: {
+      modeSwitchInterval: 15,      // Switch modes every 15 platforms
+      heightDifficultyScaling: 1.0, // Normal difficulty scaling
+      deletionStartHeight: 500,     // Start deleting platforms at 500px height
+      maxDeletionChance: 0.5       // Up to 50% platform deletion at max height
     }
   },
   
