@@ -163,6 +163,11 @@ export class InventorySystem {
                 });
             }
         }
+        
+        // Give player a starter platform spawner item
+        const starterItem = new Item(ItemType.PLATFORM_SPAWNER);
+        this.addItem(starterItem);
+        console.log('🎒 Given starter platform spawner item after reset');
     }
 
     public destroy(): void {
