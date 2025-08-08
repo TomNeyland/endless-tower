@@ -85,9 +85,11 @@ export class PlatformManager {
     }
 
     createPlatform(x: number, y: number, width: number): { group: Physics.Arcade.StaticGroup, platformId: string } {
+        console.log(`🏭 createPlatform called: (${x}, ${y}) width=${width}`);
+        
         // Add safety check for physics system
         if (!this.scene.physics || !this.scene.physics.add) {
-            console.warn('PlatformManager: Physics system not ready during createPlatform');
+            console.error('❌ Physics system not ready during createPlatform');
             // Return a minimal valid result to prevent crashes
             return { 
                 group: null as any, 
@@ -97,7 +99,7 @@ export class PlatformManager {
 
         // Additional safety check for main platforms group
         if (!this.platforms || !this.platforms.children) {
-            console.warn('PlatformManager: Main platforms group corrupted, reinitializing');
+            console.warn('⚠️ Main platforms group corrupted, reinitializing');
             this.platforms = this.scene.physics.add.staticGroup();
         }
 
@@ -107,33 +109,53 @@ export class PlatformManager {
         
         const startX = x - actualWidth / 2;
         
+        console.log(`🧮 Platform calculations: numMiddleTiles=${numMiddleTiles}, actualWidth=${actualWidth}, startX=${startX}`);
+        
         const platformGroup = this.scene.physics.add.staticGroup();
 
         // Check if platformGroup was created successfully
         if (!platformGroup || !platformGroup.children) {
-            console.error('PlatformManager: Failed to create platform group');
+            console.error('❌ Failed to create platform group');
             return { 
                 group: null as any, 
                 platformId: `platform_${Date.now()}` 
             };
         }
 
+        console.log('✅ Platform group created successfully');
+
         // Get current biome platform textures
         const platformTextures = this.getCurrentPlatformTextures();
+        console.log('🎨 Platform textures:', platformTextures);
 
-        platformGroup.create(startX, y, 'tiles', platformTextures.left)
-            .setOrigin(0, 0.5)
-            .refreshBody();
-
-        for (let i = 0; i < numMiddleTiles; i++) {
-            platformGroup.create(startX + tileWidth + (i * tileWidth), y, 'tiles', platformTextures.middle)
+        console.log('🔧 Creating platform tiles...');
+        
+        try {
+            const leftTile = platformGroup.create(startX, y, 'tiles', platformTextures.left)
                 .setOrigin(0, 0.5)
                 .refreshBody();
-        }
+            console.log('✅ Left tile created at:', startX, y);
 
-        platformGroup.create(startX + tileWidth + (numMiddleTiles * tileWidth), y, 'tiles', platformTextures.right)
-            .setOrigin(0, 0.5)
-            .refreshBody();
+            for (let i = 0; i < numMiddleTiles; i++) {
+                const middleTile = platformGroup.create(startX + tileWidth + (i * tileWidth), y, 'tiles', platformTextures.middle)
+                    .setOrigin(0, 0.5)
+                    .refreshBody();
+                console.log(`✅ Middle tile ${i} created at:`, startX + tileWidth + (i * tileWidth), y);
+            }
+
+            const rightTile = platformGroup.create(startX + tileWidth + (numMiddleTiles * tileWidth), y, 'tiles', platformTextures.right)
+                .setOrigin(0, 0.5)
+                .refreshBody();
+            console.log('✅ Right tile created at:', startX + tileWidth + (numMiddleTiles * tileWidth), y);
+            
+            console.log(`🏗️ All ${numMiddleTiles + 2} tiles created successfully`);
+        } catch (error) {
+            console.error('❌ Error creating platform tiles:', error);
+            return { 
+                group: null as any, 
+                platformId: `platform_${Date.now()}` 
+            };
+        }
 
         // Safely add to main platforms group with additional checks
         try {
@@ -215,6 +237,8 @@ export class PlatformManager {
     }
 
     private spawnPlatformAtPlayer(playerPos?: { x: number, y: number }): void {
+        console.log(`🏗️ PlatformManager received spawn-platform-at-player event with position:`, playerPos);
+        
         if (!playerPos) {
             console.warn('⚠️ No player position provided for platform spawning');
             return;
@@ -223,7 +247,12 @@ export class PlatformManager {
         // Create a 3-tile wide platform slightly below player to avoid trapping them
         const platformWidth = 3 * 64; // 3 tiles × 64 pixels per tile
         const spawnY = playerPos.y + 80; // Spawn 80 pixels below player (enough clearance)
+        
+        console.log(`🎯 Creating platform: width=${platformWidth}px at (${Math.round(playerPos.x)}, ${Math.round(spawnY)})`);
+        
         const result = this.createPlatform(playerPos.x, spawnY, platformWidth);
+        
+        console.log(`🔧 Platform creation result:`, result);
         
         if (result.group) {
             // Add the spawned platform to our tracking system
@@ -237,9 +266,10 @@ export class PlatformManager {
             };
             
             this.generatedPlatforms.set(result.platformId, platformData);
-            console.log(`🛠️ Platform spawned below player (${Math.round(playerPos.x)}, ${Math.round(spawnY)})`);
+            console.log(`✅ Platform successfully spawned and tracked (${Math.round(playerPos.x)}, ${Math.round(spawnY)})`);
+            console.log(`📊 Total platforms in tracking: ${this.generatedPlatforms.size}`);
         } else {
-            console.warn('⚠️ Failed to spawn platform at player location');
+            console.error('❌ Failed to spawn platform at player location - createPlatform returned null group');
         }
     }
 

@@ -174,11 +174,15 @@ export class ItemSystem {
      * Handle platform spawner item usage
      */
     private usePlatformSpawner(): boolean {
+        console.log('🛠️ Platform spawner used! Requesting player position...');
+        
         // Request player position and emit platform spawn event
         EventBus.emit('get-player-position');
         
         // Listen for the response and then emit the spawn event
         EventBus.once('player-position-response', (playerPos: { x: number, y: number }) => {
+            console.log(`📍 Player position received: (${playerPos.x}, ${playerPos.y})`);
+            console.log(`🏗️ Emitting spawn-platform-at-player event...`);
             EventBus.emit('spawn-platform-at-player', playerPos);
         });
         
@@ -193,7 +197,6 @@ export class ItemSystem {
             }
         }
         
-        console.log('🛠️ Platform spawner used!');
         return true;
     }
     

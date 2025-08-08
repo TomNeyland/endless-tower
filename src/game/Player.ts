@@ -256,6 +256,7 @@ export class Player extends Physics.Arcade.Sprite {
 
     private onGetPlayerPosition(): void {
         // Respond with current player position
+        console.log(`🎮 Player position requested: (${Math.round(this.x)}, ${Math.round(this.y)})`);
         EventBus.emit('player-position-response', { x: this.x, y: this.y });
     }
 
