@@ -341,12 +341,12 @@ export class MenuScene extends Scene {
     }
 
     private setupPowerupLegend(): void {
-        // Create legend container positioned on the left side
-        const legendContainer = this.add.container(20, 180);
+        // Create legend container centered horizontally
+        const legendContainer = this.add.container(this.scale.width / 2, 180);
         legendContainer.setScrollFactor(0, 0); // Stay fixed to screen
         legendContainer.setDepth(9999); // Maximum depth to ensure visibility above all UI
         
-        // Legend title
+        // Legend title (centered)
         const legendTitle = this.add.text(0, 0, 'POWERUPS', {
             fontFamily: 'Arial, sans-serif',
             fontSize: 24,
@@ -355,7 +355,7 @@ export class MenuScene extends Scene {
             strokeThickness: 3,
             resolution: 2
         });
-        legendTitle.setOrigin(0, 0);
+        legendTitle.setOrigin(0.5, 0);
         legendContainer.add(legendTitle);
         
         // Get all powerup types and create compact legend entries
@@ -369,7 +369,8 @@ export class MenuScene extends Scene {
             const column = Math.floor(index / entriesPerColumn);
             const row = index % entriesPerColumn;
             
-            const entryX = column * columnWidth;
+            // Center the legend entries by offsetting from container center
+            const entryX = (column * columnWidth) - (columnWidth * 0.75); // Adjust for centering
             const entryY = 35 + row * entryHeight;
             
             // Powerup icon (scaled down)
