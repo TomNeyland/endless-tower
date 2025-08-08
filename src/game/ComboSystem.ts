@@ -3,7 +3,7 @@ import { Player } from './Player';
 import { EventBus } from './EventBus';
 
 export interface ComboEvent {
-  type: 'wall-bounce' | 'perfect-wall-bounce' | 'multi-platform-jump' | 'air-time' | 'speed-bonus';
+  type: 'wall-bounce' | 'perfect-wall-bounce' | 'multi-platform-jump' | 'air-time' | 'speed-bonus' | 'electromagnetic-chain';
   timestamp: number;
   data: any;
   points: number;
@@ -43,7 +43,8 @@ export class ComboSystem {
     'perfect-wall-bounce': 150,
     'multi-platform-jump': 75,
     'air-time': 25,
-    'speed-bonus': 100
+    'speed-bonus': 100,
+    'electromagnetic-chain': 200
   };
   
   // Air time tracking
@@ -78,6 +79,9 @@ export class ComboSystem {
     // Height/speed events
     EventBus.on('player-height-record', this.onHeightRecord.bind(this));
     EventBus.on('movement-state-updated', this.onMovementStateUpdated.bind(this));
+    
+    // Electromagnetic field events
+    EventBus.on('magnetic-chain-combo', this.onMagneticChainCombo.bind(this));
   }
 
   update(deltaTime: number): void {
@@ -172,6 +176,24 @@ export class ComboSystem {
         this.platformsSkipped = Math.max(this.platformsSkipped, estimatedPlatformsSkipped);
       }
     }
+  }
+
+  private onMagneticChainCombo(data: any): void {
+    // Handle electromagnetic chain combos with enhanced scoring
+    const { chainLength, totalCharge, points, multiplier } = data;
+    
+    // Create enhanced combo event for electromagnetic chains
+    const enhancedPoints = points * (this.goldenTouchEnabled ? 2.0 : 1.0);
+    
+    this.addComboEvent('electromagnetic-chain', {
+      chainLength,
+      totalCharge,
+      basePoints: points,
+      enhancedPoints,
+      magneticMultiplier: multiplier
+    });
+    
+    console.log(`⚡ Electromagnetic chain combo: ${chainLength} links, ${enhancedPoints} points`);
   }
 
   private addComboEvent(type: ComboEvent['type'], data: any): void {
@@ -396,5 +418,6 @@ export class ComboSystem {
     EventBus.off('player-takeoff', this.onPlayerTakeoff.bind(this));
     EventBus.off('player-height-record', this.onHeightRecord.bind(this));
     EventBus.off('movement-state-updated', this.onMovementStateUpdated.bind(this));
+    EventBus.off('magnetic-chain-combo', this.onMagneticChainCombo.bind(this));
   }
 }

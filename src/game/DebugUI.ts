@@ -10,6 +10,7 @@ export class DebugUI {
   
   private cameraState: any = null;
   private platformCount: number = 0;
+  private electromagneticFieldData: any = null;
   
   private debugText: Phaser.GameObjects.Text;
   private configPanel: Phaser.GameObjects.Container;
@@ -157,6 +158,10 @@ export class DebugUI {
     
     EventBus.on('platform-cleaned-up', (data: any) => {
       this.platformCount--;
+    });
+    
+    EventBus.on('electromagnetic-field-debug', (data: any) => {
+      this.electromagneticFieldData = data;
     });
   }
 
@@ -400,6 +405,12 @@ export class DebugUI {
       `Exact H Speed: ${state.horizontalSpeed.toFixed(1)}`,
       `Grounded State: ${state.isGrounded ? 'GROUND' : 'AIR'}`,
       `Wall Bounce Ready: ${Math.abs(state.horizontalSpeed) >= walls.minSpeedForBounce ? 'YES' : 'NO'}`,
+      ``,
+      `=== ELECTROMAGNETIC FIELD ===`,
+      `Active Platforms: ${this.electromagneticFieldData ? this.electromagneticFieldData.magneticPlatformCount : 0}`,
+      `Current Chain: ${this.electromagneticFieldData ? this.electromagneticFieldData.currentChainLength : 0}`,
+      `Chain Charge: ${this.electromagneticFieldData ? Math.round(this.electromagneticFieldData.currentChainCharge) : 0}%`,
+      `In Field: ${this.electromagneticFieldData ? (this.electromagneticFieldData.inMagneticField ? 'YES' : 'NO') : 'NO'}`,
       ``,
       `=== CONTROLS ===`,
       `C: Toggle Config Panel`,
