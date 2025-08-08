@@ -107,23 +107,36 @@ export class SpinningParticleEffects {
       particleColor = 0x88ddff; // Light blue for very low speed
     }
     
-    // Create particles along the trail with smooth scaling from trickle to flood
-    // Use probability-based emission for very low intensities, then scale up smoothly
+    // Create particles along the trail with smooth continuous scaling from trickle to flood
+    // Use a combination of probability and fractional particles for truly gradual scaling
     let particlesToEmit = 0;
     
-    if (intensity <= 0.15) {
-      // Very low intensity: very sparse trickle (0-7.5% chance of 1 particle)
-      const trickleChance = intensity * 0.5; // Much lower chance: 0-7.5% based on intensity
+    // Smooth continuous scaling from 0 to max particles with no sharp transitions
+    const maxParticles = this.PARTICLES_PER_FRAME * 2.5;  // Up to ~7-8 particles
+    
+    // Calculate fractional particles using smooth curve
+    const curve = Math.pow(intensity, 0.8);  // Gentle curve for gradual increase
+    const fractionalParticles = curve * maxParticles;
+    
+    // Use probability to handle fractional particles smoothly
+    const baseParticles = Math.floor(fractionalParticles);
+    const fractionalPart = fractionalParticles - baseParticles;
+    
+    // Always emit the base number of particles
+    particlesToEmit = baseParticles;
+    
+    // Probabilistically emit the fractional particle
+    if (Math.random() < fractionalPart) {
+      particlesToEmit += 1;
+    }
+    
+    // For very low intensities, ensure we still get occasional sparse particles
+    if (intensity <= 0.05 && particlesToEmit === 0) {
+      // Even at very low intensity, give a small chance for a single particle
+      const trickleChance = intensity * 2.0; // 0-10% chance at very low speeds
       if (Math.random() < trickleChance) {
         particlesToEmit = 1;
       }
-    } else {
-      // Higher intensity: smooth curve from 1 to max particles
-      const minParticles = 1;
-      const maxParticles = this.PARTICLES_PER_FRAME * 2.5;  // Up to ~7-8 particles
-      const normalizedIntensity = (intensity - 0.15) / 0.85; // Normalize 0.15-1.0 to 0-1
-      const curve = Math.pow(normalizedIntensity, 0.6);  // Smooth curve
-      particlesToEmit = Math.ceil(minParticles + curve * (maxParticles - minParticles));
     }
     
     for (let i = 0; i < particlesToEmit; i++) {
