@@ -59,11 +59,16 @@ export class Powerup extends Phaser.GameObjects.Sprite {
         if (this.config.visualEffect && this.config.effectColor && this.config.glowIntensity) {
             this.glowEffect = this.scene.add.graphics();
             this.glowEffect.setDepth(this.depth - 1);
+            this.glowEffect.setPosition(this.x, this.y);
             
-            // Create a subtle glow circle
+            // Create a subtle glow circle relative to graphics origin (0,0)
             const glowRadius = Math.max(this.width, this.height) * 0.8;
             this.glowEffect.fillStyle(this.config.effectColor, this.config.glowIntensity * 0.3);
-            this.glowEffect.fillCircle(this.x, this.y, glowRadius);
+            this.glowEffect.fillCircle(0, 0, glowRadius); // Draw at origin, not absolute position
+            
+            // Cache initial position
+            this.lastGlowX = this.x;
+            this.lastGlowY = this.y;
             
             // Animate glow pulsing
             this.scene.tweens.add({
@@ -193,17 +198,16 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     }
 
     public override update(): void {
-        // Update glow effect position only if powerup has moved
+        // Update glow effect position smoothly with the powerup animation
         if (this.glowEffect && !this.collected) {
-            const positionChanged = this.x !== this.lastGlowX || this.y !== this.lastGlowY;
+            // Use threshold-based position checking to avoid unnecessary updates
+            const positionThreshold = 0.1; // Small threshold for smooth movement
+            const xChanged = Math.abs(this.x - this.lastGlowX) > positionThreshold;
+            const yChanged = Math.abs(this.y - this.lastGlowY) > positionThreshold;
             
-            if (positionChanged) {
-                this.glowEffect.clear();
-                
-                // Recreate glow effect at current position
-                const glowRadius = Math.max(this.width, this.height) * 0.8;
-                this.glowEffect.fillStyle(this.config.effectColor!, this.config.glowIntensity! * 0.3);
-                this.glowEffect.fillCircle(this.x, this.y, glowRadius);
+            if (xChanged || yChanged) {
+                // Move the graphics object to follow the powerup smoothly
+                this.glowEffect.setPosition(this.x, this.y);
                 
                 // Update cached position
                 this.lastGlowX = this.x;
