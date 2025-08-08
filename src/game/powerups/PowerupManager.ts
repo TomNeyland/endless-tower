@@ -93,7 +93,7 @@ export class PowerupManager {
     public update(): void {
         // Check for collisions with active powerups
         this.activePowerups.children.entries.forEach((child) => {
-            const powerup = child as Powerup;
+            const powerup = child as unknown as Powerup;
             
             if (!powerup.isCollected() && powerup.checkCollision(this.player)) {
                 powerup.collect(this.player);
@@ -110,7 +110,7 @@ export class PowerupManager {
         const toRemove: Powerup[] = [];
         
         this.activePowerups.children.entries.forEach((child) => {
-            const powerup = child as Powerup;
+            const powerup = child as unknown as Powerup;
             if (powerup.isCollected()) {
                 toRemove.push(powerup);
             }

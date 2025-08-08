@@ -22,13 +22,11 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     private collected: boolean = false;
     private floatTween?: Phaser.Tweens.Tween;
     private glowEffect?: Phaser.GameObjects.Graphics;
-    private scene: Scene;
 
     constructor(scene: Scene, x: number, y: number, type: PowerupType) {
         const config = POWERUP_CONFIGS[type];
         super(scene, x, y, config.assetKey);
         
-        this.scene = scene;
         this.config = config;
         
         // Add to scene
@@ -189,14 +187,14 @@ export class Powerup extends Phaser.GameObjects.Sprite {
         return this.collected;
     }
 
-    public update(): void {
+    public override update(): void {
         // Update glow effect position if it exists
         if (this.glowEffect && !this.collected) {
             this.glowEffect.setPosition(this.x, this.y);
         }
     }
 
-    public destroy(): void {
+    public override destroy(): void {
         if (this.floatTween) {
             this.floatTween.destroy();
         }
