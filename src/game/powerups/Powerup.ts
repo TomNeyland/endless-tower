@@ -23,6 +23,8 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     private floatTween?: Phaser.Tweens.Tween;
     private glowEffect?: Phaser.GameObjects.Graphics;
     private baseY: number; // Store the original Y position for animation reference
+    private lastGlowX: number = 0;
+    private lastGlowY: number = 0;
 
     constructor(scene: Scene, x: number, y: number, type: PowerupType) {
         const config = POWERUP_CONFIGS[type];
@@ -35,11 +37,12 @@ export class Powerup extends Phaser.GameObjects.Sprite {
         scene.add.existing(this);
         scene.physics.add.existing(this);
         
-        // Set up physics body
+        // Set up physics body - disable collision to prevent jittering
         const body = this.body as Phaser.Physics.Arcade.Body;
         body.setSize(this.width * 0.8, this.height * 0.8);
         body.setImmovable(true);
         body.setGravityY(0);
+        body.checkCollision.none = true; // Disable physics collision detection
         
         // Set depth to appear above platforms but below UI
         this.setDepth(100);
@@ -190,14 +193,22 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     }
 
     public override update(): void {
-        // Update glow effect position if it exists
+        // Update glow effect position only if powerup has moved
         if (this.glowEffect && !this.collected) {
-            this.glowEffect.clear();
+            const positionChanged = this.x !== this.lastGlowX || this.y !== this.lastGlowY;
             
-            // Recreate glow effect at current position
-            const glowRadius = Math.max(this.width, this.height) * 0.8;
-            this.glowEffect.fillStyle(this.config.effectColor!, this.config.glowIntensity! * 0.3);
-            this.glowEffect.fillCircle(this.x, this.y, glowRadius);
+            if (positionChanged) {
+                this.glowEffect.clear();
+                
+                // Recreate glow effect at current position
+                const glowRadius = Math.max(this.width, this.height) * 0.8;
+                this.glowEffect.fillStyle(this.config.effectColor!, this.config.glowIntensity! * 0.3);
+                this.glowEffect.fillCircle(this.x, this.y, glowRadius);
+                
+                // Update cached position
+                this.lastGlowX = this.x;
+                this.lastGlowY = this.y;
+            }
         }
     }
 

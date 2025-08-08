@@ -162,9 +162,9 @@ export class PowerupEffectSystem {
     private applyJumpAmplifier(): void {
         if (!this.movementController) return;
         
-        // Apply 40% jump amplifier
-        this.movementController.setJumpMultiplier(1.4);
-        console.log(`🦘 Jump amplifier applied: 1.4x multiplier`);
+        // Apply 250% jump amplifier
+        this.movementController.setJumpMultiplier(3.5);
+        console.log(`🦘 Jump amplifier applied: 3.5x multiplier`);
     }
 
     private applyComboMultiplier(): void {
