@@ -41,7 +41,7 @@ export class PlatformManager {
     private boundTogglePlatformGeneration: () => void;
     private boundOnCameraStateUpdated: (cameraState: any) => void;
     private boundOnBiomeChanged: (data: any) => void;
-    private boundOnSpawnPlatformAtPlayer: () => void;
+    private boundOnSpawnPlatformAtPlayer: (playerPos: { x: number, y: number }) => void;
 
     constructor(scene: Scene, gameConfig: GameConfiguration) {
         this.scene = scene;
@@ -52,7 +52,7 @@ export class PlatformManager {
         this.boundTogglePlatformGeneration = this.togglePlatformGeneration.bind(this);
         this.boundOnCameraStateUpdated = this.onCameraStateUpdated.bind(this);
         this.boundOnBiomeChanged = this.onBiomeChanged.bind(this);
-        this.boundOnSpawnPlatformAtPlayer = this.spawnPlatformAtPlayer.bind(this);
+        this.boundOnSpawnPlatformAtPlayer = (playerPos: { x: number, y: number }) => this.spawnPlatformAtPlayer(playerPos);
         
         this.setupEventListeners();
     }
