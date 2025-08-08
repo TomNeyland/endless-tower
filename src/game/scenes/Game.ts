@@ -23,6 +23,8 @@ import { BackgroundColorManager } from '../BackgroundColorManager';
 import { PowerupManager } from '../powerups/PowerupManager';
 import { PowerupEffectSystem } from '../powerups/PowerupEffectSystem';
 import { PowerupUI } from '../powerups/PowerupUI';
+import { ItemSystem } from '../ItemSystem';
+import { ItemUI } from '../ItemUI';
 
 export class Game extends Scene
 {
@@ -49,6 +51,8 @@ export class Game extends Scene
     private powerupManager: PowerupManager;
     private powerupEffectSystem: PowerupEffectSystem;
     private powerupUI: PowerupUI;
+    private itemSystem: ItemSystem;
+    private itemUI: ItemUI;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -319,6 +323,12 @@ export class Game extends Scene
         
         // Initialize powerup UI
         this.powerupUI = new PowerupUI(this, this.powerupEffectSystem);
+        
+        // Initialize item system (active items)
+        this.itemSystem = new ItemSystem(this);
+        
+        // Initialize item UI
+        this.itemUI = new ItemUI(this);
     }
 
     private setupEventListeners(): void
@@ -706,6 +716,16 @@ export class Game extends Scene
         if (this.powerupUI) {
             this.powerupUI.destroy();
             this.powerupUI = null as any;
+        }
+        
+        if (this.itemSystem) {
+            this.itemSystem.destroy();
+            this.itemSystem = null as any;
+        }
+        
+        if (this.itemUI) {
+            this.itemUI.destroy();
+            this.itemUI = null as any;
         }
         
         // Reset flags

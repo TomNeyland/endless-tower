@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 import { Player } from './Player';
 import { GameConfiguration } from './GameConfiguration';
 import { EventBus } from './EventBus';
+import { ItemType } from './ItemType';
 
 export class DebugUI {
   private scene: Scene;
@@ -161,7 +162,7 @@ export class DebugUI {
   }
 
   private setupControls(): void {
-    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE,FOUR,D,COMMA');
+    const keys = this.scene.input.keyboard!.addKeys('C,Q,W,A,S,E,R,T,Y,U,I,ONE,TWO,THREE,FOUR,D,COMMA,P');
     
     // All debug key handlers check if debug is enabled
     (keys as any).D.on('down', () => {
@@ -236,6 +237,10 @@ export class DebugUI {
       if (!this.gameConfig.debug.enabled) return;
       this.adjustWallConfig('maxBounceEfficiency', 0.05, 0.8, 1.5);
     });
+    (keys as any).P.on('down', () => {
+      if (!this.gameConfig.debug.enabled) return;
+      this.givePlatformSpawner();
+    });
   }
 
   private initializeConfigValues(): void {
@@ -300,6 +305,12 @@ export class DebugUI {
     // Emit event to toggle platform generation
     EventBus.emit('debug-toggle-platforms');
     console.log('🏗️ Toggled platform generation for wall bounce testing');
+  }
+
+  private givePlatformSpawner(): void {
+    // Give player a platform spawner item for testing
+    EventBus.emit('item-acquired', { itemType: ItemType.PLATFORM_SPAWNER });
+    console.log('🛠️ DEBUG: Gave player platform spawner item (use Q or E to spawn platform)');
   }
 
   private updateConfigDisplay(): void {

@@ -41,6 +41,7 @@ export class PlatformManager {
     private boundTogglePlatformGeneration: () => void;
     private boundOnCameraStateUpdated: (cameraState: any) => void;
     private boundOnBiomeChanged: (data: any) => void;
+    private boundOnSpawnPlatformAtPlayer: () => void;
 
     constructor(scene: Scene, gameConfig: GameConfiguration) {
         this.scene = scene;
@@ -51,6 +52,7 @@ export class PlatformManager {
         this.boundTogglePlatformGeneration = this.togglePlatformGeneration.bind(this);
         this.boundOnCameraStateUpdated = this.onCameraStateUpdated.bind(this);
         this.boundOnBiomeChanged = this.onBiomeChanged.bind(this);
+        this.boundOnSpawnPlatformAtPlayer = this.spawnPlatformAtPlayer.bind(this);
         
         this.setupEventListeners();
     }
@@ -59,6 +61,7 @@ export class PlatformManager {
         EventBus.on('debug-toggle-platforms', this.boundTogglePlatformGeneration);
         EventBus.on('camera-state-updated', this.boundOnCameraStateUpdated);
         EventBus.on('biome-changed', this.boundOnBiomeChanged);
+        EventBus.on('spawn-platform-at-player', this.boundOnSpawnPlatformAtPlayer);
     }
 
     private togglePlatformGeneration(): void {
@@ -209,6 +212,34 @@ export class PlatformManager {
     private onBiomeChanged(biomeData: any): void {
         this.currentBiome = biomeData.currentBiome;
         console.log(`🏗️ PlatformManager: Biome changed to ${this.currentBiome?.name}`);
+    }
+
+    private spawnPlatformAtPlayer(playerPos?: { x: number, y: number }): void {
+        if (!playerPos) {
+            console.warn('⚠️ No player position provided for platform spawning');
+            return;
+        }
+        
+        // Create a 3-tile wide platform at player location
+        const platformWidth = 3 * 64; // 3 tiles × 64 pixels per tile
+        const result = this.createPlatform(playerPos.x, playerPos.y, platformWidth);
+        
+        if (result.group) {
+            // Add the spawned platform to our tracking system
+            const platformData: PlatformData = {
+                group: result.group,
+                id: result.platformId,
+                y: playerPos.y,
+                width: platformWidth,
+                created: Date.now(),
+                isCheckpoint: false
+            };
+            
+            this.generatedPlatforms.set(result.platformId, platformData);
+            console.log(`🛠️ Platform spawned at player location (${Math.round(playerPos.x)}, ${Math.round(playerPos.y)})`);
+        } else {
+            console.warn('⚠️ Failed to spawn platform at player location');
+        }
     }
 
     private getCurrentPlatformTextures(): { left: string, middle: string, right: string } {

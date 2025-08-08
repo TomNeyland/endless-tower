@@ -97,6 +97,7 @@ export class Player extends Physics.Arcade.Sprite {
         EventBus.on('player-jumped', this.onJump.bind(this));
         EventBus.on('player-movement-input', this.onMovementInput.bind(this));
         EventBus.on('player-wall-bounce', this.onWallBounce.bind(this));
+        EventBus.on('get-player-position', this.onGetPlayerPosition.bind(this));
     }
 
     private setupAnimations(): void {
@@ -251,6 +252,11 @@ export class Player extends Physics.Arcade.Sprite {
         const redirectedSpeed = Math.abs(bounceData.newSpeed || 0);
         this.lastJumpVerticalSpeed = redirectedSpeed; // Reuse the same property
         console.log(`🏀 Wall bounce captured: redirected speed=${redirectedSpeed.toFixed(0)} for rotation`);
+    }
+
+    private onGetPlayerPosition(): void {
+        // Respond with current player position
+        EventBus.emit('player-position-response', { x: this.x, y: this.y });
     }
 
     private onMovementInput(input: { direction: string, facingDirection: number }): void {
