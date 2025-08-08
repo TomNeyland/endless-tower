@@ -327,6 +327,9 @@ export class Game extends Scene
         // Initialize item system (active items)
         this.itemSystem = new ItemSystem(this);
         
+        // Give player 1 platform spawner at game start
+        EventBus.emit('item-acquired', { itemType: 'platform_spawner' });
+        
         // Initialize item UI
         this.itemUI = new ItemUI(this);
     }
@@ -530,6 +533,13 @@ export class Game extends Scene
         
         if (this.powerupUI) {
             this.powerupUI.reset();
+        }
+        
+        // Reset item system and give starting platform spawner
+        if (this.itemSystem) {
+            // The item system will be reset when the whole scene resets
+            // Give player 1 platform spawner at restart
+            EventBus.emit('item-acquired', { itemType: 'platform_spawner' });
         }
         
         // Reset wall collision cooldowns
