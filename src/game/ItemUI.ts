@@ -50,6 +50,7 @@ export class ItemUI {
         // Create main container
         this.container = this.scene.add.container(containerX, containerY);
         this.container.setDepth(100); // Above most game elements
+        this.container.setScrollFactor(0); // Fix to camera, not world position
         
         // Create background
         this.background = this.scene.add.graphics();

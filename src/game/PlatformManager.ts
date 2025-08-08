@@ -220,23 +220,24 @@ export class PlatformManager {
             return;
         }
         
-        // Create a 3-tile wide platform at player location
+        // Create a 3-tile wide platform slightly below player to avoid trapping them
         const platformWidth = 3 * 64; // 3 tiles × 64 pixels per tile
-        const result = this.createPlatform(playerPos.x, playerPos.y, platformWidth);
+        const spawnY = playerPos.y + 80; // Spawn 80 pixels below player (enough clearance)
+        const result = this.createPlatform(playerPos.x, spawnY, platformWidth);
         
         if (result.group) {
             // Add the spawned platform to our tracking system
             const platformData: PlatformData = {
                 group: result.group,
                 id: result.platformId,
-                y: playerPos.y,
+                y: spawnY,
                 width: platformWidth,
                 created: Date.now(),
                 isCheckpoint: false
             };
             
             this.generatedPlatforms.set(result.platformId, platformData);
-            console.log(`🛠️ Platform spawned at player location (${Math.round(playerPos.x)}, ${Math.round(playerPos.y)})`);
+            console.log(`🛠️ Platform spawned below player (${Math.round(playerPos.x)}, ${Math.round(spawnY)})`);
         } else {
             console.warn('⚠️ Failed to spawn platform at player location');
         }
