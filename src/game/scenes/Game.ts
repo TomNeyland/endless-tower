@@ -23,6 +23,11 @@ import { BackgroundColorManager } from '../BackgroundColorManager';
 import { PowerupManager } from '../powerups/PowerupManager';
 import { PowerupEffectSystem } from '../powerups/PowerupEffectSystem';
 import { PowerupUI } from '../powerups/PowerupUI';
+import { InventorySystem } from '../items/InventorySystem';
+import { InventoryUI } from '../items/InventoryUI';
+import { ItemManager } from '../items/ItemManager';
+import { PlatformSpawner } from '../items/PlatformSpawner';
+import { ItemType } from '../items/ItemType';
 
 export class Game extends Scene
 {
@@ -49,6 +54,10 @@ export class Game extends Scene
     private powerupManager: PowerupManager;
     private powerupEffectSystem: PowerupEffectSystem;
     private powerupUI: PowerupUI;
+    private inventorySystem: InventorySystem;
+    private inventoryUI: InventoryUI;
+    private itemManager: ItemManager;
+    private platformSpawner: PlatformSpawner;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -127,6 +136,8 @@ export class Game extends Scene
         console.log('✅ BackgroundColorManager setup complete');
         this.setupPowerupSystems();
         console.log('✅ Powerup systems setup complete');
+        this.setupItemSystems();
+        console.log('✅ Item systems setup complete');
         this.setupCamera();
         console.log('✅ Camera setup complete');
         this.setupGameSystems();
@@ -207,6 +218,8 @@ export class Game extends Scene
             if (this.powerupUI) {
                 this.powerupUI.update();
             }
+            
+            // No need to update inventory UI as it's event-driven
         } catch (error) {
             console.error('🚨 Game update error caught:', error);
             // Don't crash the whole game, just log and continue
@@ -319,6 +332,24 @@ export class Game extends Scene
         
         // Initialize powerup UI
         this.powerupUI = new PowerupUI(this, this.powerupEffectSystem);
+    }
+
+    private setupItemSystems(): void
+    {
+        // Initialize inventory system
+        this.inventorySystem = new InventorySystem(this);
+        
+        // Initialize item manager
+        this.itemManager = new ItemManager(this, this.inventorySystem);
+        
+        // Initialize platform spawner
+        this.platformSpawner = new PlatformSpawner(this, this.player, this.platformManager);
+        
+        // Initialize inventory UI
+        this.inventoryUI = new InventoryUI(this, this.inventorySystem);
+
+        // Give player a platform spawner item for testing
+        this.itemManager.givePlayerItem(ItemType.PLATFORM_SPAWNER);
     }
 
     private setupEventListeners(): void
