@@ -48,7 +48,7 @@ export const POWERUP_CONFIGS: Record<PowerupType, PowerupConfig> = {
     [PowerupType.JUMP_AMPLIFIER]: {
         type: PowerupType.JUMP_AMPLIFIER,
         name: "Super Spring",
-        description: "Jump power increased by 40%",
+        description: "Jump power increased by 250%",
         assetKey: "gem_green",
         audioKey: "sfx_jump-high", 
         duration: 20000, // 20 seconds
