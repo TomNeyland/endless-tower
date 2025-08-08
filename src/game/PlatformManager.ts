@@ -580,13 +580,27 @@ export class PlatformManager {
             }
         }
         
-        return platforms.map(platform => {
+        // Apply deletion but ensure at least one platform always remains
+        const processedPlatforms = platforms.map(platform => {
             if (Math.random() < deletionChance) {
                 console.log(`🗑️ Deleted platform at height ${Math.abs(request.y).toFixed(0)}m (${(deletionChance * 100).toFixed(1)}% chance)`);
                 return { ...platform, shouldGenerate: false };
             }
             return platform;
-        }).filter(platform => platform.shouldGenerate);
+        });
+        
+        const remainingPlatforms = processedPlatforms.filter(platform => platform.shouldGenerate);
+        
+        // CRITICAL: Ensure at least one platform survives to prevent gaps
+        if (remainingPlatforms.length === 0 && platforms.length > 0) {
+            // Pick a random platform to force-keep alive
+            const survivorIndex = Math.floor(Math.random() * processedPlatforms.length);
+            processedPlatforms[survivorIndex].shouldGenerate = true;
+            console.log(`🛡️ Force-preserved platform at height ${Math.abs(request.y).toFixed(0)}m to prevent gap`);
+            return processedPlatforms.filter(platform => platform.shouldGenerate);
+        }
+        
+        return remainingPlatforms;
     }
     
     private createPlatformsFromGenerated(platforms: GeneratedPlatform[]): void {
