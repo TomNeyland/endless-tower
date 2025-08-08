@@ -39,9 +39,10 @@ export class PlatformSpawner {
     }
 
     private spawnPlatformAtPlayer(): void {
-        // Get player position
+        // Get player position at feet
         const playerX = this.player.x;
-        const playerY = this.player.y + this.SPAWN_OFFSET_Y;
+        const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
+        const playerFeetY = this.player.y + (playerBody.height / 2) + this.SPAWN_OFFSET_Y;
         
         // Ensure platform doesn't go outside screen bounds
         const screenWidth = this.scene.scale.width;
@@ -56,25 +57,30 @@ export class PlatformSpawner {
             spawnX = screenWidth - halfPlatformWidth;
         }
         
-        console.log(`🏗️ Spawning platform at (${spawnX.toFixed(0)}, ${playerY.toFixed(0)})`);
+        console.log(`🏗️ Spawning platform at player feet (${spawnX.toFixed(0)}, ${playerFeetY.toFixed(0)})`);
         
         try {
             // Use the platform manager to create the platform
-            const result = this.platformManager.createPlatform(spawnX, playerY, this.PLATFORM_WIDTH);
+            const result = this.platformManager.createPlatform(spawnX, playerFeetY, this.PLATFORM_WIDTH);
             
             if (result && result.group) {
+                // CRITICAL: Emit 'platform-generated' event so OneWayPlatform collision system picks it up
+                EventBus.emit('platform-generated', {
+                    group: result.group
+                });
+                
                 // Play sound effect
                 this.scene.sound.play('sfx_select', { volume: 0.5 });
                 
                 // Emit event for any visual effects
                 EventBus.emit('platform-spawned', {
                     x: spawnX,
-                    y: playerY,
+                    y: playerFeetY,
                     width: this.PLATFORM_WIDTH,
                     platformId: result.platformId
                 });
                 
-                console.log(`✅ Platform spawned successfully: ${result.platformId}`);
+                console.log(`✅ Platform spawned successfully at feet: ${result.platformId}`);
             } else {
                 console.error('❌ Failed to spawn platform - invalid result from PlatformManager');
             }
