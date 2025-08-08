@@ -344,7 +344,7 @@ export class MenuScene extends Scene {
         // Create legend container positioned on the left side
         const legendContainer = this.add.container(20, 180);
         legendContainer.setScrollFactor(0, 0); // Stay fixed to screen
-        legendContainer.setDepth(1001); // Above menu UI
+        legendContainer.setDepth(9999); // Maximum depth to ensure visibility above all UI
         
         // Legend title
         const legendTitle = this.add.text(0, 0, 'POWERUPS', {
