@@ -13,6 +13,9 @@ export class Player extends Physics.Arcade.Sprite {
     
     private lastJumpVerticalSpeed: number = 0; // Track initial jump velocity for rotation
     
+    // Item usage tracking to prevent key repeat
+    private itemKeysPreviousState: { Q: boolean; E: boolean } = { Q: false, E: false };
+    
     // Input mode properties
     private isMobileDevice: boolean = false;
     private mobileInputController: MobileInputController | null = null;
@@ -73,7 +76,7 @@ export class Player extends Physics.Arcade.Sprite {
 
     private setupInput(): void {
         this.cursors = this.scene.input.keyboard!.createCursorKeys();
-        this.wasd = this.scene.input.keyboard!.addKeys('W,S,A,D,SPACE');
+        this.wasd = this.scene.input.keyboard!.addKeys('W,S,A,D,SPACE,Q,E');
     }
 
     private setupMobileInput(): void {
@@ -145,6 +148,8 @@ export class Player extends Physics.Arcade.Sprite {
         let leftPressed: boolean;
         let rightPressed: boolean;
         let jumpPressed: boolean;
+        let qPressed: boolean;
+        let ePressed: boolean;
         
         if (this.demoMode && this.aiController) {
             // Use AI input in demo mode
@@ -152,17 +157,23 @@ export class Player extends Physics.Arcade.Sprite {
             leftPressed = aiInput.left;
             rightPressed = aiInput.right;
             jumpPressed = aiInput.jump;
+            qPressed = false; // AI doesn't use items for now
+            ePressed = false;
         } else if (this.isMobileDevice && this.mobileInputController) {
             // Use mobile touch input
             const mobileInput = this.mobileInputController.getInputState();
             leftPressed = mobileInput.leftPressed;
             rightPressed = mobileInput.rightPressed;
             jumpPressed = mobileInput.jumpPressed;
+            qPressed = false; // Mobile doesn't support item keys yet
+            ePressed = false;
         } else {
             // Use keyboard input for desktop
             leftPressed = this.cursors.left?.isDown || this.wasd.A.isDown;
             rightPressed = this.cursors.right?.isDown || this.wasd.D.isDown;
             jumpPressed = this.cursors.up?.isDown || this.wasd.W.isDown || this.wasd.SPACE.isDown;
+            qPressed = this.wasd.Q.isDown;
+            ePressed = this.wasd.E.isDown;
         }
 
         if (leftPressed) {
@@ -176,6 +187,18 @@ export class Player extends Physics.Arcade.Sprite {
         if (jumpPressed) {
             this.movementController.requestJump();
         }
+
+        // Handle item usage (Q and E keys) - only on key press, not hold
+        if (qPressed && !this.itemKeysPreviousState.Q) {
+            this.handleItemUse('Q');
+        }
+        if (ePressed && !this.itemKeysPreviousState.E) {
+            this.handleItemUse('E');
+        }
+
+        // Update previous state for next frame
+        this.itemKeysPreviousState.Q = qPressed;
+        this.itemKeysPreviousState.E = ePressed;
     }
 
     private updateAnimation(): void {
@@ -255,6 +278,12 @@ export class Player extends Physics.Arcade.Sprite {
 
     private onMovementInput(input: { direction: string, facingDirection: number }): void {
         this.setFlipX(input.facingDirection === -1);
+    }
+
+    private handleItemUse(slotKey: string): void {
+        // Emit event for inventory system to handle
+        EventBus.emit('player-use-item', { slotKey });
+        console.log(`🎮 Player requested to use item in slot ${slotKey}`);
     }
 
     setGrounded(grounded: boolean): void {
