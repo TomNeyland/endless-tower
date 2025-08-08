@@ -26,11 +26,7 @@ export interface AIDecisionContext {
 }
 
 export enum AIBehaviorMode {
-  SAFE_CLIMBING = 'safe_climbing',
-  COMBO_SEEKER = 'combo_seeker', 
-  WALL_BOUNCER = 'wall_bouncer',
-  SPEED_DEMON = 'speed_demon',
-  SHOWOFF = 'showoff'
+  HIGH_SPEED_INTELLIGENT = 'high_speed_intelligent'
 }
 
 export class AIController {
@@ -40,7 +36,7 @@ export class AIController {
   private wallManager: WallManager;
   private gameConfig: GameConfiguration;
   
-  private behaviorMode: AIBehaviorMode = AIBehaviorMode.SAFE_CLIMBING;
+  private behaviorMode: AIBehaviorMode = AIBehaviorMode.HIGH_SPEED_INTELLIGENT;
   private currentInput: AIInput = { left: false, right: false, jump: false };
   private lastDecisionTime: number = 0;
   private decisionCooldown: number = 100; // Minimum time between decisions (ms)
@@ -83,25 +79,15 @@ export class AIController {
 
   private onWallBounce(): void {
     this.consecutiveWallBounces++;
-    // After successful wall bounce, might want to continue or switch strategy
-    if (this.consecutiveWallBounces >= 3) {
-      this.behaviorMode = AIBehaviorMode.COMBO_SEEKER;
-      this.consecutiveWallBounces = 0;
-    }
+    // Track wall bounces for statistics, but continue with intelligent behavior
+    console.log(`🤖 AI achieved wall bounce #${this.consecutiveWallBounces}`);
   }
 
   update(deltaTime: number): AIInput {
     const now = Date.now();
     
-    // Update behavior timer and potentially switch modes
-    this.behaviorTimer += deltaTime;
-    if (this.behaviorTimer >= this.BEHAVIOR_SWITCH_TIME) {
-      this.switchBehaviorMode();
-      this.behaviorTimer = 0;
-    }
-    
-    // Enforce decision cooldown to prevent jittery behavior
-    if (now - this.lastDecisionTime < this.decisionCooldown) {
+    // Reduce decision cooldown for more responsive AI
+    if (now - this.lastDecisionTime < 50) { // Faster decisions for high-speed play
       return this.currentInput;
     }
     
@@ -111,8 +97,8 @@ export class AIController {
     // Update stuck detection
     this.updateStuckDetection(context, deltaTime);
     
-    // Make decision based on current behavior mode
-    const newInput = this.makeDecision(context);
+    // Use intelligent high-speed decision making
+    const newInput = this.makeIntelligentDecision(context);
     
     this.currentInput = newInput;
     this.lastDecisionTime = now;
@@ -187,226 +173,379 @@ export class AIController {
     
     this.lastPlayerY = context.playerY;
     
-    // If stuck too long, switch to more aggressive behavior
+    // If stuck too long, we're already using the most intelligent behavior available
+    // Just reset the timer to keep trying
     if (this.stuckTimer >= this.STUCK_THRESHOLD) {
-      this.behaviorMode = AIBehaviorMode.WALL_BOUNCER;
       this.stuckTimer = 0;
+      console.log('🤖 AI detected being stuck, continuing with intelligent behavior');
     }
   }
 
-  private makeDecision(context: AIDecisionContext): AIInput {
-    switch (this.behaviorMode) {
-      case AIBehaviorMode.SAFE_CLIMBING:
-        return this.safeCimbingBehavior(context);
-      case AIBehaviorMode.COMBO_SEEKER:
-        return this.comboSeekerBehavior(context);
-      case AIBehaviorMode.WALL_BOUNCER:
-        return this.wallBouncerBehavior(context);
-      case AIBehaviorMode.SPEED_DEMON:
-        return this.speedDemonBehavior(context);
-      case AIBehaviorMode.SHOWOFF:
-        return this.showoffBehavior(context);
-      default:
-        return this.safeCimbingBehavior(context);
+  private makeIntelligentDecision(context: AIDecisionContext): AIInput {
+    // High-speed intelligent AI that synthesizes all strategies
+    
+    const currentSpeed = Math.abs(context.playerVelocityX);
+    const targetSpeed = 450; // Very high target speed for particles (like original speed demon)
+    const maxSpeed = 700; // Speed at which we can make incredible jumps
+    
+    // Check for wall bounce opportunities first (highest priority)
+    const wallBounceDecision = this.checkWallBounceOpportunity(context);
+    if (wallBounceDecision) {
+      return wallBounceDecision;
     }
+    
+    // Check if we should land and run to build speed
+    const landAndRunDecision = this.checkLandAndRunOpportunity(context, currentSpeed);
+    if (landAndRunDecision) {
+      return landAndRunDecision;
+    }
+    
+    // Check for platform jump opportunities
+    const platformJumpDecision = this.checkPlatformJumpOpportunity(context);
+    if (platformJumpDecision) {
+      return platformJumpDecision;
+    }
+    
+    // Speed building and momentum maintenance with smart jump logic
+    return this.buildAndMaintainMomentum(context, currentSpeed, targetSpeed);
   }
 
-  private safeCimbingBehavior(context: AIDecisionContext): AIInput {
-    // Conservative strategy: find nearest climbable platform and go for it
-    const targetPlatform = this.findBestPlatformToClimb(context);
+  private checkLandAndRunOpportunity(context: AIDecisionContext, currentSpeed: number): AIInput | null {
+    // Check if we should land and run on a platform to build speed
     
-    if (!targetPlatform) {
-      // No good platform found, try to build horizontal momentum
-      return { left: context.targetDirection === -1, right: context.targetDirection === 1, jump: false };
+    // Only consider landing if we're not fast enough yet - be much more aggressive
+    const speedThreshold = 400; // Much higher threshold - only land if really slow
+    if (currentSpeed >= speedThreshold) {
+      return null; // Fast enough, keep momentum behaviors
     }
     
-    const horizontalDistance = targetPlatform.x - context.playerX;
-    const verticalDistance = targetPlatform.y - context.playerY;
+    // Only land if we're grounded or very close to a platform
+    if (!context.isGrounded && context.playerVelocityY < -50) {
+      return null; // In air and moving up, don't try to land yet
+    }
     
-    // If platform is above us, consider jumping
-    if (verticalDistance < -20 && context.isGrounded) {
-      const requiredSpeed = Math.abs(horizontalDistance) / 0.5; // Rough estimate
+    // Find current platform we might be on or landing on
+    const currentPlatform = this.findCurrentOrLandingPlatform(context);
+    if (!currentPlatform) {
+      return null; // No suitable platform to run on
+    }
+    
+    // Check if platform is wide enough to make running worthwhile
+    const minPlatformWidth = 80; // Reduced minimum width for more opportunities
+    if (currentPlatform.width < minPlatformWidth) {
+      return null; // Platform too small, better to keep jumping
+    }
+    
+    // CRITICAL FIX: Move to platform edge first if we're not already there
+    const platformLeft = currentPlatform.x - currentPlatform.width / 2;
+    const platformRight = currentPlatform.x + currentPlatform.width / 2;
+    const distanceFromLeftEdge = context.playerX - platformLeft;
+    const distanceFromRightEdge = platformRight - context.playerX;
+    const edgeThreshold = 25; // How close to edge we need to be
+    
+    // If we're too close to center, move to an edge first
+    const isNearCenter = distanceFromLeftEdge > edgeThreshold && distanceFromRightEdge > edgeThreshold;
+    
+    if (isNearCenter) {
+      // Move to the edge that gives us more run-up room
+      const wallLeft = context.wallLeft;
+      const wallRight = context.wallRight;
       
-      if (Math.abs(context.playerVelocityX) >= requiredSpeed * 0.8) {
-        // We have enough horizontal speed, jump!
-        return { left: false, right: false, jump: true };
-      }
+      // Calculate which edge gives better run-up space considering walls
+      const spaceFromLeftEdge = platformLeft - wallLeft;
+      const spaceFromRightEdge = wallRight - platformRight;
+      
+      // Choose edge that provides better run-up opportunity
+      const targetDirection = spaceFromRightEdge > spaceFromLeftEdge ? 1 : -1;
+      
+      return {
+        left: targetDirection === -1,
+        right: targetDirection === 1,
+        jump: false // Don't jump, we're positioning for run-up
+      };
     }
     
-    // Move toward target platform
-    return {
-      left: horizontalDistance < -10,
-      right: horizontalDistance > 10,
-      jump: false
-    };
+    // We're near an edge, now check if we should run or jump
+    const isNearLeftEdge = distanceFromLeftEdge <= edgeThreshold;
+    const isNearRightEdge = distanceFromRightEdge <= edgeThreshold;
+    
+    if ((isNearLeftEdge || isNearRightEdge) && currentSpeed < 150) {
+      // We're at an edge but don't have enough speed yet - start running!
+      // Run toward the center to build speed
+      const runDirection = isNearLeftEdge ? 1 : -1;
+      
+      return {
+        left: runDirection === -1,
+        right: runDirection === 1,
+        jump: false // Don't jump yet, build speed first
+      };
+    }
+    
+    return null; // Let other systems handle if we have speed at edge
   }
 
-  private comboSeekerBehavior(context: AIDecisionContext): AIInput {
-    // Look for opportunities to chain multiple platforms or wall bounces
-    const platforms = context.nearestPlatforms.filter(p => p.y < context.playerY - 50);
+  private checkWallBounceOpportunity(context: AIDecisionContext): AIInput | null {
+    // Intelligent wall bounce detection with perfect timing
+    const distanceToLeftWall = context.playerX - context.wallLeft;
+    const distanceToRightWall = context.wallRight - context.playerX;
+    const currentSpeed = Math.abs(context.playerVelocityX);
     
-    if (platforms.length >= 2) {
-      // Multiple platforms available, try to chain them
-      const targetPlatform = platforms[0];
-      const horizontalDistance = targetPlatform.x - context.playerX;
+    // Only attempt wall bounces if we have significant horizontal speed - be more aggressive
+    const minSpeedForBounce = 300; // Higher threshold for wall bounces
+    if (currentSpeed < minSpeedForBounce) {
+      return null;
+    }
+    
+    // Perfect wall bounce timing window
+    const perfectTimingDistance = 30; // Distance where we should start timing
+    
+    // Check left wall bounce opportunity
+    if (context.playerVelocityX < -150 && distanceToLeftWall <= perfectTimingDistance && distanceToLeftWall > 5) {
+      return { left: true, right: false, jump: true };
+    }
+    
+    // Check right wall bounce opportunity  
+    if (context.playerVelocityX > 150 && distanceToRightWall <= perfectTimingDistance && distanceToRightWall > 5) {
+      return { left: false, right: true, jump: true };
+    }
+    
+    return null;
+  }
+
+  private checkPlatformJumpOpportunity(context: AIDecisionContext): AIInput | null {
+    // Intelligent platform targeting using physics calculations
+    const platforms = context.nearestPlatforms.filter(p => p.y < context.playerY - 20); // Only consider platforms above
+    
+    if (platforms.length === 0) {
+      return null;
+    }
+    
+    const currentSpeed = Math.abs(context.playerVelocityX);
+    
+    // Don't attempt jumps if we don't have enough speed - be much more aggressive
+    const minimumJumpSpeed = 300; // Much higher threshold - only jump when fast
+    if (currentSpeed < minimumJumpSpeed) {
+      return null; // Let speed building logic handle this
+    }
+    
+    // Find the best platform to target based on physics
+    const bestPlatform = this.findOptimalPlatformTarget(context, platforms);
+    if (!bestPlatform) {
+      return null;
+    }
+    
+    const horizontalDistance = bestPlatform.x - context.playerX;
+    const verticalDistance = context.playerY - bestPlatform.y;
+    
+    // Use game's physics to check if jump is achievable
+    const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
+    
+    // More conservative jump attempt - ensure we have margin for error
+    const horizontalMargin = 1.2; // Need 20% more range than calculated
+    const verticalMargin = 1.1;   // Need 10% more height than calculated
+    
+    if (jumpMetrics.horizontalRange * horizontalMargin >= Math.abs(horizontalDistance) && 
+        jumpMetrics.maxHeight * verticalMargin >= verticalDistance) {
       
-      // Build MORE horizontal speed for spectacular jumps and particle effects
-      if (Math.abs(context.playerVelocityX) < 300 && context.isGrounded) {
+      // Aim toward the platform while jumping
+      return {
+        left: horizontalDistance < -20,
+        right: horizontalDistance > 20,
+        jump: true
+      };
+    }
+    
+    return null;
+  }
+
+  private buildAndMaintainMomentum(context: AIDecisionContext, currentSpeed: number, targetSpeed: number): AIInput {
+    // Intelligent speed building and momentum maintenance
+    
+    // Determine if we should hold jump based on speed and situation
+    const shouldHoldJump = this.shouldHoldJumpForMomentum(context, currentSpeed);
+    
+    // If we don't have enough speed, focus on aggressive speed building like original speed demon
+    if (currentSpeed < targetSpeed) {
+      
+      // AGGRESSIVE SPEED BUILDING: Stay grounded to build horizontal speed aggressively
+      if (context.isGrounded && currentSpeed < targetSpeed) {
+        // Build speed in whatever direction has more room (like original speed demon)
+        const centerX = this.scene.scale.width / 2;
+        const preferRight = context.playerX < centerX;
+        
         return {
-          left: horizontalDistance < 0,
-          right: horizontalDistance > 0,
-          jump: false
+          left: !preferRight,
+          right: preferRight,
+          jump: false // Stay grounded to build horizontal speed - key insight from original
         };
       }
       
-      // When ready, make the jump
-      if (context.isGrounded && Math.abs(horizontalDistance) < 150) {
-        return { left: false, right: false, jump: true };
-      }
-    }
-    
-    // Fall back to safe climbing if no combo opportunity
-    return this.safeCimbingBehavior(context);
-  }
-
-  private wallBouncerBehavior(context: AIDecisionContext): AIInput {
-    // Actively seek wall bounces for momentum and style points
-    const distanceToLeftWall = context.playerX - context.wallLeft;
-    const distanceToRightWall = context.wallRight - context.playerX;
-    
-    // If close to a wall and have horizontal momentum, try to time a wall bounce
-    if (distanceToLeftWall < this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX < -50) {
-      // Approaching left wall with leftward momentum - perfect for bounce
-      return { left: true, right: false, jump: !context.isGrounded };
-    }
-    
-    if (distanceToRightWall < this.WALL_BOUNCE_PROXIMITY && context.playerVelocityX > 50) {
-      // Approaching right wall with rightward momentum - perfect for bounce
-      return { left: false, right: true, jump: !context.isGrounded };
-    }
-    
-    // Build momentum toward nearest wall
-    if (distanceToLeftWall < distanceToRightWall) {
-      return { left: true, right: false, jump: context.isGrounded };
-    } else {
-      return { left: false, right: true, jump: context.isGrounded };
-    }
-  }
-
-  private speedDemonBehavior(context: AIDecisionContext): AIInput {
-    // DEDICATED mode for building maximum horizontal speed to trigger particle effects
-    const currentSpeed = Math.abs(context.playerVelocityX);
-    const SPEED_TARGET = 450; // Very high target speed for particles
-    
-    // If we have high speed and are airborne, continue in same direction
-    if (!context.isGrounded && currentSpeed > 200) {
+      // If in air, maintain current direction but don't hold jump unless really fast
       const continueSameDirection = context.playerVelocityX > 0 ? 1 : -1;
+      
       return {
         left: continueSameDirection === -1,
         right: continueSameDirection === 1,
-        jump: false // Don't interfere with current trajectory
+        jump: shouldHoldJump
       };
     }
     
-    // If grounded and don't have enough speed, build it aggressively
-    if (context.isGrounded && currentSpeed < SPEED_TARGET) {
-      // Build speed in whatever direction has more room
-      const centerX = this.scene.scale.width / 2;
-      const preferRight = context.playerX < centerX;
-      
+    // We have good speed, continue in current direction to maintain momentum
+    const continueSameDirection = context.playerVelocityX > 0 ? 1 : -1;
+    
+    // Only change direction if we're about to hit a wall without bouncing opportunity
+    const distanceToWall = continueSameDirection === 1 ? 
+      (context.wallRight - context.playerX) : 
+      (context.playerX - context.wallLeft);
+    
+    // If we're too close to wall and moving too slowly for bounce, reverse direction
+    if (distanceToWall < 80 && currentSpeed < 300) { // Increased thresholds
       return {
-        left: !preferRight,
-        right: preferRight,
-        jump: false // Stay grounded to build horizontal speed
+        left: continueSameDirection === 1,
+        right: continueSameDirection === -1, 
+        jump: shouldHoldJump
       };
     }
     
-    // If we have good speed, make strategic jumps to maintain momentum
-    if (currentSpeed >= 250) {
-      // Look for platforms we can reach to continue momentum
-      const platforms = context.nearestPlatforms.filter(p => p.y < context.playerY - 30);
-      if (platforms.length > 0 && context.isGrounded) {
-        return { left: false, right: false, jump: true };
-      }
-    }
-    
-    // Default: continue building speed
+    // Continue in same direction to maintain momentum
     return {
-      left: context.targetDirection === -1,
-      right: context.targetDirection === 1,
-      jump: false
+      left: continueSameDirection === -1,
+      right: continueSameDirection === 1,
+      jump: shouldHoldJump
     };
   }
 
-  private showoffBehavior(context: AIDecisionContext): AIInput {
-    // Combination of aggressive moves - try to show multiple game mechanics
-    const random = Math.random();
+  private shouldHoldJumpForMomentum(context: AIDecisionContext, currentSpeed: number): boolean {
+    // Determine if we should hold jump based on speed and situation
     
-    if (random < 0.2) {
-      return this.wallBouncerBehavior(context);
-    } else if (random < 0.4) {
-      return this.comboSeekerBehavior(context);
-    } else if (random < 0.7) {
-      return this.speedDemonBehavior(context); // Include speed demon for particles
-    } else {
-      // High-speed moves to trigger particle effects
-      // Build extreme horizontal speed when grounded
-      if (context.isGrounded && Math.abs(context.playerVelocityX) < 400) {
-        return {
-          left: context.targetDirection === -1,
-          right: context.targetDirection === 1,
-          jump: false
-        };
-      }
-      
-      return {
-        left: context.targetDirection === -1,
-        right: context.targetDirection === 1,
-        jump: Math.random() < 0.6 // Higher jump probability for more aerial action
-      };
+    // If we're moving fast enough, hold jump to maintain momentum - much higher threshold
+    const momentumThreshold = 400; // Only hold jump when really fast
+    if (currentSpeed >= momentumThreshold) {
+      return true;
     }
+    
+    // If we're in the air and have some speed, keep jump to maintain air time
+    if (!context.isGrounded && currentSpeed > 150) {
+      return true;
+    }
+    
+    // If we're very close to a wall and have decent speed, hold jump for potential bounce
+    const wallDistance = Math.min(
+      context.playerX - context.wallLeft,
+      context.wallRight - context.playerX
+    );
+    if (wallDistance < 80 && currentSpeed > 180) {
+      return true;
+    }
+    
+    // Otherwise, don't hold jump so we can land and run to build speed
+    return false;
   }
 
-  private findBestPlatformToClimb(context: AIDecisionContext): { x: number; y: number; width: number; } | null {
-    // Find the best platform to aim for based on reachability and height gain
-    const reachablePlatforms = context.nearestPlatforms.filter(platform => {
+  private findCurrentOrLandingPlatform(context: AIDecisionContext): { x: number; y: number; width: number; distance: number; } | null {
+    // Find platform we're currently on or about to land on
+    const platformsBelow = context.nearestPlatforms.filter(p => {
+      const verticalDistance = p.y - context.playerY;
+      const horizontalDistance = Math.abs(p.x - context.playerX);
+      
+      // Platform should be below us (or level with us) and horizontally close
+      return verticalDistance >= -20 && verticalDistance <= 100 && horizontalDistance <= p.width / 2 + 50;
+    });
+    
+    if (platformsBelow.length === 0) {
+      return null;
+    }
+    
+    // Return the closest platform below us
+    platformsBelow.sort((a, b) => a.distance - b.distance);
+    return platformsBelow[0];
+  }
+
+  private chooseBestDirectionForRunning(context: AIDecisionContext, platform: { x: number; y: number; width: number; distance: number; }): 1 | -1 {
+    // Choose direction to run on platform for maximum speed building
+    
+    const platformLeft = platform.x - platform.width / 2;
+    const platformRight = platform.x + platform.width / 2;
+    const playerX = context.playerX;
+    
+    // If we're near the left edge, go right
+    if (playerX - platformLeft < 40) {
+      return 1;
+    }
+    
+    // If we're near the right edge, go left  
+    if (platformRight - playerX < 40) {
+      return -1;
+    }
+    
+    // Otherwise, continue in current direction or choose based on more space
+    if (context.playerVelocityX !== 0) {
+      return context.playerVelocityX > 0 ? 1 : -1;
+    }
+    
+    // Default: go toward the side with more space
+    const spaceLeft = playerX - platformLeft;
+    const spaceRight = platformRight - playerX;
+    return spaceRight > spaceLeft ? 1 : -1;
+  }
+
+  private chooseBestDirection(context: AIDecisionContext): 1 | -1 {
+    // Intelligent direction selection based on space availability and platform positions
+    
+    const distanceToLeftWall = context.playerX - context.wallLeft;
+    const distanceToRightWall = context.wallRight - context.playerX;
+    
+    // Look for platforms in each direction to bias our choice
+    const leftPlatforms = context.nearestPlatforms.filter(p => p.x < context.playerX && p.y < context.playerY - 20);
+    const rightPlatforms = context.nearestPlatforms.filter(p => p.x > context.playerX && p.y < context.playerY - 20);
+    
+    // Prefer direction with more platforms above us
+    if (rightPlatforms.length > leftPlatforms.length + 1) {
+      return 1;
+    } else if (leftPlatforms.length > rightPlatforms.length + 1) {
+      return -1;
+    }
+    
+    // If platform count is similar, choose direction with more space
+    return distanceToRightWall > distanceToLeftWall ? 1 : -1;
+  }
+
+  private findOptimalPlatformTarget(context: AIDecisionContext, platforms: Array<{ x: number; y: number; width: number; distance: number; }>): { x: number; y: number; width: number; distance: number; } | null {
+    // Find the best platform to target based on physics and strategic value
+    
+    const reachablePlatforms = platforms.filter(platform => {
       const horizontalDistance = Math.abs(platform.x - context.playerX);
-      const verticalDistance = context.playerY - platform.y; // Positive means platform is above
+      const verticalDistance = context.playerY - platform.y;
       
-      // Only consider platforms that are above us and not too far
-      if (verticalDistance < 20 || horizontalDistance > 200) {
-        return false;
-      }
-      
-      // Use game's physics to check if jump is possible
+      // Use game's physics to check reachability
       const jumpMetrics = this.gameConfig.calculateJumpMetrics(context.playerVelocityX);
-      const canReachHorizontally = jumpMetrics.horizontalRange >= horizontalDistance;
-      const canReachVertically = jumpMetrics.maxHeight >= verticalDistance;
-      
-      return canReachHorizontally && canReachVertically;
+      return jumpMetrics.horizontalRange >= horizontalDistance && jumpMetrics.maxHeight >= verticalDistance;
     });
     
     if (reachablePlatforms.length === 0) {
       return null;
     }
     
-    // Prefer platforms that are higher up (more progress)
-    reachablePlatforms.sort((a, b) => a.y - b.y); // Sort by Y (lower Y = higher up)
+    // Sort by strategic value: prioritize height gain and reasonable horizontal distance
+    reachablePlatforms.sort((a, b) => {
+      const aHeight = context.playerY - a.y;
+      const bHeight = context.playerY - b.y;
+      const aHorizontal = Math.abs(a.x - context.playerX);
+      const bHorizontal = Math.abs(b.x - context.playerX);
+      
+      // Prefer higher platforms, but also consider horizontal efficiency
+      const aScore = aHeight - (aHorizontal * 0.3);
+      const bScore = bHeight - (bHorizontal * 0.3);
+      
+      return bScore - aScore;
+    });
     
     return reachablePlatforms[0];
   }
 
   private switchBehaviorMode(): void {
-    const modes = Object.values(AIBehaviorMode);
-    const currentIndex = modes.indexOf(this.behaviorMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    
-    this.behaviorMode = modes[nextIndex];
-    console.log(`🤖 AI switching to behavior: ${this.behaviorMode}`);
-    
-    // Reset behavior-specific state
-    this.targetPlatform = null;
-    this.consecutiveWallBounces = 0;
+    // No longer needed - we use a single intelligent behavior mode
+    console.log(`🤖 AI using unified high-speed intelligent behavior`);
   }
 
   reset(): void {
@@ -416,7 +555,7 @@ export class AIController {
     this.lastPlayerY = 0;
     this.behaviorTimer = 0;
     this.consecutiveWallBounces = 0;
-    this.behaviorMode = AIBehaviorMode.SAFE_CLIMBING;
+    this.behaviorMode = AIBehaviorMode.HIGH_SPEED_INTELLIGENT;
   }
 
   setBehaviorMode(mode: AIBehaviorMode): void {
