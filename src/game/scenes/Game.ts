@@ -23,6 +23,7 @@ import { BackgroundColorManager } from '../BackgroundColorManager';
 import { PowerupManager } from '../powerups/PowerupManager';
 import { PowerupEffectSystem } from '../powerups/PowerupEffectSystem';
 import { PowerupUI } from '../powerups/PowerupUI';
+import { ElectromagneticFieldManager } from '../ElectromagneticFieldManager';
 
 export class Game extends Scene
 {
@@ -49,6 +50,7 @@ export class Game extends Scene
     private powerupManager: PowerupManager;
     private powerupEffectSystem: PowerupEffectSystem;
     private powerupUI: PowerupUI;
+    private electromagneticFieldManager: ElectromagneticFieldManager;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -127,6 +129,8 @@ export class Game extends Scene
         console.log('✅ BackgroundColorManager setup complete');
         this.setupPowerupSystems();
         console.log('✅ Powerup systems setup complete');
+        this.setupElectromagneticField();
+        console.log('✅ Electromagnetic field setup complete');
         this.setupCamera();
         console.log('✅ Camera setup complete');
         this.setupGameSystems();
@@ -155,6 +159,16 @@ export class Game extends Scene
         // Always update debug UI
         if (this.debugUI) {
             this.debugUI.update(time);
+            
+            // Emit electromagnetic field debug data for debug UI
+            if (this.electromagneticFieldManager) {
+                EventBus.emit('electromagnetic-field-debug', {
+                    magneticPlatformCount: this.electromagneticFieldManager.getMagneticPlatformCount(),
+                    currentChainLength: this.electromagneticFieldManager.getCurrentChainLength(),
+                    currentChainCharge: this.electromagneticFieldManager.getCurrentChainCharge(),
+                    inMagneticField: this.electromagneticFieldManager.isInMagneticField()
+                });
+            }
         }
 
         // Don't update when menu is open
@@ -206,6 +220,10 @@ export class Game extends Scene
             
             if (this.powerupUI) {
                 this.powerupUI.update();
+            }
+            
+            if (this.electromagneticFieldManager) {
+                this.electromagneticFieldManager.update(delta);
             }
         } catch (error) {
             console.error('🚨 Game update error caught:', error);
@@ -319,6 +337,17 @@ export class Game extends Scene
         
         // Initialize powerup UI
         this.powerupUI = new PowerupUI(this, this.powerupEffectSystem);
+    }
+
+    private setupElectromagneticField(): void
+    {
+        try {
+            this.electromagneticFieldManager = new ElectromagneticFieldManager(this, this.player, this.gameConfig);
+        } catch (error) {
+            console.error('Failed to setup electromagnetic field system:', error);
+            // Continue without electromagnetic field system if it fails
+            this.electromagneticFieldManager = null as any;
+        }
     }
 
     private setupEventListeners(): void
@@ -522,6 +551,12 @@ export class Game extends Scene
             this.powerupUI.reset();
         }
         
+        // Reset electromagnetic field system
+        if (this.electromagneticFieldManager) {
+            // Electromagnetic field manager handles its own reset via event listener
+            // No manual reset needed
+        }
+        
         // Reset wall collision cooldowns
         if (this.wallCollision) {
             this.wallCollision.reset();
@@ -706,6 +741,11 @@ export class Game extends Scene
         if (this.powerupUI) {
             this.powerupUI.destroy();
             this.powerupUI = null as any;
+        }
+        
+        if (this.electromagneticFieldManager) {
+            this.electromagneticFieldManager.destroy();
+            this.electromagneticFieldManager = null as any;
         }
         
         // Reset flags
