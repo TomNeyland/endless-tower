@@ -17,6 +17,11 @@ export class WallCollision {
   private lastWallBounceTime: number = 0;
   private wallBounceCooldown: number = 500; // 500ms cooldown between bounces
   private lastBounceSide: 'left' | 'right' | null = null;
+  
+  // Wall magnetism powerup
+  private wallMagnetismActive: boolean = false;
+  private magnetismEndTime: number = 0;
+  private basePerfectTimingWindow: number = 50; // Base perfect timing window in ms
 
   // No velocity caching needed - using proper Phaser collision handler approach
 
@@ -39,6 +44,7 @@ export class WallCollision {
 
   private setupEventListeners(): void {
     EventBus.on('walls-updated', this.onWallsUpdated.bind(this));
+    EventBus.on('wall-bounce-timing-extended', this.onWallMagnetismActive.bind(this));
     
     // Add debug toggle key (only if debug enabled)
     this.scene.input.keyboard?.on('keydown-V', () => {
@@ -58,6 +64,12 @@ export class WallCollision {
   private onWallsUpdated(): void {
     console.log('🔄 WallCollision: Received walls-updated event, recreating colliders');
     this.updateWallCollision();
+  }
+  
+  private onWallMagnetismActive(data: any): void {
+    this.wallMagnetismActive = true;
+    this.magnetismEndTime = Date.now() + data.duration;
+    console.log(`🧲 Wall magnetism activated: timing window extended by ${data.multiplier}x for ${data.duration / 1000} seconds`);
   }
 
   private setupWallCollision(): void {
@@ -93,7 +105,11 @@ export class WallCollision {
     // Clone velocity before collision resolution (as per Phaser docs)
     (player as any).preHitVel = playerBody.velocity.clone();
     
-    console.log(`⚡ ProcessCallback (BEFORE separation): ${side} wall, velocity X=${playerBody.velocity.x.toFixed(1)}, Y=${playerBody.velocity.y.toFixed(1)}`);
+    // Calculate effective timing window (base or extended by magnetism)
+    const effectiveTimingWindow = this.getEffectiveTimingWindow();
+    (player as any).effectiveTimingWindow = effectiveTimingWindow;
+    
+    console.log(`⚡ ProcessCallback (BEFORE separation): ${side} wall, velocity X=${playerBody.velocity.x.toFixed(1)}, Y=${playerBody.velocity.y.toFixed(1)}, timing window: ${effectiveTimingWindow}ms`);
     
     // Handle grace period - if in grace period, don't allow collision
     const oppositeWallGracePeriod = 200; // 200ms grace period
@@ -390,6 +406,10 @@ export class WallCollision {
     this.lastWallBounceTime = 0;
     this.lastBounceSide = null;
     
+    // Reset wall magnetism state
+    this.wallMagnetismActive = false;
+    this.magnetismEndTime = 0;
+    
     // Recreate wall colliders after reset
     console.log('🔄 WallCollision: Recreating colliders after reset');
     this.updateWallCollision();
@@ -486,6 +506,7 @@ export class WallCollision {
   destroy(): void {
     // Clean up event listeners
     EventBus.off('walls-updated', this.onWallsUpdated.bind(this));
+    EventBus.off('wall-bounce-timing-extended', this.onWallMagnetismActive.bind(this));
     
     if (this.leftWallCollider) {
       this.scene.physics.world.removeCollider(this.leftWallCollider);
@@ -507,5 +528,13 @@ export class WallCollision {
     
     // Reset state
     this.reset();
+  }
+  
+  private getEffectiveTimingWindow(): number {
+    // Check if wall magnetism is still active
+    if (this.wallMagnetismActive && Date.now() < this.magnetismEndTime) {
+      return this.basePerfectTimingWindow * 2.0; // Double the timing window
+    }
+    return this.basePerfectTimingWindow;
   }
 }

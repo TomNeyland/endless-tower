@@ -38,34 +38,46 @@ export class PowerupEffectSystem {
     private originalJumpPower: number = 0;
     private doubleJumpAvailable: boolean = false;
     private originalWallBounceWindow: number = 0;
+    
+    // Bound function references for proper cleanup
+    private boundOnPowerupCollected: (data: any) => void;
+    private boundOnGameReset: () => void;
 
     constructor(scene: Scene, player: Player) {
         this.scene = scene;
         this.player = player;
+        
+        // Store bound function references for proper cleanup
+        this.boundOnPowerupCollected = this.onPowerupCollected.bind(this);
+        this.boundOnGameReset = this.onGameReset.bind(this);
         
         this.setupEventListeners();
         console.log('✨ PowerupEffectSystem initialized');
     }
 
     private setupEventListeners(): void {
-        EventBus.on('powerup-collected', this.onPowerupCollected.bind(this));
-        EventBus.on('game-fully-reset', this.onGameReset.bind(this));
+        EventBus.on('powerup-collected', this.boundOnPowerupCollected);
+        EventBus.on('game-fully-reset', this.boundOnGameReset);
         
         // Listen for system references to apply effects
         EventBus.on('movement-controller-ready', (controller: MovementController) => {
             this.movementController = controller;
+            console.log('🔧 PowerupEffectSystem: MovementController connected');
         });
         
         EventBus.on('combo-system-ready', (comboSystem: ComboSystem) => {
             this.comboSystem = comboSystem;
+            console.log('🔧 PowerupEffectSystem: ComboSystem connected');
         });
         
         EventBus.on('score-system-ready', (scoreSystem: ScoreSystem) => {
             this.scoreSystem = scoreSystem;
+            console.log('🔧 PowerupEffectSystem: ScoreSystem connected');
         });
         
         EventBus.on('wall-collision-ready', (wallCollision: WallCollision) => {
             this.wallCollision = wallCollision;
+            console.log('🔧 PowerupEffectSystem: WallCollision connected');
         });
     }
 
@@ -152,7 +164,10 @@ export class PowerupEffectSystem {
     }
 
     private applySpeedBoost(): void {
-        if (!this.movementController) return;
+        if (!this.movementController) {
+            console.warn('⚠️ Speed boost failed: MovementController not ready');
+            return;
+        }
         
         // Apply 50% speed boost
         this.movementController.setSpeedMultiplier(1.5);
@@ -160,7 +175,10 @@ export class PowerupEffectSystem {
     }
 
     private applyJumpAmplifier(): void {
-        if (!this.movementController) return;
+        if (!this.movementController) {
+            console.warn('⚠️ Jump amplifier failed: MovementController not ready');
+            return;
+        }
         
         // Apply 250% jump amplifier
         this.movementController.setJumpMultiplier(3.5);
@@ -168,7 +186,10 @@ export class PowerupEffectSystem {
     }
 
     private applyComboMultiplier(): void {
-        if (!this.comboSystem) return;
+        if (!this.comboSystem) {
+            console.warn('⚠️ Combo multiplier failed: ComboSystem not ready');
+            return;
+        }
         
         // Apply 2x combo multiplier
         this.comboSystem.setComboMultiplierBonus(2.0);
@@ -177,11 +198,18 @@ export class PowerupEffectSystem {
 
     private applyInvincibility(): void {
         console.log('🛡️ Invincibility applied: Death line immunity');
-        // This will require DeathLine integration
+        // Emit event to notify DeathLine system to ignore collisions for this player
+        EventBus.emit('player-invincibility-start', {
+            duration: 10000, // 10 seconds from powerup config
+            timestamp: Date.now()
+        });
     }
 
     private applyDoubleJump(): void {
-        if (!this.movementController) return;
+        if (!this.movementController) {
+            console.warn('⚠️ Double jump failed: MovementController not ready');
+            return;
+        }
         
         this.movementController.setDoubleJumpEnabled(true);
         this.doubleJumpAvailable = true;
@@ -189,20 +217,20 @@ export class PowerupEffectSystem {
     }
 
     private applyWallMagnetism(): void {
-        if (!this.wallCollision) return;
-        
-        // Store original wall bounce window if not already stored
-        if (this.originalWallBounceWindow === 0) {
-            this.originalWallBounceWindow = 50; // Default timing window in ms
-        }
-        
-        // Double the timing window
-        const newWindow = this.originalWallBounceWindow * 2;
-        console.log(`🧲 Wall magnetism applied: ${this.originalWallBounceWindow}ms -> ${newWindow}ms`);
+        console.log('🧲 Wall magnetism applied: Extended wall bounce timing window');
+        // Emit event to notify WallCollision system to extend timing windows
+        EventBus.emit('wall-bounce-timing-extended', {
+            multiplier: 2.0, // Double the timing window
+            duration: 25000, // 25 seconds from powerup config
+            timestamp: Date.now()
+        });
     }
 
     private applyGoldenTouch(): void {
-        if (!this.comboSystem) return;
+        if (!this.comboSystem) {
+            console.warn('⚠️ Golden touch failed: ComboSystem not ready');
+            return;
+        }
         
         this.comboSystem.setGoldenTouchEnabled(true);
         console.log('💰 Golden touch applied: Double score for combos');
@@ -210,18 +238,29 @@ export class PowerupEffectSystem {
 
     private applyPlatformSprings(): void {
         console.log('🌸 Platform springs applied: Bounce boost on landing');
-        // This will require platform collision integration
+        // Emit event to notify platform collision system to add bounce boost
+        EventBus.emit('platform-springs-active', {
+            boostMultiplier: 1.5, // 50% jump boost on platform landing
+            duration: 18000, // 18 seconds from powerup config
+            timestamp: Date.now()
+        });
     }
 
     private applyMomentumKeeper(): void {
-        if (!this.movementController) return;
+        if (!this.movementController) {
+            console.warn('⚠️ Momentum keeper failed: MovementController not ready');
+            return;
+        }
         
         this.movementController.setMomentumKeepingEnabled(true);
         console.log('🎯 Momentum keeper applied: Horizontal momentum preserved');
     }
 
     private applyHighScoreMultiplier(): void {
-        if (!this.scoreSystem) return;
+        if (!this.scoreSystem) {
+            console.warn('⚠️ High score multiplier failed: ScoreSystem not ready');
+            return;
+        }
         
         this.scoreSystem.setHeightScoreMultiplier(3.0);
         console.log('⭐ High score multiplier applied: 3x height points');
@@ -390,9 +429,9 @@ export class PowerupEffectSystem {
     }
 
     public destroy(): void {
-        // Clean up event listeners
-        EventBus.off('powerup-collected', this.onPowerupCollected.bind(this));
-        EventBus.off('game-fully-reset', this.onGameReset.bind(this));
+        // Clean up event listeners using stored bound functions
+        EventBus.off('powerup-collected', this.boundOnPowerupCollected);
+        EventBus.off('game-fully-reset', this.boundOnGameReset);
         
         this.reset();
         console.log('✨ PowerupEffectSystem destroyed');
