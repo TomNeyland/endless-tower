@@ -22,12 +22,14 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     private collected: boolean = false;
     private floatTween?: Phaser.Tweens.Tween;
     private glowEffect?: Phaser.GameObjects.Graphics;
+    private baseY: number; // Store the original Y position for animation reference
 
     constructor(scene: Scene, x: number, y: number, type: PowerupType) {
         const config = POWERUP_CONFIGS[type];
         super(scene, x, y, config.assetKey);
         
         this.config = config;
+        this.baseY = y; // Store original Y position
         
         // Add to scene
         scene.add.existing(this);
@@ -76,10 +78,10 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     }
 
     private startFloatingAnimation(): void {
-        // Gentle floating animation
+        // Gentle floating animation using baseY as reference
         this.floatTween = this.scene.tweens.add({
             targets: this,
-            y: this.y - 8,
+            y: this.baseY - 8,
             duration: 2000,
             yoyo: true,
             repeat: -1,
@@ -190,7 +192,12 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     public override update(): void {
         // Update glow effect position if it exists
         if (this.glowEffect && !this.collected) {
-            this.glowEffect.setPosition(this.x, this.y);
+            this.glowEffect.clear();
+            
+            // Recreate glow effect at current position
+            const glowRadius = Math.max(this.width, this.height) * 0.8;
+            this.glowEffect.fillStyle(this.config.effectColor!, this.config.glowIntensity! * 0.3);
+            this.glowEffect.fillCircle(this.x, this.y, glowRadius);
         }
     }
 
