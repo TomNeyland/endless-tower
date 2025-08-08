@@ -41,7 +41,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist/endless-tower/browser
-          destination_dir: pr/${{ github.event.number }}
+          destination_dir: pr/${{ github.event.number }}/${{ github.event.pull_request.head.sha }}
           keep_files: true
 
       - name: Comment PR
@@ -51,13 +51,23 @@ jobs:
             const prNumber = context.payload.number;
             const repoOwner = context.repo.owner;
             const repoName = context.repo.repo;
-            const previewUrl = `https://${repoOwner}.github.io/${repoName}/pr/${prNumber}/`;
+            const commitSha = context.payload.pull_request.head.sha;
+            const shortSha = commitSha.substring(0, 7);
+            const previewUrl = `https://${repoOwner}.github.io/${repoName}/pr/${prNumber}/${commitSha}/`;
             
             const comment = `🚀 **Preview deployed!**
             
-            Preview URL: ${previewUrl}
+            **Latest Preview:** ${previewUrl}
             
-            Built from commit: ${context.payload.pull_request.head.sha.substring(0, 7)}`;
+            Built from commit: ${shortSha}
+            
+            <details>
+            <summary>📚 All preview versions for this PR</summary>
+            
+            Each commit gets its own preview URL that persists until the PR is closed:
+            - Current: [${shortSha}](${previewUrl})
+            
+            </details>`;
             
             // Find existing preview comment
             const comments = await github.rest.issues.listComments({
@@ -71,12 +81,43 @@ jobs:
             );
             
             if (existingComment) {
+              // Parse existing comment to maintain list of preview URLs
+              const existingBody = existingComment.body;
+              const detailsMatch = existingBody.match(/<details>[\s\S]*?<\/details>/);
+              let allPreviews = `- Current: [${shortSha}](${previewUrl})`;
+              
+              if (detailsMatch) {
+                const existingPreviews = detailsMatch[0];
+                // Extract existing preview links and add new one
+                const linkMatches = existingPreviews.match(/- .*?: \[.*?\]\(.*?\)/g) || [];
+                const existingLinks = linkMatches.filter(link => !link.includes('Current:'));
+                const previousLinks = existingLinks.map(link => link.replace('- Current:', '- Previous:'));
+                
+                if (previousLinks.length > 0) {
+                  allPreviews = `- Current: [${shortSha}](${previewUrl})\n${previousLinks.join('\n')}`;
+                }
+              }
+              
+              const updatedComment = `🚀 **Preview deployed!**
+            
+            **Latest Preview:** ${previewUrl}
+            
+            Built from commit: ${shortSha}
+            
+            <details>
+            <summary>📚 All preview versions for this PR</summary>
+            
+            Each commit gets its own preview URL that persists until the PR is closed:
+            ${allPreviews}
+            
+            </details>`;
+              
               // Update existing comment
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: existingComment.id,
-                body: comment
+                body: updatedComment
               });
             } else {
               // Create new comment
