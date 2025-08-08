@@ -69,6 +69,9 @@ export class PowerupUI {
         // Create container for the powerup display
         const container = this.scene.add.container(x, y);
         container.setDepth(this.UI_DEPTH);
+        
+        // CRITICAL: Make UI follow camera instead of moving with world
+        container.setScrollFactor(0, 0);
 
         // Background panel
         const background = this.scene.add.graphics();
