@@ -105,6 +105,12 @@ export class PlatformManager {
         
         // Register post-processors in priority order
         this.registerProcessor({
+            name: 'PlatformOverlapDetectionProcessor',
+            priority: 50,
+            process: this.checkPlatformOverlaps.bind(this)
+        });
+        
+        this.registerProcessor({
             name: 'PlatformDeletionProcessor',
             priority: 100,
             process: this.processPlatformDeletion.bind(this)
@@ -441,7 +447,13 @@ export class PlatformManager {
             } else {
                 // Place platforms close together horizontally
                 const centerX = screenWidth / 2;
-                const offset = (i === 0 ? -1 : 1) * (minSpacing / 2);
+                
+                // Ensure minimum spacing accounts for platform widths to prevent overlap
+                const platformHalfWidth = platformWidth / 2;
+                const minRequiredSpacing = (platformHalfWidth * 2) + 20; // 20px buffer between platform edges
+                const actualSpacing = Math.max(minSpacing, minRequiredSpacing);
+                
+                const offset = (i === 0 ? -1 : 1) * (actualSpacing / 2);
                 platformX = Math.max(minX, Math.min(maxX, centerX + offset));
             }
             
@@ -559,6 +571,47 @@ export class PlatformManager {
         const baseScaling = height / 1000; // 1.0x per 1000px
         const configScaling = baseScaling * this.config.generation.heightDifficultyScaling;
         return Math.min(3.0, configScaling); // Cap at 3.0x multiplier
+    }
+
+    private checkPlatformOverlaps(platforms: GeneratedPlatform[]): GeneratedPlatform[] {
+        // Check for horizontal overlaps between platforms at the same Y level
+        const validPlatforms: GeneratedPlatform[] = [];
+        
+        for (let i = 0; i < platforms.length; i++) {
+            const currentPlatform = platforms[i];
+            if (!currentPlatform.shouldGenerate) continue;
+            
+            let hasOverlap = false;
+            
+            for (let j = 0; j < validPlatforms.length; j++) {
+                const existingPlatform = validPlatforms[j];
+                
+                // Check if platforms are at the same Y level (allowing for small floating-point differences)
+                if (Math.abs(currentPlatform.y - existingPlatform.y) < 5) {
+                    // Calculate platform bounds
+                    const currentLeft = currentPlatform.x - (currentPlatform.width / 2);
+                    const currentRight = currentPlatform.x + (currentPlatform.width / 2);
+                    const existingLeft = existingPlatform.x - (existingPlatform.width / 2);
+                    const existingRight = existingPlatform.x + (existingPlatform.width / 2);
+                    
+                    // Check for horizontal overlap
+                    if (currentLeft < existingRight && currentRight > existingLeft) {
+                        hasOverlap = true;
+                        console.log(`⚠️ Platform overlap detected at height ${Math.abs(currentPlatform.y).toFixed(0)}m - removing overlapping platform`);
+                        break;
+                    }
+                }
+            }
+            
+            if (!hasOverlap) {
+                validPlatforms.push(currentPlatform);
+            } else {
+                // Mark overlapping platform as not to be generated
+                currentPlatform.shouldGenerate = false;
+            }
+        }
+        
+        return platforms; // Return all platforms with shouldGenerate updated
     }
 
     private processPlatformDeletion(platforms: GeneratedPlatform[], request: PlatformGenerationRequest): GeneratedPlatform[] {
