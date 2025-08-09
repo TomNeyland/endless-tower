@@ -1,11 +1,14 @@
 import { Scene } from 'phaser';
 import { EventBus } from './EventBus';
 import { GameConfiguration, MobileConfig } from './GameConfiguration';
+import { AccelerometerInputController, AccelerometerInputState } from './AccelerometerInputController';
 
 export interface MobileInputState {
   leftPressed: boolean;
   rightPressed: boolean;
   jumpPressed: boolean;
+  controlMode: 'touch' | 'accelerometer';
+  accelerometerState?: AccelerometerInputState;
 }
 
 export interface TouchZone {
@@ -21,6 +24,12 @@ export class MobileInputController {
   private rightZone: TouchZone;
   private currentInputs: MobileInputState;
   
+  // Control mode management
+  private currentControlMode: 'touch' | 'accelerometer';
+  private accelerometerController: AccelerometerInputController;
+  private controlModeButton?: Phaser.GameObjects.Graphics;
+  private controlModeText?: Phaser.GameObjects.Text;
+  
   // Touch state tracking
   private activeTouches: Map<number, Phaser.Input.Pointer> = new Map();
   private movementDirection: 'left' | 'right' | 'none' = 'none';
@@ -35,16 +44,23 @@ export class MobileInputController {
   constructor(scene: Scene, config: GameConfiguration) {
     this.scene = scene;
     this.config = config.mobile;
+    this.currentControlMode = config.mobile.controlMode;
     
     this.currentInputs = {
       leftPressed: false,
       rightPressed: false,
-      jumpPressed: false
+      jumpPressed: false,
+      controlMode: this.currentControlMode
     };
+    
+    // Initialize accelerometer controller
+    this.accelerometerController = new AccelerometerInputController(scene, config);
     
     this.setupTouchZones();
     this.setupInputHandlers();
+    this.setupAccelerometerHandlers();
     this.createMobileUI();
+    this.createControlModeToggle();
   }
 
   static isMobileDevice(): boolean {
@@ -238,11 +254,34 @@ export class MobileInputController {
     console.log(`👆 Right zone touch: jump activated [${this.rightZone.pointers.size} pointers]`);
   }
 
+  private setupAccelerometerHandlers(): void {
+    EventBus.on('accelerometer-input', (accelState: AccelerometerInputState) => {
+      if (this.currentControlMode === 'accelerometer') {
+        this.updateAccelerometerInputState(accelState);
+      }
+    });
+  }
+
   private updateInputState(): void {
-    // Update movement inputs based on active touches
-    this.currentInputs.leftPressed = this.movementDirection === 'left';
-    this.currentInputs.rightPressed = this.movementDirection === 'right';
-    this.currentInputs.jumpPressed = this.jumpActive;
+    if (this.currentControlMode === 'touch') {
+      // Update movement inputs based on active touches
+      this.currentInputs.leftPressed = this.movementDirection === 'left';
+      this.currentInputs.rightPressed = this.movementDirection === 'right';
+      this.currentInputs.jumpPressed = this.jumpActive;
+    }
+    // Accelerometer inputs are handled in updateAccelerometerInputState
+    this.currentInputs.controlMode = this.currentControlMode;
+  }
+
+  private updateAccelerometerInputState(accelState: AccelerometerInputState): void {
+    // Convert accelerometer input to movement controls
+    const threshold = 0.2; // Threshold for left/right detection
+    
+    this.currentInputs.leftPressed = accelState.horizontalAcceleration < -threshold;
+    this.currentInputs.rightPressed = accelState.horizontalAcceleration > threshold;
+    this.currentInputs.jumpPressed = accelState.shouldAutoJump;
+    this.currentInputs.accelerometerState = accelState;
+    this.currentInputs.controlMode = 'accelerometer';
   }
 
   private getTouchZone(point: { x: number, y: number }): 'left' | 'right' | 'none' {
@@ -257,21 +296,124 @@ export class MobileInputController {
   private createMobileUI(): void {
     if (!this.mobileUIEnabled) return;
     
-    // Create graphics for touch zones (always visible on mobile)
-    this.leftZoneGraphics = this.scene.add.graphics();
-    this.rightZoneGraphics = this.scene.add.graphics();
-    
-    // Make mobile UI stay on screen and be visible but not intrusive
-    this.leftZoneGraphics.setScrollFactor(0);
-    this.rightZoneGraphics.setScrollFactor(0);
-    this.leftZoneGraphics.setDepth(999);  // Below debug UI (1000) but above game
-    this.rightZoneGraphics.setDepth(999);
+    // Only create touch zone graphics if in touch mode
+    if (this.currentControlMode === 'touch') {
+      this.leftZoneGraphics = this.scene.add.graphics();
+      this.rightZoneGraphics = this.scene.add.graphics();
+      
+      // Make mobile UI stay on screen and be visible but not intrusive
+      this.leftZoneGraphics.setScrollFactor(0);
+      this.rightZoneGraphics.setScrollFactor(0);
+      this.leftZoneGraphics.setDepth(999);  // Below debug UI (1000) but above game
+      this.rightZoneGraphics.setDepth(999);
+    }
     
     this.updateMobileUI();
   }
 
+  private createControlModeToggle(): void {
+    if (!this.accelerometerController.isReady()) {
+      console.log('📱 Accelerometer not available - hiding control mode toggle');
+      return;
+    }
+
+    // Create toggle button in top-right corner
+    const buttonWidth = 80;
+    const buttonHeight = 40;
+    const buttonX = this.scene.scale.width - buttonWidth - 10;
+    const buttonY = 10;
+
+    this.controlModeButton = this.scene.add.graphics();
+    this.controlModeButton.setScrollFactor(0).setDepth(1000);
+    
+    this.controlModeText = this.scene.add.text(buttonX + buttonWidth/2, buttonY + buttonHeight/2, '', {
+      font: '12px Arial',
+      color: '#ffffff',
+      align: 'center'
+    });
+    this.controlModeText.setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+    // Make button interactive
+    this.controlModeButton.setInteractive(
+      new Phaser.Geom.Rectangle(buttonX, buttonY, buttonWidth, buttonHeight),
+      Phaser.Geom.Rectangle.Contains
+    );
+
+    this.controlModeButton.on('pointerdown', () => {
+      this.toggleControlMode();
+    });
+
+    this.updateControlModeButton();
+  }
+
+  private updateControlModeButton(): void {
+    if (!this.controlModeButton || !this.controlModeText) return;
+
+    const buttonWidth = 80;
+    const buttonHeight = 40;
+    const buttonX = this.scene.scale.width - buttonWidth - 10;
+    const buttonY = 10;
+
+    this.controlModeButton.clear();
+
+    // Button background
+    const bgColor = this.currentControlMode === 'accelerometer' ? 0x4CAF50 : 0x2196F3;
+    this.controlModeButton.fillStyle(bgColor, 0.8);
+    this.controlModeButton.fillRoundedRect(buttonX, buttonY, buttonWidth, buttonHeight, 8);
+
+    // Button border
+    this.controlModeButton.lineStyle(2, 0xffffff, 0.8);
+    this.controlModeButton.strokeRoundedRect(buttonX, buttonY, buttonWidth, buttonHeight, 8);
+
+    // Update text
+    const modeText = this.currentControlMode === 'accelerometer' ? '📱 Tilt' : '👆 Touch';
+    this.controlModeText.setText(modeText);
+  }
+
+  private async toggleControlMode(): Promise<void> {
+    const newMode = this.currentControlMode === 'touch' ? 'accelerometer' : 'touch';
+    
+    if (newMode === 'accelerometer') {
+      // Try to start accelerometer
+      const success = await this.accelerometerController.start();
+      if (!success) {
+        console.warn('📱 Failed to switch to accelerometer mode');
+        return;
+      }
+      console.log('📱 Switched to accelerometer mode');
+    } else {
+      // Stop accelerometer
+      this.accelerometerController.stop();
+      console.log('📱 Switched to touch mode');
+    }
+    
+    this.currentControlMode = newMode;
+    
+    // Recreate UI for new mode
+    if (this.leftZoneGraphics) {
+      this.leftZoneGraphics.destroy();
+      this.rightZoneGraphics?.destroy();
+      this.leftZoneGraphics = undefined;
+      this.rightZoneGraphics = undefined;
+    }
+    
+    this.createMobileUI();
+    this.updateControlModeButton();
+    
+    EventBus.emit('mobile-control-mode-changed', { 
+      mode: newMode, 
+      accelerometerAvailable: this.accelerometerController.isReady() 
+    });
+  }
+
   private updateMobileUI(): void {
-    if (!this.mobileUIEnabled || !this.leftZoneGraphics || !this.rightZoneGraphics) return;
+    // Update control mode button if it exists
+    this.updateControlModeButton();
+    
+    // Only update touch zones if in touch mode and graphics exist
+    if (this.currentControlMode !== 'touch' || !this.leftZoneGraphics || !this.rightZoneGraphics) {
+      return;
+    }
     
     // Clear previous graphics
     this.leftZoneGraphics.clear();
@@ -429,6 +571,19 @@ export class MobileInputController {
     this.updateMobileUI();
   }
 
+  // Public API methods
+  async switchControlMode(): Promise<void> {
+    await this.toggleControlMode();
+  }
+
+  getCurrentControlMode(): 'touch' | 'accelerometer' {
+    return this.currentControlMode;
+  }
+
+  isAccelerometerAvailable(): boolean {
+    return this.accelerometerController.isReady();
+  }
+
   destroy(): void {
     // Clean up event listeners
     this.scene.input.off('pointerdown');
@@ -436,9 +591,15 @@ export class MobileInputController {
     this.scene.input.off('pointerup');
     this.scene.input.off('pointercancel');
     
+    // Clean up accelerometer
+    this.accelerometerController.destroy();
+    EventBus.off('accelerometer-input');
+    
     // Clean up graphics
     this.leftZoneGraphics?.destroy();
     this.rightZoneGraphics?.destroy();
+    this.controlModeButton?.destroy();
+    this.controlModeText?.destroy();
     
     // Clear active touches and pointer sets
     this.activeTouches.clear();
