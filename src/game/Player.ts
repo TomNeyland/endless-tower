@@ -160,11 +160,39 @@ export class Player extends Physics.Arcade.Sprite {
             qPressed = false; // AI doesn't use items for now
             ePressed = false;
         } else if (this.isMobileDevice && this.mobileInputController) {
-            // Use mobile touch input
+            // Use mobile input (touch or accelerometer)
             const mobileInput = this.mobileInputController.getInputState();
-            leftPressed = mobileInput.leftPressed;
-            rightPressed = mobileInput.rightPressed;
-            jumpPressed = mobileInput.jumpPressed;
+            
+            if (mobileInput.controlMode === 'accelerometer' && mobileInput.accelerometerState) {
+                // Use accelerometer input for continuous movement
+                const accelState = mobileInput.accelerometerState;
+                
+                // Handle movement with continuous tilt input
+                this.movementController.moveWithAccelerometer(accelState.horizontalTilt);
+                
+                // Handle auto-jump from accelerometer
+                jumpPressed = accelState.shouldAutoJump;
+                
+                // For compatibility with other systems, still set discrete left/right
+                const threshold = 0.2;
+                leftPressed = accelState.horizontalTilt < -threshold;
+                rightPressed = accelState.horizontalTilt > threshold;
+            } else {
+                // Use touch input (discrete)
+                leftPressed = mobileInput.leftPressed;
+                rightPressed = mobileInput.rightPressed;
+                jumpPressed = mobileInput.jumpPressed;
+                
+                // Handle traditional discrete movement
+                if (leftPressed) {
+                    this.movementController.moveLeft();
+                } else if (rightPressed) {
+                    this.movementController.moveRight();
+                } else {
+                    this.movementController.stopHorizontalMovement();
+                }
+            }
+            
             qPressed = false; // Mobile doesn't support item keys yet
             ePressed = false;
         } else {
@@ -174,16 +202,18 @@ export class Player extends Physics.Arcade.Sprite {
             jumpPressed = this.cursors.up?.isDown || this.wasd.W.isDown || this.wasd.SPACE.isDown;
             qPressed = this.wasd.Q.isDown;
             ePressed = this.wasd.E.isDown;
+            
+            // Handle discrete desktop movement
+            if (leftPressed) {
+                this.movementController.moveLeft();
+            } else if (rightPressed) {
+                this.movementController.moveRight();
+            } else {
+                this.movementController.stopHorizontalMovement();
+            }
         }
 
-        if (leftPressed) {
-            this.movementController.moveLeft();
-        } else if (rightPressed) {
-            this.movementController.moveRight();
-        } else {
-            this.movementController.stopHorizontalMovement();
-        }
-
+        // Handle jumping for all input types
         if (jumpPressed) {
             this.movementController.requestJump();
         }

@@ -1,11 +1,14 @@
 import { Scene } from 'phaser';
 import { EventBus } from './EventBus';
 import { GameConfiguration, MobileConfig } from './GameConfiguration';
+import { AccelerometerController, AccelerometerState } from './AccelerometerController';
 
 export interface MobileInputState {
   leftPressed: boolean;
   rightPressed: boolean;
   jumpPressed: boolean;
+  controlMode: 'touch' | 'accelerometer';
+  accelerometerState?: AccelerometerState;
 }
 
 export interface TouchZone {
@@ -20,6 +23,12 @@ export class MobileInputController {
   private leftZone: TouchZone;
   private rightZone: TouchZone;
   private currentInputs: MobileInputState;
+  
+  // Control mode management
+  private currentControlMode: 'touch' | 'accelerometer' = 'touch';
+  private accelerometerController: AccelerometerController;
+  private switchButton?: Phaser.GameObjects.Graphics;
+  private switchButtonText?: Phaser.GameObjects.Text;
   
   // Touch state tracking
   private activeTouches: Map<number, Phaser.Input.Pointer> = new Map();
@@ -39,11 +48,16 @@ export class MobileInputController {
     this.currentInputs = {
       leftPressed: false,
       rightPressed: false,
-      jumpPressed: false
+      jumpPressed: false,
+      controlMode: this.currentControlMode
     };
+    
+    // Initialize accelerometer controller
+    this.accelerometerController = new AccelerometerController(scene);
     
     this.setupTouchZones();
     this.setupInputHandlers();
+    this.setupAccelerometerHandlers();
     this.createMobileUI();
   }
 
@@ -238,11 +252,34 @@ export class MobileInputController {
     console.log(`👆 Right zone touch: jump activated [${this.rightZone.pointers.size} pointers]`);
   }
 
+  private setupAccelerometerHandlers(): void {
+    EventBus.on('accelerometer-input', (state: AccelerometerState) => {
+      if (this.currentControlMode === 'accelerometer') {
+        this.updateAccelerometerInputState(state);
+      }
+    });
+  }
+
   private updateInputState(): void {
-    // Update movement inputs based on active touches
-    this.currentInputs.leftPressed = this.movementDirection === 'left';
-    this.currentInputs.rightPressed = this.movementDirection === 'right';
-    this.currentInputs.jumpPressed = this.jumpActive;
+    if (this.currentControlMode === 'touch') {
+      // Update movement inputs based on active touches
+      this.currentInputs.leftPressed = this.movementDirection === 'left';
+      this.currentInputs.rightPressed = this.movementDirection === 'right';
+      this.currentInputs.jumpPressed = this.jumpActive;
+    }
+    // Note: accelerometer inputs are handled in updateAccelerometerInputState
+    this.currentInputs.controlMode = this.currentControlMode;
+  }
+
+  private updateAccelerometerInputState(accelState: AccelerometerState): void {
+    // Convert accelerometer input to movement controls
+    const threshold = 0.2; // Threshold for left/right detection
+    
+    this.currentInputs.leftPressed = accelState.horizontalTilt < -threshold;
+    this.currentInputs.rightPressed = accelState.horizontalTilt > threshold;
+    this.currentInputs.jumpPressed = accelState.shouldAutoJump;
+    this.currentInputs.accelerometerState = accelState;
+    this.currentInputs.controlMode = 'accelerometer';
   }
 
   private getTouchZone(point: { x: number, y: number }): 'left' | 'right' | 'none' {
@@ -257,7 +294,19 @@ export class MobileInputController {
   private createMobileUI(): void {
     if (!this.mobileUIEnabled) return;
     
-    // Create graphics for touch zones (always visible on mobile)
+    // Only create touch zone graphics if in touch mode
+    if (this.currentControlMode === 'touch') {
+      this.createTouchZoneGraphics();
+    }
+    
+    // Always create mode switch button if accelerometer is supported
+    this.createModeSwitchButton();
+    
+    this.updateMobileUI();
+  }
+
+  private createTouchZoneGraphics(): void {
+    // Create graphics for touch zones (visible when in touch mode)
     this.leftZoneGraphics = this.scene.add.graphics();
     this.rightZoneGraphics = this.scene.add.graphics();
     
@@ -266,11 +315,86 @@ export class MobileInputController {
     this.rightZoneGraphics.setScrollFactor(0);
     this.leftZoneGraphics.setDepth(999);  // Below debug UI (1000) but above game
     this.rightZoneGraphics.setDepth(999);
+  }
+
+  private createModeSwitchButton(): void {
+    // Only show switch button if accelerometer is supported
+    if (!this.accelerometerController.isReady() && !navigator.userAgent.includes('iPhone')) {
+      console.log('📱 Accelerometer not supported - hiding control mode switch');
+      return;
+    }
+
+    const buttonSize = 50;
+    const padding = 15;
+    const buttonX = this.scene.scale.width - buttonSize - padding;
+    const buttonY = padding;
+
+    // Create switch button
+    this.switchButton = this.scene.add.graphics();
+    this.switchButton.setScrollFactor(0).setDepth(1000);
     
-    this.updateMobileUI();
+    this.switchButtonText = this.scene.add.text(
+      buttonX + buttonSize / 2, 
+      buttonY + buttonSize / 2, 
+      '', 
+      {
+        fontSize: '20px',
+        color: '#ffffff',
+        align: 'center'
+      }
+    );
+    this.switchButtonText.setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+    // Make button interactive
+    this.switchButton.setInteractive(
+      new Phaser.Geom.Rectangle(buttonX, buttonY, buttonSize, buttonSize),
+      Phaser.Geom.Rectangle.Contains
+    );
+
+    this.switchButton.on('pointerdown', () => {
+      this.switchControlMode();
+    });
+
+    this.updateModeSwitchButton();
+  }
+
+  private updateModeSwitchButton(): void {
+    if (!this.switchButton || !this.switchButtonText) return;
+
+    const buttonSize = 50;
+    const padding = 15;
+    const buttonX = this.scene.scale.width - buttonSize - padding;
+    const buttonY = padding;
+
+    this.switchButton.clear();
+
+    // Button background based on current mode
+    const bgColor = this.currentControlMode === 'accelerometer' ? 0x4CAF50 : 0x2196F3;
+    const alpha = 0.8;
+    
+    this.switchButton.fillStyle(bgColor, alpha);
+    this.switchButton.fillRoundedRect(buttonX, buttonY, buttonSize, buttonSize, 8);
+    
+    // Button border
+    this.switchButton.lineStyle(2, 0xffffff, 0.9);
+    this.switchButton.strokeRoundedRect(buttonX, buttonY, buttonSize, buttonSize, 8);
+
+    // Button icon/text
+    const icon = this.currentControlMode === 'accelerometer' ? '📱' : '👆';
+    this.switchButtonText.setText(icon);
   }
 
   private updateMobileUI(): void {
+    // Always update the mode switch button
+    this.updateModeSwitchButton();
+    
+    // Only update touch zones if in touch mode and graphics exist
+    if (this.currentControlMode === 'touch' && this.leftZoneGraphics && this.rightZoneGraphics) {
+      this.updateTouchZoneGraphics();
+    }
+  }
+
+  private updateTouchZoneGraphics(): void {
     if (!this.mobileUIEnabled || !this.leftZoneGraphics || !this.rightZoneGraphics) return;
     
     // Clear previous graphics
@@ -399,7 +523,103 @@ export class MobileInputController {
     }
   }
 
+  private async switchControlMode(): Promise<boolean> {
+    const newMode = this.currentControlMode === 'touch' ? 'accelerometer' : 'touch';
+    
+    if (newMode === 'accelerometer') {
+      // Try to start accelerometer
+      const success = await this.accelerometerController.requestPermissionAndStart();
+      if (!success) {
+        console.warn('📱 Failed to switch to accelerometer mode - permission denied or not supported');
+        
+        // Show brief user feedback
+        this.showModeChangeMessage('Accelerometer not available or permission denied');
+        return false;
+      }
+      console.log('📱 Switched to accelerometer mode');
+      this.showModeChangeMessage('Tilt mode active - tilt and shake to move!');
+    } else {
+      // Stop accelerometer
+      this.accelerometerController.stop();
+      console.log('📱 Switched to touch mode');
+      this.showModeChangeMessage('Touch mode active');
+    }
+    
+    this.currentControlMode = newMode;
+    
+    // Update UI for new mode
+    this.recreateUIForMode();
+    
+    // Emit mode change event
+    EventBus.emit('mobile-control-mode-changed', { 
+      mode: newMode, 
+      accelerometerAvailable: this.accelerometerController.isReady()
+    });
+    
+    return true;
+  }
+
+  private recreateUIForMode(): void {
+    // Clean up existing touch zone graphics
+    if (this.leftZoneGraphics) {
+      this.leftZoneGraphics.destroy();
+      this.rightZoneGraphics?.destroy();
+      this.leftZoneGraphics = undefined;
+      this.rightZoneGraphics = undefined;
+    }
+    
+    // Recreate appropriate UI
+    this.createMobileUI();
+  }
+
+  private showModeChangeMessage(text: string): void {
+    // Create temporary message
+    const messageText = this.scene.add.text(
+      this.scene.scale.width / 2,
+      this.scene.scale.height / 2,
+      text,
+      {
+        fontSize: '18px',
+        color: '#ffffff',
+        backgroundColor: '#000000aa',
+        padding: { x: 20, y: 10 },
+        align: 'center'
+      }
+    );
+    
+    messageText.setOrigin(0.5).setScrollFactor(0).setDepth(1010);
+    
+    // Fade out and destroy after 2 seconds
+    this.scene.tweens.add({
+      targets: messageText,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => {
+        messageText.destroy();
+      }
+    });
+  }
+
   // Public API methods
+  async switchToAccelerometerMode(): Promise<boolean> {
+    if (this.currentControlMode === 'accelerometer') return true;
+    return await this.switchControlMode();
+  }
+
+  switchToTouchMode(): void {
+    if (this.currentControlMode === 'touch') return;
+    this.switchControlMode();
+  }
+
+  getCurrentControlMode(): 'touch' | 'accelerometer' {
+    return this.currentControlMode;
+  }
+
+  isAccelerometerAvailable(): boolean {
+    return this.accelerometerController.isReady();
+  }
+
   getInputState(): MobileInputState {
     return { ...this.currentInputs };
   }
@@ -436,9 +656,15 @@ export class MobileInputController {
     this.scene.input.off('pointerup');
     this.scene.input.off('pointercancel');
     
+    // Clean up accelerometer
+    this.accelerometerController.destroy();
+    EventBus.off('accelerometer-input');
+    
     // Clean up graphics
     this.leftZoneGraphics?.destroy();
     this.rightZoneGraphics?.destroy();
+    this.switchButton?.destroy();
+    this.switchButtonText?.destroy();
     
     // Clear active touches and pointer sets
     this.activeTouches.clear();
