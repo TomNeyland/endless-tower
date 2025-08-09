@@ -6,6 +6,8 @@ export class OneWayPlatform {
   private scene: Scene;
   private platforms: Physics.Arcade.StaticGroup;
   private player: Player;
+  private platformSpringsActive: boolean = false;
+  private springsEndTime: number = 0;
 
   constructor(scene: Scene, player: Player) {
     this.scene = scene;
@@ -83,18 +85,44 @@ export class OneWayPlatform {
     const playerBody = player.body as Physics.Arcade.Body;
     const platformBody = platform.body as Physics.Arcade.StaticBody;
     
-    // Stop the player on top of the platform
-    playerBody.y = platformBody.top - playerBody.height;
-    playerBody.setVelocityY(0);
+    // Check if platform springs are active and still valid
+    if (this.platformSpringsActive && Date.now() < this.springsEndTime) {
+      // Apply bounce boost - launch player upward with current horizontal momentum
+      const boostMultiplier = 1.5; // 50% jump boost from powerup config
+      const currentHorizontalSpeed = playerBody.velocity.x;
+      
+      // Calculate boosted jump similar to regular jump but with multiplier
+      const baseJumpPower = -400; // Base jump velocity
+      const boostedJumpPower = baseJumpPower * boostMultiplier;
+      
+      playerBody.setVelocityY(boostedJumpPower);
+      playerBody.setVelocityX(currentHorizontalSpeed); // Keep horizontal momentum
+      
+      console.log(`🌸 Platform spring boost applied: ${boostedJumpPower} vertical velocity`);
+      
+      // Emit spring boost event for visual/audio feedback
+      EventBus.emit('platform-spring-boost', {
+        player,
+        platform,
+        boostMultiplier,
+        jumpPower: boostedJumpPower
+      });
+      
+    } else {
+      // Normal platform collision behavior
+      playerBody.y = platformBody.top - playerBody.height;
+      playerBody.setVelocityY(0);
+      
+      // Set player as grounded
+      player.setGrounded(true);
+    }
     
-    // Set player as grounded
-    player.setGrounded(true);
-    
-    // Emit landing event for combo system
+    // Always emit landing event for combo system
     this.scene.events.emit('player-landed-on-platform', {
       player,
       platform,
-      landingSpeed: { x: playerBody.velocity.x, y: playerBody.velocity.y }
+      landingSpeed: { x: playerBody.velocity.x, y: playerBody.velocity.y },
+      springBoosted: this.platformSpringsActive && Date.now() < this.springsEndTime
     });
   }
 
@@ -147,6 +175,7 @@ export class OneWayPlatform {
   private setupEventListeners(): void {
     EventBus.on('platform-generated', this.onPlatformGenerated.bind(this));
     EventBus.on('platform-cleaned-up', this.onPlatformCleanedUp.bind(this));
+    EventBus.on('platform-springs-active', this.onPlatformSpringsActive.bind(this));
   }
 
   private onPlatformGenerated(data: { group: Physics.Arcade.StaticGroup }): void {
@@ -162,10 +191,17 @@ export class OneWayPlatform {
       });
     }
   }
+  
+  private onPlatformSpringsActive(data: any): void {
+    this.platformSpringsActive = true;
+    this.springsEndTime = Date.now() + data.duration;
+    console.log(`🌸 Platform springs activated for ${data.duration / 1000} seconds`);
+  }
 
   destroy(): void {
     EventBus.off('platform-generated', this.onPlatformGenerated.bind(this));
     EventBus.off('platform-cleaned-up', this.onPlatformCleanedUp.bind(this));
+    EventBus.off('platform-springs-active', this.onPlatformSpringsActive.bind(this));
     
     // Safely destroy platforms group
     if (this.platforms) {

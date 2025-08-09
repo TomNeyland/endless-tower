@@ -35,12 +35,20 @@ export class ScoreSystem {
   // Milestones
   private heightMilestones: number[] = [100, 250, 500, 1000, 2000, 5000, 10000];
   private reachedMilestones: Set<number> = new Set();
+  
+  // Powerup modifiers
+  private heightScoreMultiplier: number = 1.0;
 
   constructor(scene: Scene, player: Player) {
     this.scene = scene;
     this.player = player;
     
     this.setupEventListeners();
+    
+    // Emit ready event for powerup system integration
+    EventBus.emit('score-system-ready', this);
+    
+    console.log('📊 ScoreSystem initialized');
   }
 
   private setupEventListeners(): void {
@@ -204,7 +212,20 @@ export class ScoreSystem {
     this.lastComboTime = 0;
     this.reachedMilestones.clear();
     
+    // Reset powerup modifiers
+    this.heightScoreMultiplier = 1.0;
+    
     EventBus.emit('score-reset');
+  }
+  
+  // Powerup modifier methods
+  setHeightScoreMultiplier(multiplier: number): void {
+    this.heightScoreMultiplier = multiplier;
+    console.log(`📊 Height score multiplier set to: ${multiplier}x`);
+  }
+  
+  getHeightScoreMultiplier(): number {
+    return this.heightScoreMultiplier;
   }
 
   getStats(): any {

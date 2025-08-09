@@ -1,244 +1,150 @@
-# Endless Tower - Icy Tower Clone
+# 🏗️ Endless Tower
 
-An Icy Tower clone built with Angular 19 + Phaser 3. This endless vertical platformer features momentum-based physics, combo systems, and infinite procedural generation.
+**An addictive Icy Tower clone that will test your precision, timing, and strategic thinking!**
 
-### Versions
+Endless Tower is a fast-paced vertical platformer built with Angular 19 + Phaser 3, featuring momentum-based physics, wall bouncing mechanics, and an innovative combo system. Climb as high as you can while the deadly line rises below you!
 
-This template has been updated for:
+## 🎮 Game Features
 
-- [Phaser 3.90.0](https://github.com/phaserjs/phaser)
-- [Angular 19.2.0](https://github.com/angular)
-- [TypeScript 5.7.2](https://github.com/microsoft/TypeScript)
+- **🎯 Momentum-Based Physics**: Master the art of building and maintaining speed for massive jumps
+- **🧱 Wall Bouncing**: Ricochet off walls with perfect timing to reach incredible heights  
+- **⚡ Combo System**: Chain moves together for massive score multipliers
+- **🏃‍♂️ Death Line**: Stay ahead of the rising danger zone that forces constant upward movement
+- **🎁 Power-up System**: Collect game-changing abilities like Super Spring, Wall Grip, and Momentum Lock
+- **🌍 Dynamic Biomes**: Experience different visual themes as you climb higher
+- **♾️ Infinite Generation**: Procedurally generated platforms ensure every run is unique
 
-![screenshot](screenshot.png)
+## 📸 Screenshots
 
-## Requirements
+### Main Menu
+![Menu Screen](https://github.com/user-attachments/assets/6784e881-5f80-4a6f-b40d-291a11612091)
 
-[Node.js](https://nodejs.org) is required to install dependencies and run scripts via `npm`.
-[ng cli](https://angular.io/cli) is required to run the project.
+### Gameplay
+![Gameplay](https://github.com/user-attachments/assets/1fa9aa20-1859-4ed4-b6cf-42fe5adb6e43)
 
-## Available Commands
+## 🎯 How to Play
+
+### Core Strategy
+
+**The secret to Endless Tower is building and maintaining horizontal momentum:**
+
+1. **Build Speed First**: Use the bottom platforms to gain horizontal velocity
+2. **Time Your Jumps**: Jump at the peak of your horizontal speed for maximum height
+3. **Master Wall Bouncing**: Hit walls at the right angle and timing to redirect your momentum upward
+4. **Chain Combos**: Link wall bounces, platform jumps, and air time for score multipliers
+5. **Stay Above the Death Line**: The orange line rises constantly - keep climbing!
+
+### Advanced Techniques
+
+- **Momentum Exchange**: Higher horizontal speed = higher jumps due to the physics system
+- **Wall Bounce Timing**: Perfect timing gives better efficiency and vertical boost
+- **Combo Chaining**: Chain multiple moves within 2.5 seconds to maintain your combo multiplier
+- **Power-up Strategy**: Save powerful power-ups like "Momentum Lock" for crucial moments
+
+## 🎮 Controls
+
+| Input | Action |
+|-------|--------|
+| **Arrow Keys** or **WASD** | Move left/right |
+| **Space** or **Up Arrow** | Jump |
+| **Any Key** | Start game from menu |
+
+## 🎁 Power-ups
+
+Master these game-changing abilities:
+
+- **🔷 Velocity Gem**: +50% movement speed
+- **🌿 Super Spring**: +250% jump power  
+- **⭐ Chain Master**: 2x combo multiplier
+- **❤️ Guardian Shield**: Death line immunity
+- **🗝️ Air Walker**: Grants double jump
+- **🔑 Wall Grip**: Perfect wall bounce timing window
+- **💰 Midas Touch**: Double score from combos
+- **💎 Bouncy Platforms**: All landings boost jump height
+- **🔒 Momentum Lock**: Horizontal momentum never decreases
+- **🥈 Score Storm**: 3x points from height gains
+
+## 🚀 Quick Start
+
+### Playing the Game
+
+1. **[Play Online]** - [Coming Soon - Link to deployed version]
+2. **Run Locally**:
+   ```bash
+   npm install
+   npm run dev-nolog
+   ```
+   Open http://localhost:4200 and start climbing!
+
+### Development Setup
+
+**Requirements:**
+- [Node.js](https://nodejs.org) (for dependencies and build tools)
+- [Angular CLI](https://angular.io/cli): `npm install -g @angular/cli`
+
+**Available Commands:**
 
 | Command | Description |
 |---------|-------------|
 | `npm install` | Install project dependencies |
-| `npm run dev` | Launch a development web server |
-| `npm run build` | Create a production build in the `build` folder |
-| `npm run dev-nolog` | Launch a development web server without sending anonymous data (see "About log.js" below) |
-| `npm run build-nolog` | Create a production build in the `dist` folder without sending anonymous data (see "About log.js" below) |
+| `npm run dev-nolog` | Launch development server (Recommended) |
+| `npm run build-nolog` | Create production build |
+| `npm run dev` | Development server with analytics |
+| `npm run build` | Production build with analytics |
 
-## Writing Code
+The development server runs on `http://localhost:4200` with hot reload enabled.
 
-After cloning the repo, run `npm install` from your project directory. Install ng cli with `npm install -g @angular/cli`. Then, you can start the local development server by running `npm run dev`.
+## 🛠️ Technical Details
 
-The local development server runs on `http://localhost:8080` by default. Please see the Angular documentation if you wish to change this, or add SSL support.
+### Architecture
 
-Once the server is running you can edit any of the files in the `src` folder. Angular will automatically recompile your code and then reload the browser.
+Endless Tower uses a modern Angular + Phaser hybrid architecture:
 
-## Template Project Structure
+- **Frontend**: Angular 19.2.0 with standalone components
+- **Game Engine**: Phaser 3.90.0 for physics and rendering  
+- **Language**: TypeScript 5.7.2 for type safety
+- **Communication**: EventBus system for Angular ↔ Phaser integration
 
-We have provided a default project structure to get you started. This is as follows:
+### Project Structure
 
-| Path                                 | Description                                                |
-|--------------------------------------|------------------------------------------------------------|
-| `public/assets`                      | Game sprites, audio, etc. Served directly at runtime       |
-| `src/index.html`                     | Angular entry point (HTML)                                 |
-| `src/main.ts`                        | Angular application bootstrap                              |
-| `src/style.css`                      | Global layout styles                                       |
-| `src/app/app.component.ts`           | Root Angular component                                     |
-| `src/app/app.component.html`         | HTML template for the app component                        |
-| `src/app/phaser-game.component.ts`   | Bridge between Angular and your Phaser game                |
-| `src/game`                           | Folder containing the game code.                           |
-| `src/game/main.ts`                   | Game bootstrap and configuration                           |
-| `src/game/scenes`                    | Folder with all Phaser game scenes.                        |
-| `src/game/EventBus.ts`               | Angular ↔ Phaser communication bridge                      |
+| Path | Description |
+|------|-------------|
+| `src/game/` | Core game systems (physics, platforms, combos) |
+| `src/app/` | Angular components and UI |
+| `public/assets/` | Game sprites and audio (Kenney asset pack) |
+| `src/game/scenes/` | Phaser game scenes |
+| `src/game/EventBus.ts` | Angular ↔ Phaser communication bridge |
 
+### Key Game Systems
 
-## Angular Bridge
+- **MovementController**: Momentum-based physics engine
+- **PlatformManager**: Infinite procedural platform generation  
+- **ComboSystem**: Chaining system with multipliers
+- **PowerupManager**: Collectible abilities system
+- **BiomeManager**: Dynamic visual themes
+- **WallManager**: Wall bounce mechanics
 
-The `phaser-game.component.ts` component is the bridge between Angular and Phaser. It initializes the Phaser game and passes events between the two.
+## 🤝 Contributing
 
-To communicate between Angular and Phaser, you can use the **EventBus.ts** file. This is a simple event bus that allows you to emit and listen for events from both Angular and Phaser.
+Interested in contributing? Great! Here are some areas where help is welcomed:
 
-```js
-// In Angular
-import { EventBus } from './EventBus';
+- 🎮 **New Power-ups**: Design and implement unique abilities
+- 🌍 **Additional Biomes**: Create new visual themes and environments  
+- 🎵 **Audio**: Sound effects and background music
+- 🎨 **Visual Effects**: Particle systems and animations
+- 🏆 **Features**: Leaderboards, achievements, game modes
 
-// In any Angular component method
-// Emit an event
-EventBus.emit('event-name', data);
+### Development Workflow
 
-// In Phaser
-// Listen for an event
-EventBus.on('event-name', (data) => {
-    // Do something with the data
-});
-```
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes and test thoroughly
+4. Submit a pull request with a clear description
 
-In addition to this, the `phaser-game` component exposes the Phaser game instance along with the most recently active Phaser Scene. You can pick these up from Angular via `phaserRef = viewChild.required(PhaserGame);` (we explain this later).
+## 📄 License
 
-## Phaser Scene Handling
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-In Phaser, the Scene is the lifeblood of your game. It is where you sprites, game logic and all of the Phaser systems live. You can also have multiple scenes running at the same time. This template provides a way to obtain the current active scene from Angular.
+---
 
-You can get the current Phaser Scene from the component event `"current-active-scene"`. In order to do this, you need to emit the event `"current-scene-ready"` from the Phaser Scene class. This event should be emitted when the scene is ready to be used. You can see this done in all of the Scenes in our template.
-
-**Important**: When you add a new Scene to your game, make sure you expose to Angular by emitting the `"current-scene-ready"` event via the `EventBus`, like this:
-
-
-```js
-class MyScene extends Phaser.Scene
-{
-    constructor ()
-    {
-        super('MyScene');
-    }
-
-    create ()
-    {
-        // Your Game Objects and logic here
-
-        // At the end of create method:
-        EventBus.emit('current-scene-ready', this);
-    }
-}
-```
-
-You don't have to emit this event if you don't need to access the specific scene from Angular. Also, you don't have to emit it at the end of `create`, you can emit it at any point. For example, should your Scene be waiting for a network request or API call to complete, it could emit the event once that data is ready.
-
-### Angular Component Example
-
-Here's an example of how to access Phaser data for use in a Angular Component:
-
-```ts
-import { Component, viewChild } from '@angular/core';
-import { PhaserGame } from '../game/phaser-game.component';
-import { EventBus } from '../game/EventBus';
-
-@Component({
-  selector: 'app-root',
-  standalone: true,
-  imports: [PhaserGame],
-  templateUrl: './app.component.html'
-})
-export class AppComponent
-{
-
-    phaserRef = viewChild.required(PhaserGame);
-
-    constructor ()
-    {
-
-        const game = this.phaserRef().game;
-        const scene = this.phaserRef().scene;
-
-        EventBus.on('current-scene-ready', (scene: Phaser.Scene) => {
-            // Handle the ready scene
-        });
-
-    }
-
-}
-
-```
-
-In the code above, you can get a reference to the current Phaser Game instance and the current Scene by calling `phaserRef = viewChild.required(PhaserGame);`.
-
-From this component reference, the game instance is available via `this.phaserRef.game` and the most recently active Scene via `this.phaserRef.scene`
-
-The `EventBus.on('current-scene-ready')` callback will also be invoked whenever the the Phaser Scene changes, as long as you emit the event via the EventBus, as outlined above.
-
-## Handling Assets
-
-To load static files such as audio files, videos, etc place them into the `public/assets` folder. Then you can use this path in the Loader calls within Phaser:
-
-```js
-preload ()
-{
-    //  This is an example of an imported bundled image.
-    //  Remember to import it at the top of this file
-    this.load.image('logo', logoImg);
-
-    //  This is an example of loading a static image
-    //  from the public/assets folder:
-    this.load.image('background', 'assets/bg.png');
-}
-```
-
-When you issue the `npm run build` command, all static assets are automatically copied to the `dist/browser/assets` folder.
-
-## Deploying to Production
-
-After you run the `npm run build` command, your code will be built into a single bundle and saved to the `dist` folder, along with any other assets your project imported, or stored in the public assets folder.
-
-In order to deploy your game, you will need to upload *all* of the contents of the `dist/browser` folder to a public facing web server.
-
-## Customizing the Template
-
-### Angular
-
-If you want to customize your build, such as adding plugin (i.e. for loading CSS or fonts), you can modify the `angular.json` file for cross-project changes, or you can modify and/or create new configuration files and target them in specific npm tasks inside of `package.json`. Please see the [Angular documentation](https://angular.io/guide/workspace-config) for more information.
-
-## About log.js
-
-If you inspect our node scripts you will see there is a file called `log.js`. This file makes a single silent API call to a domain called `gryzor.co`. This domain is owned by Phaser Studio Inc. The domain name is a homage to one of our favorite retro games.
-
-We send the following 3 pieces of data to this API: The name of the template being used (vue, react, etc). If the build was 'dev' or 'prod' and finally the version of Phaser being used.
-
-At no point is any personal data collected or sent. We don't know about your project files, device, browser or anything else. Feel free to inspect the `log.js` file to confirm this.
-
-Why do we do this? Because being open source means we have no visible metrics about which of our templates are being used. We work hard to maintain a large and diverse set of templates for Phaser developers and this is our small anonymous way to determine if that work is actually paying off, or not. In short, it helps us ensure we're building the tools for you.
-
-However, if you don't want to send any data, you can use these commands instead:
-
-Dev:
-
-```bash
-npm run dev-nolog
-```
-
-Build:
-
-```bash
-npm run build-nolog
-```
-
-Or, to disable the log entirely, simply delete the file `log.js` and remove the call to it in the `scripts` section of `package.json`:
-
-Before:
-
-```json
-"scripts": {
-    "dev": "node log.js dev & dev-template-script",
-    "build": "node log.js build & build-template-script"
-},
-```
-
-After:
-
-```json
-"scripts": {
-    "dev": "dev-template-script",
-    "build": "build-template-script"
-},
-```
-
-Either of these will stop `log.js` from running. If you do decide to do this, please could you at least join our Discord and tell us which template you're using! Or send us a quick email. Either will be super-helpful, thank you.
-
-
-## Join the Phaser Community!
-
-We love to see what developers like you create with Phaser! It really motivates us to keep improving. So please join our community and show-off your work 😄
-
-**Visit:** The [Phaser website](https://phaser.io) and follow on [Phaser Twitter](https://twitter.com/phaser_)<br />
-**Play:** Some of the amazing games [#madewithphaser](https://twitter.com/search?q=%23madewithphaser&src=typed_query&f=live)<br />
-**Learn:** [API Docs](https://newdocs.phaser.io), [Support Forum](https://phaser.discourse.group/) and [StackOverflow](https://stackoverflow.com/questions/tagged/phaser-framework)<br />
-**Discord:** Join us on [Discord](https://discord.gg/phaser)<br />
-**Code:** 2000+ [Examples](https://labs.phaser.io)<br />
-**Read:** The [Phaser World](https://phaser.io/community/newsletter) Newsletter<br />
-
-Created by [Phaser Studio](mailto:support@phaser.io). Powered by coffee, anime, pixels and love.
-
-The Phaser logo and characters are &copy; 2011 - 2025 Phaser Studio Inc.
-
-All rights reserved.
+**Ready to climb?** Start your ascent and see how high you can reach! 🏗️⬆️

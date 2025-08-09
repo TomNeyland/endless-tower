@@ -26,6 +26,8 @@ export class DeathLine {
   private highestPlayerY: number = 0;
   private initialPlayerY: number = 0;
   private demoMode: boolean = false;
+  private playerInvincible: boolean = false;
+  private invincibilityEndTime: number = 0;
   
   // Visual effects
   private pulseIntensity: number = 0;
@@ -149,7 +151,8 @@ export class DeathLine {
   }
 
   private setupEventListeners(): void {
-    // Death line no longer depends on camera events
+    // Listen for powerup invincibility events
+    EventBus.on('player-invincibility-start', this.onInvincibilityStart.bind(this));
   }
 
   update(deltaTime: number): void {
@@ -444,16 +447,36 @@ export class DeathLine {
   private checkPlayerCollision(): void {
     if (this.isGameOver) return;
     
+    // Check if invincibility has expired
+    if (this.playerInvincible && Date.now() >= this.invincibilityEndTime) {
+      this.playerInvincible = false;
+      console.log('🛡️ Player invincibility expired');
+      EventBus.emit('player-invincibility-end');
+    }
+    
     const playerBottom = this.player.y + (this.player.body as any).height;
     
-    if (playerBottom >= this.deathLineY) {
+    if (playerBottom >= this.deathLineY && !this.playerInvincible) {
       this.triggerGameOver();
+    } else if (playerBottom >= this.deathLineY && this.playerInvincible) {
+      console.log('💫 Player saved by invincibility!');
     }
   }
 
   private updateWarningSystem(): void {
     const distanceToDeathLine = this.deathLineY - this.player.y;
     const proximityFactor = Math.max(0, Math.min(1, (1000 - distanceToDeathLine) / 1000));
+    
+    // Override warnings if player is invincible
+    if (this.playerInvincible) {
+      const remainingTime = Math.max(0, this.invincibilityEndTime - Date.now());
+      this.warningText.setVisible(true);
+      this.warningText.setText(`🛡️ INVINCIBLE: ${Math.ceil(remainingTime / 1000)}s`);
+      this.warningText.setColor('#00ff00');
+      this.warningText.setAlpha(0.8 + Math.sin(this.pulseIntensity * 4) * 0.2);
+      this.warningText.setScale(1.2);
+      return;
+    }
     
     // Define threat levels based on distance
     let threatLevel: 'safe' | 'aware' | 'caution' | 'danger' | 'critical';
@@ -572,6 +595,10 @@ export class DeathLine {
     this.deathLineActive = false;
     this.gameStartTime = Date.now();
     
+    // Reset invincibility state
+    this.playerInvincible = false;
+    this.invincibilityEndTime = 0;
+    
     // CRITICAL: Reset position tracking to current player position
     // This prevents immediate reactivation due to height calculation
     this.initialPlayerY = this.player.y;
@@ -601,6 +628,12 @@ export class DeathLine {
     this.config = newConfig.deathLine;
   }
 
+  private onInvincibilityStart(data: any): void {
+    this.playerInvincible = true;
+    this.invincibilityEndTime = Date.now() + data.duration;
+    console.log(`🛡️ Player invincibility started for ${data.duration / 1000} seconds`);
+  }
+
   setDemoMode(enabled: boolean): void {
     this.demoMode = enabled;
     console.log(`🤖 DeathLine demo mode ${enabled ? 'enabled' : 'disabled'}`);
@@ -620,7 +653,8 @@ export class DeathLine {
   }
 
   destroy(): void {
-    // No event listeners to clean up anymore
+    // Clean up event listeners
+    EventBus.off('player-invincibility-start', this.onInvincibilityStart.bind(this));
     
     // Clean up graphics
     if (this.deathLineGraphics) {

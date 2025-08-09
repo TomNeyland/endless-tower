@@ -37,6 +37,13 @@ export class MovementController {
   // Wall bounce tracking (simplified)
   private wallBounceCount: number = 0;
   
+  // Powerup modifiers
+  private speedMultiplier: number = 1.0;
+  private jumpMultiplier: number = 1.0;
+  private doubleJumpEnabled: boolean = false;
+  private doubleJumpUsed: boolean = false;
+  private momentumKeepingEnabled: boolean = false;
+  
   private readonly JUMP_BUFFER_TIME = 100;
   private readonly COYOTE_TIME = 100;
   private readonly JUMP_COOLDOWN = 150; // Prevent cascade jumping
@@ -47,6 +54,9 @@ export class MovementController {
     this.gameConfig = gameConfig;
     this.config = gameConfig.physics;
     this.wallConfig = gameConfig.walls;
+    
+    // Emit event for powerup system integration
+    EventBus.emit('movement-controller-ready', this);
     
     this.setupPhysicsBody();
   }
@@ -289,11 +299,58 @@ export class MovementController {
     // Reset wall bounce state
     this.wallBounceCount = 0;
     
+    // Reset powerup modifiers
+    this.speedMultiplier = 1.0;
+    this.jumpMultiplier = 1.0;
+    this.doubleJumpEnabled = false;
+    this.doubleJumpUsed = false;
+    this.momentumKeepingEnabled = false;
+    
     // Reset physics body
     this.body.setVelocity(0, 0);
     this.body.setAcceleration(0, 0);
     
     console.log('🔄 MovementController: Reset complete');
+  }
+  
+  // Powerup modifier methods
+  setSpeedMultiplier(multiplier: number): void {
+    this.speedMultiplier = multiplier;
+    console.log(`🏃 Speed multiplier set to: ${multiplier}`);
+  }
+  
+  setJumpMultiplier(multiplier: number): void {
+    this.jumpMultiplier = multiplier;
+    console.log(`🦘 Jump multiplier set to: ${multiplier}`);
+  }
+  
+  setDoubleJumpEnabled(enabled: boolean): void {
+    this.doubleJumpEnabled = enabled;
+    if (enabled) {
+      this.doubleJumpUsed = false;
+    }
+    console.log(`🦅 Double jump ${enabled ? 'enabled' : 'disabled'}`);
+  }
+  
+  setMomentumKeepingEnabled(enabled: boolean): void {
+    this.momentumKeepingEnabled = enabled;
+    console.log(`🎯 Momentum keeping ${enabled ? 'enabled' : 'disabled'}`);
+  }
+  
+  getSpeedMultiplier(): number {
+    return this.speedMultiplier;
+  }
+  
+  getJumpMultiplier(): number {
+    return this.jumpMultiplier;
+  }
+  
+  isDoubleJumpEnabled(): boolean {
+    return this.doubleJumpEnabled;
+  }
+  
+  isMomentumKeepingEnabled(): boolean {
+    return this.momentumKeepingEnabled;
   }
 
   getConfiguration(): PhysicsConfig {

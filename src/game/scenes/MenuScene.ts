@@ -18,6 +18,7 @@ import { AudioManager } from '../AudioManager';
 import { BiomeManager } from '../BiomeManager';
 import { BackgroundColorManager } from '../BackgroundColorManager';
 import { AIController } from '../AIController';
+import { POWERUP_CONFIGS, PowerupType } from '../powerups/PowerupType';
 
 export class MenuScene extends Scene {
     // Game systems (identical to Game scene but with AI)
@@ -81,6 +82,19 @@ export class MenuScene extends Scene {
         
         // Load star texture for spinning particle effects
         this.load.image('star', 'Sprites/Tiles/Default/star.png');
+        
+        // Load powerup assets for legend display
+        this.load.image('gem_blue', 'Sprites/Tiles/Default/gem_blue.png');
+        this.load.image('gem_green', 'Sprites/Tiles/Default/gem_green.png');
+        this.load.image('gem_red', 'Sprites/Tiles/Default/gem_red.png');
+        this.load.image('gem_yellow', 'Sprites/Tiles/Default/gem_yellow.png');
+        this.load.image('coin_gold', 'Sprites/Tiles/Default/coin_gold.png');
+        this.load.image('coin_silver', 'Sprites/Tiles/Default/coin_silver.png');
+        this.load.image('coin_bronze', 'Sprites/Tiles/Default/coin_bronze.png');
+        this.load.image('heart', 'Sprites/Tiles/Default/heart.png');
+        this.load.image('key_blue', 'Sprites/Tiles/Default/key_blue.png');
+        this.load.image('key_green', 'Sprites/Tiles/Default/key_green.png');
+        this.load.image('key_yellow', 'Sprites/Tiles/Default/key_yellow.png');
         
         // Load all available Kenney sound effects
         this.load.audio('sfx_jump', 'Sounds/sfx_jump.ogg');
@@ -321,6 +335,95 @@ export class MenuScene extends Scene {
         
         // CRITICAL: Make menu UI follow camera so it stays visible
         this.menuUI.setScrollFactor(0, 0); // Don't scroll with camera
+        
+        // Add powerup legend
+        this.setupPowerupLegend();
+    }
+
+    private setupPowerupLegend(): void {
+        // Create legend container centered horizontally
+        const legendContainer = this.add.container(this.scale.width / 2, 180);
+        legendContainer.setScrollFactor(0, 0); // Stay fixed to screen
+        legendContainer.setDepth(9999); // Maximum depth to ensure visibility above all UI
+        
+        // Legend title (centered)
+        const legendTitle = this.add.text(0, 0, 'POWERUPS', {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: 24,
+            color: '#FFFF00',
+            stroke: '#000000',
+            strokeThickness: 3,
+            resolution: 2
+        });
+        legendTitle.setOrigin(0.5, 0);
+        legendContainer.add(legendTitle);
+        
+        // Get all powerup types and create compact legend entries
+        const powerupTypes = Object.values(PowerupType);
+        const entriesPerColumn = 5;
+        const columnWidth = 280;
+        const entryHeight = 40;
+        
+        powerupTypes.forEach((powerupType, index) => {
+            const config = POWERUP_CONFIGS[powerupType];
+            const column = Math.floor(index / entriesPerColumn);
+            const row = index % entriesPerColumn;
+            
+            // Center the legend entries by offsetting from container center
+            const entryX = (column * columnWidth) - (columnWidth * 0.75); // Adjust for centering
+            const entryY = 35 + row * entryHeight;
+            
+            // Powerup icon (scaled down)
+            const icon = this.add.sprite(entryX, entryY, config.assetKey);
+            icon.setScale(0.6); // Smaller scale for compact display
+            icon.setOrigin(0, 0.5);
+            
+            // Powerup name and description
+            const nameText = this.add.text(entryX + 30, entryY - 8, config.name, {
+                fontFamily: 'Arial, sans-serif',
+                fontSize: 12,
+                color: '#FFFFFF',
+                fontStyle: 'bold',
+                resolution: 2
+            });
+            nameText.setOrigin(0, 0);
+            
+            // Terse description
+            const descText = this.add.text(entryX + 30, entryY + 6, config.description, {
+                fontFamily: 'Arial, sans-serif',
+                fontSize: 10,
+                color: '#CCCCCC',
+                resolution: 2
+            });
+            descText.setOrigin(0, 0);
+            
+            // Add duration indicator for temporary effects
+            if (config.duration) {
+                const durationText = this.add.text(entryX + 30, entryY + 18, `${Math.round(config.duration / 1000)}s`, {
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: 9,
+                    color: '#888888',
+                    fontStyle: 'italic',
+                    resolution: 2
+                });
+                durationText.setOrigin(0, 0);
+                legendContainer.add(durationText);
+            } else {
+                const permanentText = this.add.text(entryX + 30, entryY + 18, 'PERMANENT', {
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: 9,
+                    color: '#FFAA00',
+                    fontStyle: 'italic',
+                    resolution: 2
+                });
+                permanentText.setOrigin(0, 0);
+                legendContainer.add(permanentText);
+            }
+            
+            legendContainer.add([icon, nameText, descText]);
+        });
+        
+        this.menuUI.add(legendContainer);
     }
 
     private setupMenuInput(): void {
