@@ -23,8 +23,11 @@ import { BackgroundColorManager } from '../BackgroundColorManager';
 import { PowerupManager } from '../powerups/PowerupManager';
 import { PowerupEffectSystem } from '../powerups/PowerupEffectSystem';
 import { PowerupUI } from '../powerups/PowerupUI';
-import { ItemSystem } from '../ItemSystem';
-import { ItemUI } from '../ItemUI';
+import { InventorySystem } from '../items/InventorySystem';
+import { InventoryUI } from '../items/InventoryUI';
+import { ItemManager } from '../items/ItemManager';
+import { PlatformSpawner } from '../items/PlatformSpawner';
+import { ItemType } from '../items/ItemType';
 
 export class Game extends Scene
 {
@@ -51,8 +54,10 @@ export class Game extends Scene
     private powerupManager: PowerupManager;
     private powerupEffectSystem: PowerupEffectSystem;
     private powerupUI: PowerupUI;
-    private itemSystem: ItemSystem;
-    private itemUI: ItemUI;
+    private inventorySystem: InventorySystem;
+    private inventoryUI: InventoryUI;
+    private itemManager: ItemManager;
+    private platformSpawner: PlatformSpawner;
     private isGameOver: boolean = false;
 
     constructor ()
@@ -131,6 +136,8 @@ export class Game extends Scene
         console.log('✅ BackgroundColorManager setup complete');
         this.setupPowerupSystems();
         console.log('✅ Powerup systems setup complete');
+        this.setupItemSystems();
+        console.log('✅ Item systems setup complete');
         this.setupCamera();
         console.log('✅ Camera setup complete');
         this.setupGameSystems();
@@ -323,15 +330,24 @@ export class Game extends Scene
         
         // Initialize powerup UI
         this.powerupUI = new PowerupUI(this, this.powerupEffectSystem);
+    }
+
+    private setupItemSystems(): void
+    {
+        // Initialize inventory system
+        this.inventorySystem = new InventorySystem(this);
         
-        // Initialize item system (active items)
-        this.itemSystem = new ItemSystem(this);
+        // Initialize item manager
+        this.itemManager = new ItemManager(this, this.inventorySystem);
         
-        // Give player 1 platform spawner at game start
-        EventBus.emit('item-acquired', { itemType: 'platform_spawner' });
+        // Initialize platform spawner
+        this.platformSpawner = new PlatformSpawner(this, this.player, this.platformManager);
         
-        // Initialize item UI
-        this.itemUI = new ItemUI(this);
+        // Initialize inventory UI
+        this.inventoryUI = new InventoryUI(this, this.inventorySystem);
+
+        // Give player a platform spawner item for testing
+        this.itemManager.givePlayerItem(ItemType.PLATFORM_SPAWNER);
     }
 
     private setupEventListeners(): void
@@ -535,11 +551,19 @@ export class Game extends Scene
             this.powerupUI.reset();
         }
         
-        // Reset item system and give starting platform spawner
-        if (this.itemSystem) {
-            // The item system will be reset when the whole scene resets
+        // Reset item systems and give starting platform spawner
+        if (this.inventorySystem) {
+            this.inventorySystem.reset();
+        }
+        
+        if (this.itemManager) {
+            this.itemManager.reset();
             // Give player 1 platform spawner at restart
-            EventBus.emit('item-acquired', { itemType: 'platform_spawner' });
+            this.itemManager.givePlayerItem(ItemType.PLATFORM_SPAWNER);
+        }
+        
+        if (this.inventoryUI) {
+            this.inventoryUI.reset();
         }
         
         // Reset wall collision cooldowns
@@ -728,14 +752,24 @@ export class Game extends Scene
             this.powerupUI = null as any;
         }
         
-        if (this.itemSystem) {
-            this.itemSystem.destroy();
-            this.itemSystem = null as any;
+        if (this.inventorySystem) {
+            this.inventorySystem.destroy();
+            this.inventorySystem = null as any;
         }
         
-        if (this.itemUI) {
-            this.itemUI.destroy();
-            this.itemUI = null as any;
+        if (this.inventoryUI) {
+            this.inventoryUI.destroy();
+            this.inventoryUI = null as any;
+        }
+        
+        if (this.itemManager) {
+            this.itemManager.destroy();
+            this.itemManager = null as any;
+        }
+        
+        if (this.platformSpawner) {
+            this.platformSpawner.destroy();
+            this.platformSpawner = null as any;
         }
         
         // Reset flags
