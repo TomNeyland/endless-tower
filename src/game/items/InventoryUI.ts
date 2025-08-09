@@ -136,10 +136,9 @@ export class InventoryUI {
     public reset(): void {
         console.log('🔄 InventoryUI reset');
         
-        // Reset all slot displays
-        for (const [key, _] of this.slotContainers) {
-            this.updateSlotDisplay(key, null);
-        }
+        // Don't manually reset slot displays - let the event-driven system handle updates
+        // The InventorySystem will emit 'inventory-slot-changed' events during its reset
+        // which will properly update the UI to reflect the actual inventory state
     }
 
     public destroy(): void {
