@@ -23,8 +23,6 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     private floatTween?: Phaser.Tweens.Tween;
     private glowEffect?: Phaser.GameObjects.Graphics;
     private baseY: number; // Store the original Y position for animation reference
-    private lastGlowX: number = 0;
-    private lastGlowY: number = 0;
 
     constructor(scene: Scene, x: number, y: number, type: PowerupType) {
         const config = POWERUP_CONFIGS[type];
@@ -37,12 +35,13 @@ export class Powerup extends Phaser.GameObjects.Sprite {
         scene.add.existing(this);
         scene.physics.add.existing(this);
         
-        // Set up physics body - disable collision to prevent jittering
+        // Set up physics body - minimal setup for collision detection only
         const body = this.body as Phaser.Physics.Arcade.Body;
         body.setSize(this.width * 0.8, this.height * 0.8);
         body.setImmovable(true);
         body.setGravityY(0);
         body.checkCollision.none = true; // Disable physics collision detection
+        body.moves = false; // Prevent physics from affecting position
         
         // Set depth to appear above platforms but below UI
         this.setDepth(100);
@@ -59,16 +58,15 @@ export class Powerup extends Phaser.GameObjects.Sprite {
         if (this.config.visualEffect && this.config.effectColor && this.config.glowIntensity) {
             this.glowEffect = this.scene.add.graphics();
             this.glowEffect.setDepth(this.depth - 1);
-            this.glowEffect.setPosition(this.x, this.y);
             
-            // Create a subtle glow circle relative to graphics origin (0,0)
+            // Create a subtle glow circle at origin
             const glowRadius = Math.max(this.width, this.height) * 0.8;
             this.glowEffect.fillStyle(this.config.effectColor, this.config.glowIntensity * 0.3);
-            this.glowEffect.fillCircle(0, 0, glowRadius); // Draw at origin, not absolute position
+            this.glowEffect.fillCircle(0, 0, glowRadius);
             
-            // Cache initial position
-            this.lastGlowX = this.x;
-            this.lastGlowY = this.y;
+            // Make glow effect a child of the powerup so it moves automatically
+            this.scene.add.existing(this.glowEffect);
+            this.glowEffect.setPosition(this.x, this.y);
             
             // Animate glow pulsing
             this.scene.tweens.add({
@@ -198,21 +196,10 @@ export class Powerup extends Phaser.GameObjects.Sprite {
     }
 
     public override update(): void {
-        // Update glow effect position smoothly with the powerup animation
+        // Update glow effect position to follow the powerup
         if (this.glowEffect && !this.collected) {
-            // Use threshold-based position checking to avoid unnecessary updates
-            const positionThreshold = 0.1; // Small threshold for smooth movement
-            const xChanged = Math.abs(this.x - this.lastGlowX) > positionThreshold;
-            const yChanged = Math.abs(this.y - this.lastGlowY) > positionThreshold;
-            
-            if (xChanged || yChanged) {
-                // Move the graphics object to follow the powerup smoothly
-                this.glowEffect.setPosition(this.x, this.y);
-                
-                // Update cached position
-                this.lastGlowX = this.x;
-                this.lastGlowY = this.y;
-            }
+            // Directly synchronize glow effect position with powerup position
+            this.glowEffect.setPosition(this.x, this.y);
         }
     }
 
