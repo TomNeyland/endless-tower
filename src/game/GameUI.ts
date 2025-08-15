@@ -129,6 +129,7 @@ export class GameUI {
     EventBus.on('combo-event-added', this.onComboEventAdded.bind(this));
     EventBus.on('combo-completed', this.onComboCompleted.bind(this));
     EventBus.on('combo-broken', this.onComboBroken.bind(this));
+    EventBus.on('combo-banked', this.onComboBanked.bind(this));
     
     // Camera updates for score recalculation
     EventBus.on('camera-state-updated', this.onCameraUpdate.bind(this));
@@ -146,6 +147,16 @@ export class GameUI {
   private onComboEventAdded(data: any): void {
     this.showComboDisplay();
     this.updateComboDisplay();
+    
+    // Add screen shake for high chain contributions
+    if (data.chainContribution >= 5) {
+      this.scene.cameras.main.shake(50 + (data.chainContribution * 10), 0.01);
+    }
+  }
+
+  private onComboBanked(data: any): void {
+    this.showComboBankedEffect(data);
+    this.hideComboDisplay();
   }
 
   private onComboCompleted(comboChain: any): void {
@@ -215,7 +226,7 @@ export class GameUI {
   }
 
   private showComboDisplay(): void {
-    // Create dynamic combo toast for active combos
+    // Create dynamic combo toast for active combos with intensity scaling
     if (!this.comboVisible && this.comboSystem.isComboActive()) {
       this.comboVisible = true;
       
@@ -223,7 +234,13 @@ export class GameUI {
       const centerY = this.scene.scale.height * 0.75; // Bottom center
       
       const comboLength = this.comboSystem.getCurrentComboLength();
+      const comboChain = this.comboSystem.getCurrentComboChain();
       const multiplier = this.comboSystem.getCurrentMultiplier();
+      const comboPoints = this.comboSystem.getCurrentComboPoints();
+      const canBank = this.comboSystem.canBankCombo();
+      
+      // Determine intensity level based on combo chain value
+      const intensity = this.getComboIntensity(comboChain);
       
       // Ensure any existing progress bar is cleaned up first
       if (this.comboProgressBar) {
@@ -231,10 +248,10 @@ export class GameUI {
         this.comboProgressBar = null;
       }
       
-      // Create fresh progress bar for this combo display
+      // Create intensity-based progress bar
       this.comboProgressBar = this.scene.rexUI.add.circularProgress({
-        radius: 12,
-        barColor: 0xFF6600, // Fire orange
+        radius: 12 + (intensity.level * 3), // Larger radius for higher intensity
+        barColor: intensity.color,
         trackColor: 0x330000,
         centerColor: 0x000000,
         thickness: 0.3,
@@ -242,13 +259,16 @@ export class GameUI {
         anticlockwise: false
       }).setScrollFactor(0);
       
-      // Create dynamic combo celebration toast
+      // Create intensity-based combo text
+      const comboText = this.createComboText(comboChain, comboPoints, multiplier, canBank, intensity);
+      
+      // Create dynamic combo celebration toast with scaling
       this.comboToast = this.scene.rexUI.add.sizer({
         x: centerX,
         y: centerY,
         orientation: 'vertical',
         background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 15, 0x330000, 0.95)
-          .setStrokeStyle(3, 0xFF6600, 1), // Fire orange border
+          .setStrokeStyle(intensity.borderWidth, intensity.color, 1), // Dynamic border
         space: {
           left: 20,
           right: 20,
@@ -257,32 +277,17 @@ export class GameUI {
           item: 8
         }
       })
-      .add(
-        this.scene.add.text(0, 0, `🔥 ${comboLength}-HIT COMBO! 🔥`, {
-          fontSize: '24px',
-          color: '#FF6600',
-          fontStyle: 'bold',
-          fontFamily: 'monospace',
-          align: 'center'
-        }).setScrollFactor(0), { align: 'center' }
-      )
-      .add(
-        this.scene.add.text(0, 0, `${multiplier.toFixed(1)}x MULTIPLIER`, {
-          fontSize: '20px',
-          color: '#FFD700',
-          fontStyle: 'bold',
-          fontFamily: 'monospace',
-          align: 'center'
-        }).setScrollFactor(0), { align: 'center' }
-      )
+      .add(comboText.main, { align: 'center' })
+      .add(comboText.sub, { align: 'center' })
+      .add(comboText.bank, { align: 'center' })
       .add(this.comboProgressBar, { align: 'center' })
-      .setDepth(1300)
+      .setDepth(1300 + intensity.level) // Higher intensity appears on top
       .setScrollFactor(0) // Ensure entire toast is screen-fixed
       .layout();
       
-      // Animate in with bounce effect
+      // Animate in with intensity-based effects
       this.comboToast.setAlpha(0).setScale(0.5);
-      this.scene.tweens.add({
+      const animTween = this.scene.tweens.add({
         targets: this.comboToast,
         alpha: 1,
         scaleX: 1,
@@ -290,7 +295,94 @@ export class GameUI {
         duration: 300,
         ease: 'Back.out'
       });
+      
+      // Add screen shake for high intensity combos
+      if (intensity.level >= 2) {
+        this.scene.cameras.main.shake(100 + (intensity.level * 50), 0.01);
+      }
     }
+  }
+
+  private getComboIntensity(chainValue: number): any {
+    if (chainValue >= 20) {
+      return { 
+        level: 4, 
+        color: 0xFF0040, // Hot pink for massive combos
+        borderWidth: 6,
+        fontSize: 32,
+        name: 'INSANE'
+      };
+    } else if (chainValue >= 15) {
+      return { 
+        level: 3, 
+        color: 0xFF4000, // Red-orange for large combos
+        borderWidth: 5,
+        fontSize: 28,
+        name: 'AMAZING'
+      };
+    } else if (chainValue >= 10) {
+      return { 
+        level: 2, 
+        color: 0xFF6600, // Fire orange for good combos
+        borderWidth: 4,
+        fontSize: 26,
+        name: 'GREAT'
+      };
+    } else if (chainValue >= 5) {
+      return { 
+        level: 1, 
+        color: 0xFFAA00, // Orange for moderate combos
+        borderWidth: 3,
+        fontSize: 24,
+        name: 'GOOD'
+      };
+    } else {
+      return { 
+        level: 0, 
+        color: 0xFFD700, // Gold for basic combos
+        borderWidth: 2,
+        fontSize: 22,
+        name: 'COMBO'
+      };
+    }
+  }
+
+  private createComboText(chainValue: number, points: number, multiplier: number, canBank: boolean, intensity: any): any {
+    const comboLength = this.comboSystem.getCurrentComboLength();
+    
+    // Main combo text with intensity scaling
+    const mainText = this.scene.add.text(0, 0, `🔥 ${intensity.name} COMBO! 🔥\n${chainValue} CHAIN`, {
+      fontSize: `${intensity.fontSize}px`,
+      color: `#${intensity.color.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold',
+      fontFamily: 'monospace',
+      align: 'center',
+      lineSpacing: 4
+    }).setScrollFactor(0);
+    
+    // Sub text with current score preview
+    const subText = this.scene.add.text(0, 0, `+${points.toLocaleString()} pts | ${multiplier.toFixed(1)}x`, {
+      fontSize: '18px',
+      color: '#FFD700',
+      fontStyle: 'bold',
+      fontFamily: 'monospace',
+      align: 'center'
+    }).setScrollFactor(0);
+    
+    // Banking instruction text
+    const bankText = this.scene.add.text(0, 0, canBank ? '💰 Press B to Bank (2x bonus!)' : `💰 Need ${3 - comboLength} more to bank`, {
+      fontSize: '14px',
+      color: canBank ? '#00FF88' : '#888888',
+      fontStyle: canBank ? 'bold' : 'normal',
+      fontFamily: 'monospace',
+      align: 'center'
+    }).setScrollFactor(0);
+    
+    return {
+      main: mainText,
+      sub: subText,
+      bank: bankText
+    };
   }
 
   private hideComboDisplay(): void {
@@ -336,35 +428,63 @@ export class GameUI {
       
       // Update progress bar during active combos
       if (isActive && this.comboToast && this.comboProgressBar) {
-        const timePercent = Math.max(0, timeRemaining / 2500); // 2500ms combo timeout
+        const timePercent = Math.max(0, timeRemaining / 4000); // 4000ms combo timeout (updated)
         
-        // Color based on time remaining - fire theme
+        // Color based on time remaining - fire theme with intensity
+        const chainValue = this.comboSystem.getCurrentComboChain();
+        const intensity = this.getComboIntensity(chainValue);
+        
         let barColor = 0x00FF00; // Green for safe
-        if (timePercent < 0.3) {
+        if (timePercent < 0.2) {
           barColor = 0xFF0000; // Red for danger
-        } else if (timePercent < 0.6) {
-          barColor = 0xFF6600; // Fire orange for warning
+        } else if (timePercent < 0.5) {
+          barColor = intensity.color; // Use intensity color for warning
         }
         
         this.comboProgressBar.setBarColor(barColor);
         this.comboProgressBar.setValue(timePercent);
         
-        // Update combo text if toast is active
+        // Update combo text if the combo has grown (more dynamic updates)
         const comboLength = this.comboSystem.getCurrentComboLength();
         const multiplier = this.comboSystem.getCurrentMultiplier();
+        const comboPoints = this.comboSystem.getCurrentComboPoints();
+        const canBank = this.comboSystem.canBankCombo();
         
-        // Update the combo text elements within the toast
-        const comboText = this.comboToast.getElement('items')[0];
-        const multiplierText = this.comboToast.getElement('items')[1];
-        
-        if (comboText) {
-          comboText.setText(`🔥 ${comboLength}-HIT COMBO! 🔥`);
-        }
-        if (multiplierText) {
-          multiplierText.setText(`${multiplier.toFixed(1)}x MULTIPLIER`);
+        // Get the text elements from the toast (they're in the order we added them)
+        const toastItems = this.comboToast.getElement('items');
+        if (toastItems && toastItems.length >= 3) {
+          const mainText = toastItems[0];
+          const subText = toastItems[1];
+          const bankText = toastItems[2];
+          
+          // Update main combo text with current intensity
+          if (mainText) {
+            mainText.setText(`🔥 ${intensity.name} COMBO! 🔥\n${chainValue} CHAIN`);
+            mainText.setFontSize(intensity.fontSize);
+            mainText.setColor(`#${intensity.color.toString(16).padStart(6, '0')}`);
+          }
+          
+          // Update sub text with current score
+          if (subText) {
+            subText.setText(`+${comboPoints.toLocaleString()} pts | ${multiplier.toFixed(1)}x`);
+          }
+          
+          // Update bank text with current status
+          if (bankText) {
+            const bankTextContent = canBank ? '💰 Press B to Bank (2x bonus!)' : `💰 Need ${3 - comboLength} more to bank`;
+            bankText.setText(bankTextContent);
+            bankText.setColor(canBank ? '#00FF88' : '#888888');
+            bankText.setFontStyle(canBank ? 'bold' : 'normal');
+          }
         }
         
         this.comboToast.layout();
+        
+        // Add pulsing effect for high intensity combos
+        if (intensity.level >= 2) {
+          const pulseScale = 1 + Math.sin(Date.now() * 0.01) * 0.05;
+          this.comboToast.setScale(pulseScale);
+        }
       }
     } catch (error) {
       console.warn('GameUI updateComboDisplay failed, combo objects not ready yet:', error);
@@ -425,17 +545,20 @@ export class GameUI {
     const centerX = this.scene.scale.width / 2;
     const centerY = this.scene.scale.height * 0.4;
     
-    // Create enhanced combo completion toast with fire theme
+    // Determine intensity for completion effect
+    const intensity = this.getComboIntensity(comboChain.chain);
+    
+    // Create enhanced combo completion toast with intensity scaling
     const comboToast = this.scene.rexUI.add.toast({
       x: centerX,
       y: centerY,
       
       background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 15, 0x330000, 0.95)
-        .setStrokeStyle(3, 0xFF6600, 1), // Fire orange border
+        .setStrokeStyle(intensity.borderWidth, intensity.color, 1), // Intensity-based border
       
-      text: this.scene.add.text(0, 0, `🔥 COMBO COMPLETE! 🔥\n${comboChain.chain}-HIT CHAIN\n+${comboChain.totalPoints.toLocaleString()} points!`, {
-        fontSize: '28px',
-        color: '#FF6600', // Fire orange
+      text: this.scene.add.text(0, 0, `🔥 ${intensity.name} COMPLETED! 🔥\n${comboChain.chain} CHAIN VALUE\n+${comboChain.totalPoints.toLocaleString()} points!`, {
+        fontSize: `${intensity.fontSize}px`,
+        color: `#${intensity.color.toString(16).padStart(6, '0')}`, // Intensity color
         fontStyle: 'bold',
         fontFamily: 'monospace',
         align: 'center',
@@ -453,7 +576,7 @@ export class GameUI {
       
       duration: {
         in: 250,
-        hold: 2000,
+        hold: 2000 + (intensity.level * 500), // Longer display for higher intensity
         out: 350
       },
       
@@ -461,11 +584,14 @@ export class GameUI {
       transitOut: 'fadeOut',
       destroy: true
     })
-    .setDepth(1350)
+    .setDepth(1350 + intensity.level) // Higher intensity appears on top
     .setScrollFactor(0)
     .showMessage();
     
-    // Camera shake removed - was distracting with new effects
+    // Intensity-based screen shake
+    if (intensity.level >= 1) {
+      this.scene.cameras.main.shake(100 + (intensity.level * 75), 0.01 + (intensity.level * 0.005));
+    }
   }
 
   private showComboBrokenEffect(): void {
@@ -512,6 +638,54 @@ export class GameUI {
     .showMessage();
   }
 
+  private showComboBankedEffect(data: any): void {
+    const centerX = this.scene.scale.width / 2;
+    const centerY = this.scene.scale.height * 0.4;
+    
+    // Create combo banking toast with gold theme (success)
+    const bankedToast = this.scene.rexUI.add.toast({
+      x: centerX,
+      y: centerY,
+      
+      background: this.scene.rexUI.add.roundRectangle(0, 0, 2, 2, 15, 0x332200, 0.95)
+        .setStrokeStyle(4, 0xFFD700, 1), // Gold border
+      
+      text: this.scene.add.text(0, 0, `💰 COMBO BANKED! 💰\n${data.comboLength} events banked\n+${data.bankedPoints.toLocaleString()} bonus points!\nTotal banked: ${data.totalBank.toLocaleString()}`, {
+        fontSize: '24px',
+        color: '#FFD700', // Gold
+        fontStyle: 'bold',
+        fontFamily: 'monospace',
+        align: 'center',
+        lineSpacing: 6,
+        stroke: '#664400',
+        strokeThickness: 2
+      }),
+      
+      space: {
+        left: 25,
+        right: 25,
+        top: 18,
+        bottom: 18
+      },
+      
+      duration: {
+        in: 300,
+        hold: 2500,
+        out: 400
+      },
+      
+      transitIn: 'popup',
+      transitOut: 'scaleDown',
+      destroy: true
+    })
+    .setDepth(1400) // Higher than regular combo effects
+    .setScrollFactor(0)
+    .showMessage();
+    
+    // Add satisfying screen shake for banking
+    this.scene.cameras.main.shake(150, 0.02);
+  }
+
   update(deltaTime: number): void {
     // Always update combo display to show current state
     this.updateComboDisplay();
@@ -523,6 +697,7 @@ export class GameUI {
     EventBus.off('combo-event-added', this.onComboEventAdded.bind(this));
     EventBus.off('combo-completed', this.onComboCompleted.bind(this));
     EventBus.off('combo-broken', this.onComboBroken.bind(this));
+    EventBus.off('combo-banked', this.onComboBanked.bind(this));
     EventBus.off('camera-state-updated', this.onCameraUpdate.bind(this));
     
     if (this.comboFadeOut) {

@@ -424,7 +424,7 @@ export class ComboSystem {
     // For now, we rely on the landed/takeoff events
   }
 
-  private getCurrentComboPoints(): number {
+  getCurrentComboPoints(): number {
     return this.currentCombo.reduce((total, event) => total + event.points, 0);
   }
 

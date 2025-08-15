@@ -404,6 +404,15 @@ export class Game extends Scene
             return;
         }
 
+        // B key for banking combos - only works during gameplay
+        if (event.code === 'KeyB' && this.gameStateManager.isPlaying()) {
+            if (this.comboSystem && this.comboSystem.canBankCombo()) {
+                const bankedPoints = this.comboSystem.bankCombo();
+                console.log('🏦 Player banked combo for', bankedPoints, 'points');
+            }
+            return;
+        }
+
         // Only handle movement key restart if game is not playing and game over screen is showing
         if (this.gameStateManager.isPlaying() || !this.gameOverScreen.isShowing()) {
             return;
