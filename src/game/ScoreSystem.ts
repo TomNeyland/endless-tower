@@ -56,6 +56,10 @@ export class ScoreSystem {
     EventBus.on('player-wall-bounce', this.onPlayerWallBounce.bind(this));
     EventBus.on('player-landed', this.onPlayerLanded.bind(this));
     EventBus.on('player-height-record', this.onPlayerHeightRecord.bind(this));
+    
+    // Enhanced combo integration
+    EventBus.on('combo-completed', this.onComboCompleted.bind(this));
+    EventBus.on('combo-banked', this.onComboBanked.bind(this));
   }
 
   private onCameraStateUpdated(cameraState: any): void {
@@ -109,58 +113,47 @@ export class ScoreSystem {
     });
   }
 
-  // Foundation for combo system - will be expanded later
+  // Enhanced combo integration - delegate to ComboSystem
   private onPlayerWallBounce(data: any): void {
-    // Track wall bounces for combo system
-    this.updateCombo('wall-bounce', data);
+    // ComboSystem now handles all combo logic
+    // ScoreSystem just tracks the results
   }
 
   private onPlayerLanded(data: any): void {
-    // Reset combo on landing (for now - can be refined later)
-    this.resetCombo();
+    // ComboSystem now handles landing detection
+    // ScoreSystem just tracks the results
   }
-
-  private updateCombo(type: string, data: any): void {
-    const now = Date.now();
-    
-    // Check if combo chain is still active
-    if (now - this.lastComboTime > this.COMBO_TIMEOUT) {
-      this.comboChain = 0;
-    }
-    
-    this.comboChain++;
-    this.lastComboTime = now;
-    
-    // Calculate combo multiplier (simple for now)
-    this.currentMultiplier = 1.0 + (this.comboChain * 0.1);
-    
-    // Combo scoring (basic implementation)
-    const comboPoints = this.comboChain * 10;
+  
+  // New enhanced combo event handlers
+  private onComboCompleted(comboChain: any): void {
+    // Add combo points to total score with massive impact
+    const comboPoints = comboChain.totalPoints + comboChain.bankBonus;
     this.comboScore += comboPoints;
     
-    EventBus.emit('combo-updated', {
-      type,
-      chain: this.comboChain,
-      multiplier: this.currentMultiplier,
+    console.log('📊 Enhanced Combo Score Added:', {
+      comboPoints,
+      totalComboScore: this.comboScore,
+      tier: comboChain.tier,
+      chain: comboChain.chain
+    });
+    
+    EventBus.emit('score-combo-gained', {
       points: comboPoints,
-      data
+      totalComboScore: this.comboScore,
+      tier: comboChain.tier
+    });
+  }
+  
+  private onComboBanked(data: any): void {
+    // Combo points are now permanently added to score
+    // This event is just for UI feedback
+    console.log('📊 Combo Points Banked:', {
+      bankedAmount: data.bankedAmount,
+      totalComboScore: this.comboScore
     });
   }
 
-  private resetCombo(): void {
-    if (this.comboChain > 0) {
-      EventBus.emit('combo-broken', {
-        finalChain: this.comboChain,
-        finalMultiplier: this.currentMultiplier,
-        totalComboScore: this.comboScore
-      });
-    }
-    
-    this.comboChain = 0;
-    this.currentMultiplier = 1.0;
-  }
-
-  // Public getters
+  // Enhanced public getters
   getScoreData(): ScoreData {
     return {
       heightScore: this.heightScore,
@@ -243,5 +236,7 @@ export class ScoreSystem {
     EventBus.off('player-wall-bounce', this.onPlayerWallBounce.bind(this));
     EventBus.off('player-landed', this.onPlayerLanded.bind(this));
     EventBus.off('player-height-record', this.onPlayerHeightRecord.bind(this));
+    EventBus.off('combo-completed', this.onComboCompleted.bind(this));
+    EventBus.off('combo-banked', this.onComboBanked.bind(this));
   }
 }
