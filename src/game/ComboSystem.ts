@@ -78,7 +78,7 @@ export class ComboSystem {
     wallBounceEfficiency: { advanced: 1.1, expert: 1.2, legendary: 1.3 },
     multiPlatformCount: { advanced: 3, expert: 5, legendary: 8 },
     airTimeMs: { advanced: 1500, expert: 2500, legendary: 4000 },
-    speedThreshold: { advanced: 500, expert: 800, legendary: 1200 },
+    speedThreshold: { basic: 300, advanced: 500, expert: 800, legendary: 1200 },
     jumpHeight: { advanced: 300, expert: 500, legendary: 800 },
     gapDistance: { advanced: 250, expert: 400, legendary: 600 },
     wallChainCount: { advanced: 3, expert: 5, legendary: 8 }
