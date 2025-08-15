@@ -3,10 +3,11 @@ import { Player } from './Player';
 import { EventBus } from './EventBus';
 
 export interface ComboEvent {
-  type: 'wall-bounce' | 'perfect-wall-bounce' | 'multi-platform-jump' | 'air-time' | 'speed-bonus';
+  type: 'perfect-wall-bounce' | 'platform-skip-small' | 'platform-skip-medium' | 'platform-skip-large' | 'platform-skip-massive' | 'speed-chain' | 'precision-landing';
   timestamp: number;
   data: any;
   points: number;
+  chainValue: number; // How much this event contributes to combo chain
 }
 
 export interface ComboChain {
@@ -28,22 +29,40 @@ export class ComboSystem {
   private lastEventTime: number = 0;
   private comboMultiplier: number = 1.0;
   
-  // Combo timing
-  private readonly COMBO_TIMEOUT = 2500; // Time between events to maintain combo
-  private readonly MAX_COMBO_MULTIPLIER = 5.0;
-  private readonly MULTIPLIER_INCREMENT = 0.2;
+  // Combo timing - tighter window for more skill requirement
+  private readonly COMBO_TIMEOUT = 4000; // 4 seconds to allow for skill chains
+  private readonly MAX_COMBO_MULTIPLIER = 10.0; // Much higher ceiling
+  private readonly MULTIPLIER_INCREMENT = 0.3; // Faster buildup
+  
+  // Combo banking system
+  private comboBank: number = 0; // Banked combo score
+  private readonly BANK_MULTIPLIER = 2.0; // Bonus for banking
   
   // Powerup modifiers
   private comboMultiplierBonus: number = 1.0;
   private goldenTouchEnabled: boolean = false;
   
-  // Event scoring
+  // Event scoring - much higher values and more variety
   private readonly POINT_VALUES = {
-    'wall-bounce': 50,
-    'perfect-wall-bounce': 150,
-    'multi-platform-jump': 75,
-    'air-time': 25,
-    'speed-bonus': 100
+    'wall-bounce': 0, // Regular wall bounces no longer count
+    'perfect-wall-bounce': 300, // Only perfect bounces count, much higher
+    'platform-skip-small': 150, // 2-3 platforms skipped
+    'platform-skip-medium': 400, // 4-6 platforms skipped  
+    'platform-skip-large': 800, // 7+ platforms skipped
+    'platform-skip-massive': 1500, // 10+ platforms skipped
+    'speed-chain': 250, // Maintaining high speed while doing combos
+    'precision-landing': 200 // Landing on platform edges
+  };
+  
+  // Combo chain contribution - different events add different amounts
+  private readonly CHAIN_VALUES = {
+    'perfect-wall-bounce': 2, // Worth 2 chain points
+    'platform-skip-small': 1,
+    'platform-skip-medium': 3,
+    'platform-skip-large': 5,
+    'platform-skip-massive': 8,
+    'speed-chain': 1,
+    'precision-landing': 1
   };
   
   // Air time tracking
@@ -54,6 +73,18 @@ export class ComboSystem {
   // Platform tracking for multi-platform jumps
   private lastPlatformLanding: number = 0;
   private platformsSkipped: number = 0;
+  private consecutivePlatformLandings: number = 0; // Track for combo breaking
+  private readonly MAX_CONSECUTIVE_LANDINGS = 3; // Break combo after this many
+  
+  // Combo breaking tracking
+  private readonly MIN_WALL_BOUNCE_EFFICIENCY = 0.85; // Below this breaks combo
+  private readonly MAX_FALL_DISTANCE = 200; // Fall more than this breaks combo
+  private lastPlayerY: number = 0;
+  
+  // Speed tracking for speed chains
+  private highSpeedStartTime: number = 0;
+  private readonly HIGH_SPEED_THRESHOLD = 350;
+  private readonly MIN_SPEED_CHAIN_TIME = 2000; // 2 seconds of high speed
 
   constructor(scene: Scene, player: Player) {
     this.scene = scene;
@@ -87,22 +118,26 @@ export class ComboSystem {
 
   private onWallBounce(data: any): void {
     const efficiency = data.efficiency || 0.8;
-    const eventType = efficiency > 1.0 ? 'perfect-wall-bounce' : 'wall-bounce';
     
     console.log('🎯 Wall Bounce Event:', {
-      type: eventType,
-      side: data.side,
       efficiency: efficiency,
+      side: data.side,
       speedGained: data.newSpeed - data.oldSpeed,
       bounceCount: data.bounceCount
     });
     
-    this.addComboEvent(eventType, {
-      side: data.side,
-      efficiency: efficiency,
-      speedGained: data.newSpeed - data.oldSpeed,
-      bounceCount: data.bounceCount
-    });
+    // Only perfect wall bounces count for combos now
+    if (efficiency > 1.0) {
+      this.addComboEvent('perfect-wall-bounce', {
+        side: data.side,
+        efficiency: efficiency,
+        speedGained: data.newSpeed - data.oldSpeed,
+        bounceCount: data.bounceCount
+      });
+    } else if (efficiency < this.MIN_WALL_BOUNCE_EFFICIENCY && this.isComboActive()) {
+      // Poor wall bounces break combos
+      this.breakCombo('poor-wall-bounce');
+    }
   }
 
   private onPlayerLanded(data: any): void {
@@ -110,68 +145,137 @@ export class ComboSystem {
     
     console.log('🛬 Player Landed:', { 
       horizontalSpeed: data?.horizontalSpeed,
-      airTimeStart: this.airTimeStart,
-      platformsSkipped: this.platformsSkipped
+      platformsSkipped: this.platformsSkipped,
+      consecutiveLandings: this.consecutivePlatformLandings
     });
     
-    // Check for air time combo
-    if (this.airTimeStart > 0) {
-      const airTime = now - this.airTimeStart;
-      if (airTime >= this.minAirTimeForCombo) {
-        console.log('⏱️ Air Time Combo:', { airTime, threshold: this.minAirTimeForCombo });
-        this.addComboEvent('air-time', {
-          airTime,
-          landingSpeed: data.horizontalSpeed
-        });
-      }
-    }
-    
-    // Check for multi-platform jump
+    // Check for platform skipping combos
     const timeSinceLastLanding = now - this.lastPlatformLanding;
-    if (timeSinceLastLanding > 500 && this.platformsSkipped > 0) { // 500ms minimum between landings
-      console.log('🏗️ Multi-Platform Jump:', { 
+    if (timeSinceLastLanding > 300 && this.platformsSkipped > 1) { // Need at least 2 platforms skipped
+      let eventType: ComboEvent['type'];
+      
+      if (this.platformsSkipped >= 10) {
+        eventType = 'platform-skip-massive';
+      } else if (this.platformsSkipped >= 7) {
+        eventType = 'platform-skip-large';
+      } else if (this.platformsSkipped >= 4) {
+        eventType = 'platform-skip-medium';
+      } else {
+        eventType = 'platform-skip-small';
+      }
+      
+      console.log('🏗️ Platform Skip Combo:', { 
+        type: eventType,
         platformsSkipped: this.platformsSkipped,
         timeSinceLastLanding 
       });
-      this.addComboEvent('multi-platform-jump', {
+      
+      this.addComboEvent(eventType, {
         platformsSkipped: this.platformsSkipped,
         jumpDistance: timeSinceLastLanding
+      });
+      
+      this.consecutivePlatformLandings = 0; // Reset consecutive landings on successful skip
+    } else {
+      // Landing without skipping platforms
+      this.consecutivePlatformLandings++;
+      
+      // Break combo if too many consecutive platform landings
+      if (this.consecutivePlatformLandings >= this.MAX_CONSECUTIVE_LANDINGS && this.isComboActive()) {
+        this.breakCombo('too-many-landings');
+      }
+    }
+    
+    // Check for precision landing (landing near platform edges)
+    if (data.landingPosition && this.isPrecisionLanding(data.landingPosition)) {
+      this.addComboEvent('precision-landing', {
+        landingPosition: data.landingPosition,
+        precision: this.calculateLandingPrecision(data.landingPosition)
       });
     }
     
     this.lastPlatformLanding = now;
     this.platformsSkipped = 0;
     this.lastGroundedTime = now;
-    this.airTimeStart = 0;
+    
+    // Update player position for fall tracking
+    if (data.y !== undefined) {
+      this.lastPlayerY = data.y;
+    }
   }
 
   private onPlayerTakeoff(data: any): void {
     console.log('🚀 Player Takeoff');
     this.airTimeStart = Date.now();
+    
+    // Update player position for fall tracking
+    if (data.y !== undefined) {
+      this.lastPlayerY = data.y;
+    }
   }
 
   private onHeightRecord(data: any): void {
-    // Speed bonus for maintaining high horizontal speed while climbing
+    // Check for fall distance to break combos
+    if (this.lastPlayerY > 0 && data.height !== undefined) {
+      const fallDistance = this.lastPlayerY - data.height;
+      if (fallDistance > this.MAX_FALL_DISTANCE && this.isComboActive()) {
+        this.breakCombo('fell-too-far');
+      }
+    }
+    
+    // Speed chain tracking for maintaining high speed while climbing
     const speed = Math.abs(data.horizontalSpeed || 0);
-    if (speed > 400) { // High speed threshold
-      console.log('⚡ Speed Bonus:', { speed, threshold: 400, height: data.height });
-      this.addComboEvent('speed-bonus', {
-        speed,
-        height: data.height
-      });
+    if (speed > this.HIGH_SPEED_THRESHOLD) {
+      if (this.highSpeedStartTime === 0) {
+        this.highSpeedStartTime = Date.now();
+      } else {
+        const speedTime = Date.now() - this.highSpeedStartTime;
+        if (speedTime >= this.MIN_SPEED_CHAIN_TIME) {
+          console.log('⚡ Speed Chain:', { speed, duration: speedTime, height: data.height });
+          this.addComboEvent('speed-chain', {
+            speed,
+            duration: speedTime,
+            height: data.height
+          });
+          this.highSpeedStartTime = Date.now(); // Reset for next chain
+        }
+      }
+    } else {
+      this.highSpeedStartTime = 0; // Reset if speed drops
+    }
+    
+    // Update player position
+    if (data.height !== undefined) {
+      this.lastPlayerY = data.height;
     }
   }
 
   private onMovementStateUpdated(state: any): void {
-    // Track when player is above platforms (potential multi-platform jump)
+    // Enhanced platform skipping detection
     if (!state.isGrounded && this.lastGroundedTime > 0) {
       const airTime = Date.now() - this.lastGroundedTime;
       if (airTime > 200) { // Minimum time to consider a platform "skipped"
-        // This is a simple heuristic - could be improved with actual platform detection
-        const estimatedPlatformsSkipped = Math.floor(airTime / 500);
+        // More accurate platform skip estimation based on height and time
+        const estimatedPlatformsSkipped = Math.floor(airTime / 300); // Faster estimation
         this.platformsSkipped = Math.max(this.platformsSkipped, estimatedPlatformsSkipped);
       }
     }
+    
+    // Reset speed chain if grounded and not moving fast
+    if (state.isGrounded && Math.abs(state.horizontalSpeed || 0) < this.HIGH_SPEED_THRESHOLD) {
+      this.highSpeedStartTime = 0;
+    }
+  }
+
+  private isPrecisionLanding(landingPosition: any): boolean {
+    // This would need platform data to determine if landing is near edges
+    // For now, implement a simple heuristic
+    return false; // TODO: Implement with actual platform edge detection
+  }
+
+  private calculateLandingPrecision(landingPosition: any): number {
+    // Calculate how close to platform edge the landing was
+    return 0.5; // TODO: Implement actual precision calculation
   }
 
   private addComboEvent(type: ComboEvent['type'], data: any): void {
@@ -182,40 +286,49 @@ export class ComboSystem {
       this.startNewCombo();
     }
     
-    // Calculate points for this event
+    // Calculate points for this event with exponential scaling
     const basePoints = this.POINT_VALUES[type] || 0;
-    const points = Math.round(basePoints * this.comboMultiplier);
+    const chainValue = this.CHAIN_VALUES[type] || 1;
+    
+    // Exponential combo bonus: points scale with combo length
+    const comboBonus = Math.pow(1.5, this.currentCombo.length * 0.5);
+    const points = Math.round(basePoints * this.comboMultiplier * comboBonus);
     
     const comboEvent: ComboEvent = {
       type,
       timestamp: now,
       data,
-      points
+      points,
+      chainValue
     };
     
     this.currentCombo.push(comboEvent);
     this.lastEventTime = now;
     
-    // Increase multiplier
+    // Increase multiplier based on chain value
     this.comboMultiplier = Math.min(
-      this.comboMultiplier + this.MULTIPLIER_INCREMENT,
+      this.comboMultiplier + (this.MULTIPLIER_INCREMENT * chainValue),
       this.MAX_COMBO_MULTIPLIER
     );
     
     console.log('🔥 COMBO EVENT ADDED:', {
       type,
       points,
+      chainValue,
       comboLength: this.currentCombo.length,
       multiplier: this.comboMultiplier.toFixed(2),
-      totalComboPoints: this.getCurrentComboPoints()
+      totalComboPoints: this.getCurrentComboPoints(),
+      comboBonus: comboBonus.toFixed(2)
     });
     
-    // Emit combo event
+    // Emit combo event with enhanced data
     EventBus.emit('combo-event-added', {
       event: comboEvent,
       comboLength: this.currentCombo.length,
       multiplier: this.comboMultiplier,
-      totalComboPoints: this.getCurrentComboPoints()
+      totalComboPoints: this.getCurrentComboPoints(),
+      chainContribution: chainValue,
+      canBank: this.canBankCombo()
     });
   }
 
@@ -229,6 +342,7 @@ export class ComboSystem {
     this.currentCombo = [];
     this.comboStartTime = Date.now();
     this.comboMultiplier = 1.0;
+    this.consecutivePlatformLandings = 0; // Reset combo breaker tracking
   }
 
   private checkComboTimeout(): void {
@@ -249,7 +363,7 @@ export class ComboSystem {
       endTime: Date.now(),
       totalPoints: this.getCurrentComboPoints(),
       multiplier: this.comboMultiplier,
-      chain: this.currentCombo.length
+      chain: this.getCurrentComboChainValue()
     };
     
     console.log('✅ COMBO COMPLETED:', {
@@ -265,6 +379,44 @@ export class ComboSystem {
     // Reset current combo
     this.currentCombo = [];
     this.comboMultiplier = 1.0;
+    this.consecutivePlatformLandings = 0;
+  }
+
+  // Combo banking system
+  public bankCombo(): number {
+    if (!this.canBankCombo()) return 0;
+    
+    const bankingPoints = Math.round(this.getCurrentComboPoints() * this.BANK_MULTIPLIER);
+    this.comboBank += bankingPoints;
+    
+    console.log('🏦 COMBO BANKED:', {
+      points: bankingPoints,
+      totalBank: this.comboBank,
+      comboLength: this.currentCombo.length
+    });
+    
+    // Emit banking event
+    EventBus.emit('combo-banked', {
+      bankedPoints: bankingPoints,
+      totalBank: this.comboBank,
+      comboLength: this.currentCombo.length,
+      multiplier: this.comboMultiplier
+    });
+    
+    // Clear current combo but don't reset multiplier completely
+    this.currentCombo = [];
+    this.comboMultiplier = Math.max(1.0, this.comboMultiplier * 0.5); // Keep half the multiplier
+    this.consecutivePlatformLandings = 0;
+    
+    return bankingPoints;
+  }
+
+  public canBankCombo(): boolean {
+    return this.currentCombo.length >= 3; // Need at least 3 events to bank
+  }
+
+  public getBankedScore(): number {
+    return this.comboBank;
   }
 
   private updateAirTimeTracking(): void {
@@ -276,6 +428,10 @@ export class ComboSystem {
     return this.currentCombo.reduce((total, event) => total + event.points, 0);
   }
 
+  private getCurrentComboChainValue(): number {
+    return this.currentCombo.reduce((total, event) => total + event.chainValue, 0);
+  }
+
   // Public getters for UI and scoring
   getCurrentCombo(): ComboEvent[] {
     return [...this.currentCombo];
@@ -283,6 +439,10 @@ export class ComboSystem {
 
   getCurrentComboLength(): number {
     return this.currentCombo.length;
+  }
+
+  getCurrentComboChain(): number {
+    return this.getCurrentComboChainValue();
   }
 
   getCurrentMultiplier(): number {
@@ -302,12 +462,17 @@ export class ComboSystem {
     return Math.max(0, this.COMBO_TIMEOUT - this.getTimeSinceLastEvent());
   }
 
+  getTotalComboScore(): number {
+    return this.getCurrentComboPoints() + this.comboBank;
+  }
+
   // Manual combo breaking (for things like falling too far)
   breakCombo(reason?: string): void {
     if (this.currentCombo.length > 0) {
       console.log('💥 COMBO BROKEN:', {
         reason: reason || 'manual',
         finalCombo: this.currentCombo.length,
+        finalChain: this.getCurrentComboChainValue(),
         finalPoints: this.getCurrentComboPoints(),
         finalMultiplier: this.comboMultiplier.toFixed(2)
       });
@@ -315,12 +480,14 @@ export class ComboSystem {
       EventBus.emit('combo-broken', {
         reason: reason || 'manual',
         finalCombo: this.getCurrentCombo(),
+        finalChain: this.getCurrentComboChainValue(),
         finalPoints: this.getCurrentComboPoints(),
         finalMultiplier: this.comboMultiplier
       });
       
       this.currentCombo = [];
       this.comboMultiplier = 1.0;
+      this.consecutivePlatformLandings = 0;
     }
   }
 
@@ -338,11 +505,9 @@ export class ComboSystem {
 
     // Count wall bounces in current combo
     this.currentCombo.forEach(event => {
-      if (event.type === 'wall-bounce') {
+      if (event.type === 'perfect-wall-bounce') {
         totalWallBounces++;
-        if (event.data && event.data.efficiency > 1.0) {
-          perfectWallBounces++;
-        }
+        perfectWallBounces++;
       }
     });
 
@@ -361,10 +526,14 @@ export class ComboSystem {
     this.comboStartTime = 0;
     this.lastEventTime = 0;
     this.comboMultiplier = 1.0;
+    this.comboBank = 0;
     this.airTimeStart = 0;
     this.lastGroundedTime = 0;
     this.lastPlatformLanding = 0;
     this.platformsSkipped = 0;
+    this.consecutivePlatformLandings = 0;
+    this.lastPlayerY = 0;
+    this.highSpeedStartTime = 0;
     
     // Reset powerup modifiers
     this.comboMultiplierBonus = 1.0;
